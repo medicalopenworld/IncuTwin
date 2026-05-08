@@ -101,9 +101,14 @@ class PrincipalPantalla extends Component {
               <Text style={styles.hola}>Hola,</Text>
               <Text style={styles.emailTexto}>{nombre}</Text>
             </View>
-            <TouchableOpacity onPress={this.handleLogout} style={styles.logoutBoton}>
-              <MaterialCommunityIcons name="logout" size={22} color={colorTextoSecundario} />
-            </TouchableOpacity>
+            <View style={styles.headerIconos}>
+              <TouchableOpacity onPress={() => this.props.navigation.navigate('Perfil')} style={styles.iconoBoton}>
+                <MaterialCommunityIcons name="account-circle-outline" size={24} color={colorTextoSecundario} />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={this.handleLogout} style={styles.iconoBoton}>
+                <MaterialCommunityIcons name="logout" size={22} color={colorTextoSecundario} />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
 
@@ -216,7 +221,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  logoutBoton: {
+  headerIconos: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  iconoBoton: {
     padding: 8,
   },
   hola: {
