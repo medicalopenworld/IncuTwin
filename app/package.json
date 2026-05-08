@@ -25,5 +25,8 @@
     "react-native-screens": "~4.16.0",
     "react-redux": "^9.2.0"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "firebase-admin": "^13.9.0"
+  }
 }
