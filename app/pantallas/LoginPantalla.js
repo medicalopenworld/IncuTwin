@@ -11,6 +11,8 @@ import {
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../comun/firebase';
 import {
   colorAcento,
   colorAcentoClaro,
@@ -25,9 +27,27 @@ export default function LoginPantalla() {
   const [email, setEmail] = useState('');
   const [contrasena, setContrasena] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
+  const [cargando, setCargando] = useState(false);
 
-  const handleLogin = () => {
-    Alert.alert('Login pendiente de Firebase');
+  const handleLogin = async () => {
+    if (!email.trim() || !contrasena) {
+      Alert.alert('Campos requeridos', 'Introduce el correo y la contraseña.');
+      return;
+    }
+    try {
+      setCargando(true);
+      await signInWithEmailAndPassword(auth, email.trim(), contrasena);
+    } catch (error) {
+      const mensajes = {
+        'auth/invalid-credential': 'Correo o contraseña incorrectos.',
+        'auth/user-not-found': 'No existe una cuenta con ese correo.',
+        'auth/wrong-password': 'Contraseña incorrecta.',
+        'auth/too-many-requests': 'Demasiados intentos. Espera un momento.',
+      };
+      Alert.alert('Error', mensajes[error.code] ?? 'No se pudo iniciar sesión.');
+    } finally {
+      setCargando(false);
+    }
   };
 
   return (
@@ -85,8 +105,15 @@ export default function LoginPantalla() {
             }
           />
 
-          <TouchableOpacity style={styles.boton} onPress={handleLogin} activeOpacity={0.85}>
-            <Text style={styles.botonTexto}>Iniciar sesión</Text>
+          <TouchableOpacity
+            style={[styles.boton, cargando && styles.botonDesactivado]}
+            onPress={handleLogin}
+            activeOpacity={0.85}
+            disabled={cargando}
+          >
+            <Text style={styles.botonTexto}>
+              {cargando ? 'Entrando...' : 'Iniciar sesión'}
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.registroFila}>
@@ -148,6 +175,9 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  botonDesactivado: {
+    opacity: 0.6,
   },
   registroFila: {
     flexDirection: 'row',
