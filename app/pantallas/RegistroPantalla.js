@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../comun/firebase';
 import {
@@ -22,6 +23,27 @@ import {
   colorTextoSecundario,
 } from '../comun/comun';
 
+function emailValido(email) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function calcularFortaleza(contrasena) {
+  if (contrasena.length === 0) return 0;
+  let puntos = 0;
+  if (contrasena.length >= 6) puntos++;
+  if (contrasena.length >= 10) puntos++;
+  if (/[A-Z]/.test(contrasena)) puntos++;
+  if (/[0-9]/.test(contrasena)) puntos++;
+  if (/[^A-Za-z0-9]/.test(contrasena)) puntos++;
+  return Math.min(puntos, 3);
+}
+
+const FORTALEZA_CONFIG = [
+  { label: 'Débil',  color: '#EF4444' },
+  { label: 'Media',  color: colorAlerta },
+  { label: 'Fuerte', color: '#22C55E' },
+];
+
 export default function RegistroPantalla({ navigation }) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
@@ -30,10 +52,18 @@ export default function RegistroPantalla({ navigation }) {
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
   const [mostrarConfirmar, setMostrarConfirmar] = useState(false);
   const [cargando, setCargando] = useState(false);
+  const [emailTocado, setEmailTocado] = useState(false);
+
+  const fortaleza = calcularFortaleza(contrasena);
+  const emailOk = emailValido(email);
 
   const handleRegistro = async () => {
     if (!email.trim() || !contrasena || !confirmar) {
       Alert.alert('Campos requeridos', 'Rellena todos los campos.');
+      return;
+    }
+    if (!emailOk) {
+      Alert.alert('Error', 'El correo no tiene un formato válido.');
       return;
     }
     if (contrasena !== confirmar) {
@@ -68,10 +98,16 @@ export default function RegistroPantalla({ navigation }) {
       <ScrollView
         contentContainerStyle={[
           styles.contenedor,
-          { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 },
+          { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 },
         ]}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Botón volver */}
+        <TouchableOpacity style={styles.volver} onPress={() => navigation.goBack()}>
+          <MaterialCommunityIcons name="arrow-left" size={22} color="white" />
+          <Text style={styles.volverTexto}>Volver</Text>
+        </TouchableOpacity>
+
         {/* Cabecera */}
         <View style={styles.cabecera}>
           <Text style={styles.emoji}>❤️</Text>
@@ -81,48 +117,92 @@ export default function RegistroPantalla({ navigation }) {
 
         {/* Formulario */}
         <View style={styles.formulario}>
-          <TextInput
-            label="Correo electrónico"
-            value={email}
-            onChangeText={setEmail}
-            mode="outlined"
-            keyboardType="email-address"
-            autoCapitalize="none"
-            outlineColor={colorAcento}
-            activeOutlineColor={colorAcentoClaro}
-            textColor="white"
-            style={styles.campo}
-            theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
-          />
 
-          <TextInput
-            label="Contraseña"
-            value={contrasena}
-            onChangeText={setContrasena}
-            mode="outlined"
-            secureTextEntry={!mostrarContrasena}
-            outlineColor={colorAcento}
-            activeOutlineColor={colorAcentoClaro}
-            textColor="white"
-            style={styles.campo}
-            theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
-            right={
-              <TextInput.Icon
-                icon={mostrarContrasena ? 'eye-off' : 'eye'}
-                color={colorTextoSecundario}
-                onPress={() => setMostrarContrasena((prev) => !prev)}
-              />
-            }
-          />
+          {/* Email con icono de validación */}
+          <View>
+            <TextInput
+              label="Correo electrónico"
+              value={email}
+              onChangeText={(v) => { setEmail(v); setEmailTocado(true); }}
+              onBlur={() => setEmailTocado(true)}
+              mode="outlined"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              outlineColor={emailTocado && !emailOk ? '#EF4444' : colorAcento}
+              activeOutlineColor={emailTocado && !emailOk ? '#EF4444' : colorAcentoClaro}
+              textColor="white"
+              style={styles.campo}
+              theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
+              right={
+                emailTocado && email.length > 0 ? (
+                  <TextInput.Icon
+                    icon={emailOk ? 'check-circle' : 'alert-circle'}
+                    color={emailOk ? '#22C55E' : '#EF4444'}
+                  />
+                ) : null
+              }
+            />
+            {emailTocado && !emailOk && email.length > 0 && (
+              <Text style={styles.emailError}>Formato de correo no válido</Text>
+            )}
+          </View>
 
+          {/* Contraseña */}
+          <View>
+            <TextInput
+              label="Contraseña"
+              value={contrasena}
+              onChangeText={setContrasena}
+              mode="outlined"
+              secureTextEntry={!mostrarContrasena}
+              outlineColor={colorAcento}
+              activeOutlineColor={colorAcentoClaro}
+              textColor="white"
+              style={styles.campo}
+              theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
+              right={
+                <TextInput.Icon
+                  icon={mostrarContrasena ? 'eye-off' : 'eye'}
+                  color={colorTextoSecundario}
+                  onPress={() => setMostrarContrasena((prev) => !prev)}
+                />
+              }
+            />
+            {/* Barra de fortaleza */}
+            {contrasena.length > 0 && (
+              <View style={styles.fortalezaContenedor}>
+                <View style={styles.barrasFila}>
+                  {[1, 2, 3].map((nivel) => (
+                    <View
+                      key={nivel}
+                      style={[
+                        styles.barra,
+                        {
+                          backgroundColor:
+                            fortaleza >= nivel
+                              ? FORTALEZA_CONFIG[fortaleza - 1].color
+                              : colorPrimarioMedio,
+                        },
+                      ]}
+                    />
+                  ))}
+                </View>
+                <Text style={[styles.fortalezaLabel, { color: FORTALEZA_CONFIG[fortaleza - 1]?.color ?? colorTextoSecundario }]}>
+                  {FORTALEZA_CONFIG[fortaleza - 1]?.label ?? ''}
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Confirmar contraseña */}
           <TextInput
             label="Confirmar contraseña"
             value={confirmar}
             onChangeText={setConfirmar}
             mode="outlined"
             secureTextEntry={!mostrarConfirmar}
-            outlineColor={colorAcento}
-            activeOutlineColor={colorAcentoClaro}
+            outlineColor={confirmar.length > 0 && confirmar !== contrasena ? '#EF4444' : colorAcento}
+            activeOutlineColor={confirmar.length > 0 && confirmar !== contrasena ? '#EF4444' : colorAcentoClaro}
             textColor="white"
             style={styles.campo}
             theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
@@ -168,16 +248,29 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
     backgroundColor: colorPrimario,
   },
+
+  // Volver
+  volver: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 24,
+  },
+  volverTexto: {
+    color: 'white',
+    fontSize: 16,
+  },
+
   cabecera: {
     alignItems: 'center',
-    marginBottom: 48,
+    marginBottom: 40,
   },
   emoji: {
-    fontSize: 64,
+    fontSize: 56,
     color: colorAlerta,
   },
   titulo: {
-    fontSize: 36,
+    fontSize: 32,
     fontWeight: 'bold',
     color: 'white',
     marginTop: 8,
@@ -194,6 +287,39 @@ const styles = StyleSheet.create({
   campo: {
     backgroundColor: colorPrimarioMedio,
   },
+
+  // Email error
+  emailError: {
+    color: '#EF4444',
+    fontSize: 12,
+    marginTop: 4,
+    marginLeft: 4,
+  },
+
+  // Fortaleza
+  fortalezaContenedor: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 8,
+  },
+  barrasFila: {
+    flex: 1,
+    flexDirection: 'row',
+    gap: 6,
+  },
+  barra: {
+    flex: 1,
+    height: 4,
+    borderRadius: 2,
+  },
+  fortalezaLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    width: 48,
+    textAlign: 'right',
+  },
+
   boton: {
     backgroundColor: colorAcento,
     borderRadius: 10,
