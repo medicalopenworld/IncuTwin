@@ -101,7 +101,7 @@ class PrincipalPantalla extends Component {
             <TouchableOpacity
               key={item.docId}
               style={styles.tarjeta}
-              onPress={() => navigation.navigate('Detalle', { incutwinId: item.docId })}
+              onPress={() => navigation.navigate('Detalle', { incutwinId: item.docId, incubadoraId: item.incubadoraId })}
               activeOpacity={0.8}
             >
               {/* Fila superior: icono + ID + badge */}
@@ -113,7 +113,7 @@ class PrincipalPantalla extends Component {
                   style={styles.iconoWifi}
                 />
                 <Text style={styles.tarjetaId}>
-                  {item.docId.toUpperCase()}
+                  {item.incubadoraId?.toUpperCase() ?? item.docId.toUpperCase()}
                 </Text>
                 <View style={[styles.badge, item.enLinea ? styles.badgeVerde : styles.badgeGris]}>
                   <Text style={styles.badgeTexto}>
