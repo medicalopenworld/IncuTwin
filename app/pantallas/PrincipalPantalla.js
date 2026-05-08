@@ -1,6 +1,7 @@
 import { Component } from 'react';
 import {
   ActivityIndicator,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -31,12 +32,22 @@ const mapDispatchToProps = {
 };
 
 class PrincipalPantalla extends Component {
+  state = { refreshing: false };
+
   componentDidMount() {
     const uid = auth.currentUser?.uid;
     if (uid) {
       this.props.fetchIncutwins(uid);
     }
   }
+
+  handleRefresh = async () => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
+    this.setState({ refreshing: true });
+    await this.props.fetchIncutwins(uid);
+    this.setState({ refreshing: false });
+  };
 
   handleLogout = async () => {
     await signOut(auth);
@@ -70,7 +81,18 @@ class PrincipalPantalla extends Component {
     const enLinea = incutwins.filter((i) => i.enLinea).length;
 
     return (
-      <ScrollView style={styles.fondo} contentContainerStyle={styles.contenedor}>
+      <ScrollView
+        style={styles.fondo}
+        contentContainerStyle={styles.contenedor}
+        refreshControl={
+          <RefreshControl
+            refreshing={this.state.refreshing}
+            onRefresh={this.handleRefresh}
+            tintColor={colorAcento}
+            colors={[colorAcento]}
+          />
+        }
+      >
 
         {/* Header */}
         <View style={styles.header}>
