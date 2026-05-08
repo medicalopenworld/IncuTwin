@@ -22,7 +22,7 @@ import {
   colorTextoSecundario,
 } from '../comun/comun';
 
-export default function LoginPantalla() {
+export default function LoginPantalla({ navigation }) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [contrasena, setContrasena] = useState('');
@@ -37,6 +37,7 @@ export default function LoginPantalla() {
     try {
       setCargando(true);
       await signInWithEmailAndPassword(auth, email.trim(), contrasena);
+      navigation.replace('Principal');
     } catch (error) {
       const mensajes = {
         'auth/invalid-credential': 'Correo o contraseña incorrectos.',
