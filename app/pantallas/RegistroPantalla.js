@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { TextInput } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../comun/firebase';
 import {
   colorAcento,
@@ -22,30 +22,39 @@ import {
   colorTextoSecundario,
 } from '../comun/comun';
 
-export default function LoginPantalla({ navigation }) {
+export default function RegistroPantalla({ navigation }) {
   const insets = useSafeAreaInsets();
   const [email, setEmail] = useState('');
   const [contrasena, setContrasena] = useState('');
+  const [confirmar, setConfirmar] = useState('');
   const [mostrarContrasena, setMostrarContrasena] = useState(false);
+  const [mostrarConfirmar, setMostrarConfirmar] = useState(false);
   const [cargando, setCargando] = useState(false);
 
-  const handleLogin = async () => {
-    if (!email.trim() || !contrasena) {
-      Alert.alert('Campos requeridos', 'Introduce el correo y la contraseña.');
+  const handleRegistro = async () => {
+    if (!email.trim() || !contrasena || !confirmar) {
+      Alert.alert('Campos requeridos', 'Rellena todos los campos.');
+      return;
+    }
+    if (contrasena !== confirmar) {
+      Alert.alert('Error', 'Las contraseñas no coinciden.');
+      return;
+    }
+    if (contrasena.length < 6) {
+      Alert.alert('Error', 'La contraseña debe tener al menos 6 caracteres.');
       return;
     }
     try {
       setCargando(true);
-      await signInWithEmailAndPassword(auth, email.trim(), contrasena);
+      await createUserWithEmailAndPassword(auth, email.trim(), contrasena);
       navigation.replace('Principal');
     } catch (error) {
       const mensajes = {
-        'auth/invalid-credential': 'Correo o contraseña incorrectos.',
-        'auth/user-not-found': 'No existe una cuenta con ese correo.',
-        'auth/wrong-password': 'Contraseña incorrecta.',
-        'auth/too-many-requests': 'Demasiados intentos. Espera un momento.',
+        'auth/email-already-in-use': 'Ya existe una cuenta con ese correo.',
+        'auth/invalid-email': 'El correo no tiene un formato válido.',
+        'auth/weak-password': 'La contraseña es demasiado débil.',
       };
-      Alert.alert('Error', mensajes[error.code] ?? 'No se pudo iniciar sesión.');
+      Alert.alert('Error', mensajes[error.code] ?? 'No se pudo crear la cuenta.');
     } finally {
       setCargando(false);
     }
@@ -66,8 +75,8 @@ export default function LoginPantalla({ navigation }) {
         {/* Cabecera */}
         <View style={styles.cabecera}>
           <Text style={styles.emoji}>❤️</Text>
-          <Text style={styles.titulo}>IncuTwin</Text>
-          <Text style={styles.subtitulo}>Conectando corazones</Text>
+          <Text style={styles.titulo}>Crear cuenta</Text>
+          <Text style={styles.subtitulo}>Únete a IncuTwin</Text>
         </View>
 
         {/* Formulario */}
@@ -106,21 +115,41 @@ export default function LoginPantalla({ navigation }) {
             }
           />
 
+          <TextInput
+            label="Confirmar contraseña"
+            value={confirmar}
+            onChangeText={setConfirmar}
+            mode="outlined"
+            secureTextEntry={!mostrarConfirmar}
+            outlineColor={colorAcento}
+            activeOutlineColor={colorAcentoClaro}
+            textColor="white"
+            style={styles.campo}
+            theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
+            right={
+              <TextInput.Icon
+                icon={mostrarConfirmar ? 'eye-off' : 'eye'}
+                color={colorTextoSecundario}
+                onPress={() => setMostrarConfirmar((prev) => !prev)}
+              />
+            }
+          />
+
           <TouchableOpacity
             style={[styles.boton, cargando && styles.botonDesactivado]}
-            onPress={handleLogin}
+            onPress={handleRegistro}
             activeOpacity={0.85}
             disabled={cargando}
           >
             <Text style={styles.botonTexto}>
-              {cargando ? 'Entrando...' : 'Iniciar sesión'}
+              {cargando ? 'Creando cuenta...' : 'Registrarse'}
             </Text>
           </TouchableOpacity>
 
-          <View style={styles.registroFila}>
-            <Text style={styles.registroTexto}>¿No tienes cuenta? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Registro')}>
-              <Text style={styles.registroEnlace}>Regístrate</Text>
+          <View style={styles.loginFila}>
+            <Text style={styles.loginTexto}>¿Ya tienes cuenta? </Text>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={styles.loginEnlace}>Inicia sesión</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -172,24 +201,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 8,
   },
+  botonDesactivado: {
+    opacity: 0.6,
+  },
   botonTexto: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
   },
-  botonDesactivado: {
-    opacity: 0.6,
-  },
-  registroFila: {
+  loginFila: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 4,
   },
-  registroTexto: {
+  loginTexto: {
     color: colorTextoSecundario,
     fontSize: 14,
   },
-  registroEnlace: {
+  loginEnlace: {
     color: colorAcentoClaro,
     fontSize: 14,
   },
