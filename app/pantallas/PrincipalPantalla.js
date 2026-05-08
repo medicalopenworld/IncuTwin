@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { connect } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { signOut } from 'firebase/auth';
 import { fetchIncutwins } from '../redux/ActionCreators';
 import { auth } from '../comun/firebase';
 import {
@@ -36,6 +37,11 @@ class PrincipalPantalla extends Component {
       this.props.fetchIncutwins(uid);
     }
   }
+
+  handleLogout = async () => {
+    await signOut(auth);
+    this.props.navigation.replace('Login');
+  };
 
   render() {
     const { navigation } = this.props;
@@ -68,8 +74,15 @@ class PrincipalPantalla extends Component {
 
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.hola}>Hola,</Text>
-          <Text style={styles.emailTexto}>{nombre}</Text>
+          <View style={styles.headerFila}>
+            <View>
+              <Text style={styles.hola}>Hola,</Text>
+              <Text style={styles.emailTexto}>{nombre}</Text>
+            </View>
+            <TouchableOpacity onPress={this.handleLogout} style={styles.logoutBoton}>
+              <MaterialCommunityIcons name="logout" size={22} color={colorTextoSecundario} />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Tarjetas resumen */}
@@ -175,6 +188,14 @@ const styles = StyleSheet.create({
   // Header
   header: {
     marginBottom: 24,
+  },
+  headerFila: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  logoutBoton: {
+    padding: 8,
   },
   hola: {
     fontSize: 16,
