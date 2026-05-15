@@ -75,6 +75,44 @@ class DetallePantalla extends Component {
           </View>
         </View>
 
+        {/* Tarjeta telemetría en tiempo real */}
+        <View style={styles.tarjeta}>
+          <Text style={styles.seccionTitulo}>Telemetría en tiempo real</Text>
+
+          <View style={styles.filaInfo}>
+            <MaterialCommunityIcons
+              name="heart-pulse"
+              size={18}
+              color={incutwin.bpm > 0 ? colorAlerta : colorTextoSecundario}
+              style={styles.filaIcono}
+            />
+            <Text style={styles.filaLabel}>Frecuencia cardíaca</Text>
+            <Text style={[styles.filaValor, incutwin.bpm > 0 && { color: colorAlerta }]}>
+              {incutwin.bpm > 0 ? `${incutwin.bpm} bpm` : '—'}
+            </Text>
+          </View>
+
+          <FilaInfo
+            icono="thermometer"
+            iconoColor={colorAcento}
+            label="Temperatura"
+            valor={incutwin.temperatura > 0 ? `${incutwin.temperatura} °C` : '—'}
+          />
+
+          <View style={styles.filaInfo}>
+            <MaterialCommunityIcons
+              name="hand-wave"
+              size={18}
+              color={incutwin.holdDetected ? colorAcentoClaro : colorTextoSecundario}
+              style={styles.filaIcono}
+            />
+            <Text style={styles.filaLabel}>Detección de mano</Text>
+            <Text style={[styles.filaValor, incutwin.holdDetected && { color: colorAcentoClaro }]}>
+              {incutwin.holdDetected ? 'Detectada' : 'No detectada'}
+            </Text>
+          </View>
+        </View>
+
         {/* Tarjeta bebé */}
         <View style={styles.tarjeta}>
           <Text style={styles.seccionTitulo}>Bebé</Text>

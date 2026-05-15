@@ -11,7 +11,7 @@ import {
 import { connect } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { signOut } from 'firebase/auth';
-import { fetchIncutwins } from '../redux/ActionCreators';
+import { fetchIncutwins, subscribeRealtime, unsubscribeRealtime } from '../redux/ActionCreators';
 import { auth } from '../comun/firebase';
 import {
   colorAcento,
@@ -29,23 +29,35 @@ const mapStateToProps = (state) => ({
 
 const mapDispatchToProps = {
   fetchIncutwins,
+  subscribeRealtime,
+  unsubscribeRealtime,
 };
 
 class PrincipalPantalla extends Component {
   state = { refreshing: false };
 
-  componentDidMount() {
+  async componentDidMount() {
     const uid = auth.currentUser?.uid;
     if (uid) {
-      this.props.fetchIncutwins(uid);
+      const incutwins = await this.props.fetchIncutwins(uid);
+      if (incutwins?.length) {
+        this.props.subscribeRealtime(incutwins);
+      }
     }
+  }
+
+  componentWillUnmount() {
+    this.props.unsubscribeRealtime();
   }
 
   handleRefresh = async () => {
     const uid = auth.currentUser?.uid;
     if (!uid) return;
     this.setState({ refreshing: true });
-    await this.props.fetchIncutwins(uid);
+    const incutwins = await this.props.fetchIncutwins(uid);
+    if (incutwins?.length) {
+      this.props.subscribeRealtime(incutwins);
+    }
     this.setState({ refreshing: false });
   };
 
