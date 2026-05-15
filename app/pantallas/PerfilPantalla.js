@@ -11,6 +11,7 @@ import {
   colorPrimario,
   colorPrimarioMedio,
   colorTextoSecundario,
+  colorTexto,
 } from '../comun/comun';
 
 function formatearFecha(isoString) {
@@ -83,7 +84,7 @@ export default function PerfilPantalla({ navigation }) {
     >
       {/* Botón volver */}
       <TouchableOpacity style={styles.volver} onPress={() => navigation.goBack()}>
-        <MaterialCommunityIcons name="arrow-left" size={22} color="white" />
+        <MaterialCommunityIcons name="arrow-left" size={22} color={colorTexto} />
         <Text style={styles.volverTexto}>Volver</Text>
       </TouchableOpacity>
 
@@ -163,7 +164,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   volverTexto: {
-    color: 'white',
+    color: colorTexto,
     fontSize: 16,
   },
 
@@ -185,16 +186,17 @@ const styles = StyleSheet.create({
   avatarIniciales: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: 'white',
+    color: colorTexto,
   },
   emailTexto: {
     fontSize: 18,
     fontWeight: '600',
-    color: 'white',
+    color: colorTexto,
   },
   fechaTexto: {
     fontSize: 13,
     color: colorTextoSecundario,
+  colorTexto,
   },
 
   // Tarjeta
@@ -209,6 +211,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colorTextoSecundario,
+  colorTexto,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
@@ -226,10 +229,11 @@ const styles = StyleSheet.create({
   filaLabel: {
     fontSize: 12,
     color: colorTextoSecundario,
+  colorTexto,
   },
   filaValor: {
     fontSize: 14,
-    color: 'white',
+    color: colorTexto,
     fontWeight: '500',
   },
   separador: {

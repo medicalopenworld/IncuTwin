@@ -21,6 +21,7 @@ import {
   colorPrimario,
   colorPrimarioMedio,
   colorTextoSecundario,
+  colorTexto,
 } from '../comun/comun';
 
 function emailValido(email) {
@@ -104,7 +105,7 @@ export default function RegistroPantalla({ navigation }) {
       >
         {/* Botón volver */}
         <TouchableOpacity style={styles.volver} onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="arrow-left" size={22} color="white" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color={colorTexto} />
           <Text style={styles.volverTexto}>Volver</Text>
         </TouchableOpacity>
 
@@ -130,7 +131,7 @@ export default function RegistroPantalla({ navigation }) {
               autoCapitalize="none"
               outlineColor={emailTocado && !emailOk ? '#EF4444' : colorAcento}
               activeOutlineColor={emailTocado && !emailOk ? '#EF4444' : colorAcentoClaro}
-              textColor="white"
+              textColor={colorTexto}
               style={styles.campo}
               theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
               right={
@@ -157,7 +158,7 @@ export default function RegistroPantalla({ navigation }) {
               secureTextEntry={!mostrarContrasena}
               outlineColor={colorAcento}
               activeOutlineColor={colorAcentoClaro}
-              textColor="white"
+              textColor={colorTexto}
               style={styles.campo}
               theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
               right={
@@ -203,7 +204,7 @@ export default function RegistroPantalla({ navigation }) {
             secureTextEntry={!mostrarConfirmar}
             outlineColor={confirmar.length > 0 && confirmar !== contrasena ? '#EF4444' : colorAcento}
             activeOutlineColor={confirmar.length > 0 && confirmar !== contrasena ? '#EF4444' : colorAcentoClaro}
-            textColor="white"
+            textColor={colorTexto}
             style={styles.campo}
             theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
             right={
@@ -257,7 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   volverTexto: {
-    color: 'white',
+    color: colorTexto,
     fontSize: 16,
   },
 
@@ -272,7 +273,7 @@ const styles = StyleSheet.create({
   titulo: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: 'white',
+    color: colorTexto,
     marginTop: 8,
   },
   subtitulo: {
@@ -331,7 +332,7 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   botonTexto: {
-    color: 'white',
+    color: colorTexto,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -342,6 +343,7 @@ const styles = StyleSheet.create({
   },
   loginTexto: {
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 14,
   },
   loginEnlace: {

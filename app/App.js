@@ -33,7 +33,7 @@ export default function App() {
     return (
       <View style={{ flex: 1, backgroundColor: colorPrimario, justifyContent: 'center', alignItems: 'center' }}>
         <ActivityIndicator size="large" color={colorAcento} />
-        <StatusBar style="light" />
+        <StatusBar style="dark" />
       </View>
     );
   }
@@ -54,7 +54,7 @@ export default function App() {
               <Stack.Screen name="Perfil" component={PerfilPantalla} />
             </Stack.Navigator>
           </NavigationContainer>
-          <StatusBar style="light" />
+          <StatusBar style="dark" />
         </PaperProvider>
       </SafeAreaProvider>
     </Provider>

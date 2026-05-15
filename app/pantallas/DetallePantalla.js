@@ -10,6 +10,7 @@ import {
   colorPrimario,
   colorPrimarioMedio,
   colorTextoSecundario,
+  colorTexto,
 } from '../comun/comun';
 
 const mapStateToProps = (state, ownProps) => ({
@@ -91,7 +92,7 @@ class DetallePantalla extends Component {
 
         {/* Botón volver */}
         <TouchableOpacity style={styles.volver} onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="arrow-left" size={22} color="white" />
+          <MaterialCommunityIcons name="arrow-left" size={22} color={colorTexto} />
           <Text style={styles.volverTexto}>Volver</Text>
         </TouchableOpacity>
 
@@ -179,7 +180,7 @@ class DetallePantalla extends Component {
                 size={28}
                 color={tieneTemp ? colorAlerta : colorTextoSecundario}
               />
-              <Text style={[styles.miniValor, { color: tieneTemp ? 'white' : colorTextoSecundario }]}>
+              <Text style={[styles.miniValor, { color: tieneTemp ? colorTexto : colorTextoSecundario }]}>
                 {tieneTemp ? `${incutwin.temperatura}°C` : '—'}
               </Text>
               <Text style={styles.miniLabel}>Temperatura</Text>
@@ -234,6 +235,7 @@ const styles = StyleSheet.create({
   },
   errorTexto: {
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 15,
   },
 
@@ -245,7 +247,7 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   volverTexto: {
-    color: 'white',
+    color: colorTexto,
     fontSize: 16,
   },
 
@@ -260,7 +262,7 @@ const styles = StyleSheet.create({
   nombre: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: 'white',
+    color: colorTexto,
     flexShrink: 1,
   },
   incubadoraId: {
@@ -296,6 +298,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colorTextoSecundario,
+  colorTexto,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
     marginBottom: 2,
@@ -313,10 +316,11 @@ const styles = StyleSheet.create({
   filaLabel: {
     flex: 1,
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 14,
   },
   filaValor: {
-    color: 'white',
+    color: colorTexto,
     fontSize: 14,
     fontWeight: '500',
     textAlign: 'right',
@@ -341,6 +345,7 @@ const styles = StyleSheet.create({
   },
   sinBebeTexto: {
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 14,
     fontStyle: 'italic',
   },
@@ -364,6 +369,7 @@ const styles = StyleSheet.create({
   bpmUnidad: {
     fontSize: 18,
     color: colorTextoSecundario,
+  colorTexto,
     marginBottom: 10,
   },
 
@@ -387,5 +393,6 @@ const styles = StyleSheet.create({
   miniLabel: {
     fontSize: 12,
     color: colorTextoSecundario,
+  colorTexto,
   },
 });

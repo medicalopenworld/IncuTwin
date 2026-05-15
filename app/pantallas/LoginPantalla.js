@@ -20,6 +20,7 @@ import {
   colorPrimario,
   colorPrimarioMedio,
   colorTextoSecundario,
+  colorTexto,
 } from '../comun/comun';
 
 export default function LoginPantalla({ navigation }) {
@@ -81,7 +82,7 @@ export default function LoginPantalla({ navigation }) {
             autoCapitalize="none"
             outlineColor={colorAcento}
             activeOutlineColor={colorAcentoClaro}
-            textColor="white"
+            textColor={colorTexto}
             style={styles.campo}
             theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
           />
@@ -94,7 +95,7 @@ export default function LoginPantalla({ navigation }) {
             secureTextEntry={!mostrarContrasena}
             outlineColor={colorAcento}
             activeOutlineColor={colorAcentoClaro}
-            textColor="white"
+            textColor={colorTexto}
             style={styles.campo}
             theme={{ colors: { background: colorPrimarioMedio, onSurfaceVariant: colorTextoSecundario } }}
             right={
@@ -150,7 +151,7 @@ const styles = StyleSheet.create({
   titulo: {
     fontSize: 36,
     fontWeight: 'bold',
-    color: 'white',
+    color: colorTexto,
     marginTop: 8,
   },
   subtitulo: {
@@ -173,7 +174,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   botonTexto: {
-    color: 'white',
+    color: colorTexto,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -187,6 +188,7 @@ const styles = StyleSheet.create({
   },
   registroTexto: {
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 14,
   },
   registroEnlace: {

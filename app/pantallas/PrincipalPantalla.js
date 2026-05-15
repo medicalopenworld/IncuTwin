@@ -21,6 +21,7 @@ import {
   colorPrimario,
   colorPrimarioMedio,
   colorTextoSecundario,
+  colorTexto,
 } from '../comun/comun';
 
 const mapStateToProps = (state) => ({
@@ -131,12 +132,12 @@ class PrincipalPantalla extends Component {
             <Text style={styles.resumenLabel}>Total</Text>
           </View>
 
-          <View style={[styles.resumenTarjeta, { backgroundColor: '#3D1A0A' }]}>
+          <View style={[styles.resumenTarjeta, { backgroundColor: '#FEF3C7' }]}>
             <Text style={[styles.resumenNumero, { color: colorAlerta }]}>{conBebe}</Text>
             <Text style={styles.resumenLabel}>Con bebé</Text>
           </View>
 
-          <View style={[styles.resumenTarjeta, { backgroundColor: '#1E293B' }]}>
+          <View style={[styles.resumenTarjeta, { backgroundColor: '#E0F2FE' }]}>
             <Text style={[styles.resumenNumero, { color: colorTextoSecundario }]}>{enLinea}</Text>
             <Text style={styles.resumenLabel}>En línea</Text>
           </View>
@@ -245,11 +246,12 @@ const styles = StyleSheet.create({
   hola: {
     fontSize: 16,
     color: colorTextoSecundario,
+  colorTexto,
   },
   emailTexto: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: 'white',
+    color: colorTexto,
     marginTop: 2,
   },
 
@@ -272,6 +274,7 @@ const styles = StyleSheet.create({
   resumenLabel: {
     fontSize: 12,
     color: colorTextoSecundario,
+  colorTexto,
     marginTop: 4,
   },
 
@@ -293,12 +296,13 @@ const styles = StyleSheet.create({
   },
   tarjetaId: {
     flex: 1,
-    color: 'white',
+    color: colorTexto,
     fontWeight: 'bold',
     fontSize: 14,
   },
   tarjetaHospital: {
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 13,
   },
 
@@ -312,7 +316,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#064E3B',
   },
   badgeGris: {
-    backgroundColor: '#1E293B',
+    backgroundColor: '#E0F2FE',
   },
   badgeTexto: {
     fontSize: 11,
@@ -332,6 +336,7 @@ const styles = StyleSheet.create({
   },
   sinBebe: {
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 13,
     fontStyle: 'italic',
   },
@@ -344,6 +349,7 @@ const styles = StyleSheet.create({
   },
   vacioTexto: {
     color: colorTextoSecundario,
+  colorTexto,
     fontSize: 15,
   },
 });
