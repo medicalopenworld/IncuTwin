@@ -1,5 +1,5 @@
 import { Component } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { connect } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import {
@@ -19,6 +19,59 @@ const mapStateToProps = (state, ownProps) => ({
 });
 
 class DetallePantalla extends Component {
+  _escala = new Animated.Value(1);
+  _animacion = null;
+
+  componentDidMount() {
+    this._iniciarLatido(this.props.incutwin?.bpm);
+  }
+
+  componentDidUpdate(prevProps) {
+    const bpmAnterior = prevProps.incutwin?.bpm;
+    const bpmActual = this.props.incutwin?.bpm;
+    const conBebeAnterior = prevProps.incutwin?.conBebe;
+    const conBebeActual = this.props.incutwin?.conBebe;
+
+    const enLineaActual = this.props.incutwin?.enLinea;
+    const enLineaAnterior = prevProps.incutwin?.enLinea;
+
+    const bpmCambio = bpmActual !== bpmAnterior;
+    const bebeApareció = conBebeActual && !conBebeAnterior;
+    const seDesconectó = !enLineaActual && enLineaAnterior;
+    const seConectó = enLineaActual && !enLineaAnterior;
+
+    if (bpmCambio || bebeApareció || seConectó) {
+      const activo = enLineaActual && conBebeActual;
+      this._iniciarLatido(activo ? bpmActual : 0);
+    } else if (seDesconectó) {
+      this._iniciarLatido(0);
+    }
+  }
+
+  componentWillUnmount() {
+    this._animacion?.stop();
+  }
+
+  _iniciarLatido(bpm) {
+    this._animacion?.stop();
+    this._escala.setValue(1);
+    if (!bpm || bpm <= 0) return;
+
+    const intervalo = 60000 / bpm;
+    const subida = 100;
+    const bajada = 100;
+    const espera = Math.max(intervalo - subida - bajada, 50);
+
+    this._animacion = Animated.loop(
+      Animated.sequence([
+        Animated.timing(this._escala, { toValue: 1.25, duration: subida, useNativeDriver: true }),
+        Animated.timing(this._escala, { toValue: 1, duration: bajada, useNativeDriver: true }),
+        Animated.delay(espera),
+      ])
+    );
+    this._animacion.start();
+  }
+
   render() {
     const { navigation, incutwin } = this.props;
 
@@ -29,6 +82,9 @@ class DetallePantalla extends Component {
         </View>
       );
     }
+
+    const tieneBpm = incutwin.bpm > 0;
+    const tieneTemp = incutwin.temperatura > 0;
 
     return (
       <ScrollView style={styles.fondo} contentContainerStyle={styles.contenedor}>
@@ -75,46 +131,8 @@ class DetallePantalla extends Component {
           </View>
         </View>
 
-        {/* Tarjeta telemetría en tiempo real */}
-        <View style={styles.tarjeta}>
-          <Text style={styles.seccionTitulo}>Telemetría en tiempo real</Text>
-
-          <View style={styles.filaInfo}>
-            <MaterialCommunityIcons
-              name="heart-pulse"
-              size={18}
-              color={incutwin.bpm > 0 ? colorAlerta : colorTextoSecundario}
-              style={styles.filaIcono}
-            />
-            <Text style={styles.filaLabel}>Frecuencia cardíaca</Text>
-            <Text style={[styles.filaValor, incutwin.bpm > 0 && { color: colorAlerta }]}>
-              {incutwin.bpm > 0 ? `${incutwin.bpm} bpm` : '—'}
-            </Text>
-          </View>
-
-          <FilaInfo
-            icono="thermometer"
-            iconoColor={colorAcento}
-            label="Temperatura"
-            valor={incutwin.temperatura > 0 ? `${incutwin.temperatura} °C` : '—'}
-          />
-
-          <View style={styles.filaInfo}>
-            <MaterialCommunityIcons
-              name="hand-wave"
-              size={18}
-              color={incutwin.holdDetected ? colorAcentoClaro : colorTextoSecundario}
-              style={styles.filaIcono}
-            />
-            <Text style={styles.filaLabel}>Detección de mano</Text>
-            <Text style={[styles.filaValor, incutwin.holdDetected && { color: colorAcentoClaro }]}>
-              {incutwin.holdDetected ? 'Detectada' : 'No detectada'}
-            </Text>
-          </View>
-        </View>
-
-        {/* Tarjeta bebé */}
-        <View style={styles.tarjeta}>
+        {/* Tarjeta bebé — solo si está en línea */}
+        {incutwin.enLinea && <View style={styles.tarjeta}>
           <Text style={styles.seccionTitulo}>Bebé</Text>
 
           {incutwin.conBebe ? (
@@ -129,7 +147,57 @@ class DetallePantalla extends Component {
               <Text style={styles.sinBebeTexto}>Sin bebé asignado</Text>
             </View>
           )}
-        </View>
+        </View>}
+
+        {/* Telemetría — solo si hay bebé */}
+        {incutwin.enLinea && incutwin.conBebe && (
+          <View style={styles.tarjeta}>
+            <Text style={styles.seccionTitulo}>Latido en tiempo real</Text>
+            <View style={styles.bpmContenedor}>
+              <Animated.View style={{ transform: [{ scale: this._escala }] }}>
+                <MaterialCommunityIcons
+                  name="heart"
+                  size={64}
+                  color={tieneBpm ? colorAlerta : colorTextoSecundario}
+                />
+              </Animated.View>
+              <View style={styles.bpmFila}>
+                <Text style={[styles.bpmNumero, { color: tieneBpm ? colorAlerta : colorTextoSecundario }]}>
+                  {tieneBpm ? incutwin.bpm : '—'}
+                </Text>
+                {tieneBpm && <Text style={styles.bpmUnidad}>bpm</Text>}
+              </View>
+            </View>
+          </View>
+        )}
+
+        {incutwin.enLinea && incutwin.conBebe && (
+          <View style={styles.miniFilas}>
+            <View style={[styles.tarjeta, styles.miniTarjeta]}>
+              <MaterialCommunityIcons
+                name="thermometer"
+                size={28}
+                color={tieneTemp ? colorAlerta : colorTextoSecundario}
+              />
+              <Text style={[styles.miniValor, { color: tieneTemp ? 'white' : colorTextoSecundario }]}>
+                {tieneTemp ? `${incutwin.temperatura}°C` : '—'}
+              </Text>
+              <Text style={styles.miniLabel}>Temperatura</Text>
+            </View>
+
+            <View style={[styles.tarjeta, styles.miniTarjeta]}>
+              <MaterialCommunityIcons
+                name="hand-wave"
+                size={28}
+                color={incutwin.holdDetected ? colorAcentoClaro : colorTextoSecundario}
+              />
+              <Text style={[styles.miniValor, { color: incutwin.holdDetected ? colorAcentoClaro : colorTextoSecundario }]}>
+                {incutwin.holdDetected ? 'Sí' : 'No'}
+              </Text>
+              <Text style={styles.miniLabel}>Mano detectada</Text>
+            </View>
+          </View>
+        )}
 
       </ScrollView>
     );
@@ -275,5 +343,49 @@ const styles = StyleSheet.create({
     color: colorTextoSecundario,
     fontSize: 14,
     fontStyle: 'italic',
+  },
+
+  // BPM
+  bpmContenedor: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 8,
+  },
+  bpmFila: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6,
+  },
+  bpmNumero: {
+    fontSize: 64,
+    fontWeight: 'bold',
+    lineHeight: 72,
+  },
+  bpmUnidad: {
+    fontSize: 18,
+    color: colorTextoSecundario,
+    marginBottom: 10,
+  },
+
+  // Mini tarjetas
+  miniFilas: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 0,
+  },
+  miniTarjeta: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 20,
+    gap: 6,
+    marginBottom: 16,
+  },
+  miniValor: {
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  miniLabel: {
+    fontSize: 12,
+    color: colorTextoSecundario,
   },
 });

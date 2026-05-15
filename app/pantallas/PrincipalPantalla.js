@@ -181,15 +181,17 @@ class PrincipalPantalla extends Component {
               </View>
 
               {/* Bebé */}
-              {item.conBebe ? (
-                <View style={styles.bebeInfo}>
-                  <MaterialCommunityIcons name="baby-face-outline" size={16} color={colorAlerta} />
-                  <Text style={styles.bebeTexto}>
-                    {item.bebe?.nombre ?? 'Sin nombre'} · {item.bebe?.semanas ?? '?'} sem
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.sinBebe}>Sin bebé</Text>
+              {item.enLinea && (
+                item.conBebe ? (
+                  <View style={styles.bebeInfo}>
+                    <MaterialCommunityIcons name="baby-face-outline" size={16} color={colorAlerta} />
+                    <Text style={styles.bebeTexto}>
+                      {item.bebe?.nombre ?? 'Sin nombre'} · {item.bebe?.semanas ?? '?'} sem
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.sinBebe}>Sin bebé</Text>
+                )
               )}
             </TouchableOpacity>
           ))
