@@ -159,11 +159,11 @@ class DetallePantalla extends Component {
                 <MaterialCommunityIcons
                   name="heart"
                   size={64}
-                  color={tieneBpm ? colorAlerta : colorTextoSecundario}
+                  color={tieneBpm ? '#DC2626' : colorTextoSecundario}
                 />
               </Animated.View>
               <View style={styles.bpmFila}>
-                <Text style={[styles.bpmNumero, { color: tieneBpm ? colorAlerta : colorTextoSecundario }]}>
+                <Text style={[styles.bpmNumero, { color: tieneBpm ? '#DC2626' : colorTextoSecundario }]}>
                   {tieneBpm ? incutwin.bpm : '—'}
                 </Text>
                 {tieneBpm && <Text style={styles.bpmUnidad}>bpm</Text>}
