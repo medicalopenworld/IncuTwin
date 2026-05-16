@@ -2,6 +2,7 @@ import { Component } from 'react';
 import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { connect } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
 import {
   colorAcento,
   colorAcentoClaro,
@@ -200,6 +201,35 @@ class DetallePantalla extends Component {
           </View>
         )}
 
+        {/* Mapa GPS */}
+        {incutwin.gpsLat && incutwin.gpsLon && (
+          <View style={styles.tarjeta}>
+            <Text style={styles.seccionTitulo}>Ubicación GPS</Text>
+            <MapView
+              style={styles.mapa}
+              initialRegion={{
+                latitude: incutwin.gpsLat,
+                longitude: incutwin.gpsLon,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+              scrollEnabled={false}
+              zoomEnabled={false}
+              pitchEnabled={false}
+              rotateEnabled={false}
+            >
+              <Marker
+                coordinate={{ latitude: incutwin.gpsLat, longitude: incutwin.gpsLon }}
+                title={incutwin.nombre}
+                description={incutwin.hospital}
+              />
+            </MapView>
+            <Text style={styles.gpsTexto}>
+              {incutwin.gpsLat.toFixed(5)}, {incutwin.gpsLon.toFixed(5)}
+            </Text>
+          </View>
+        )}
+
       </ScrollView>
     );
   }
@@ -371,6 +401,19 @@ const styles = StyleSheet.create({
     color: colorTextoSecundario,
   colorTexto,
     marginBottom: 10,
+  },
+
+  // Mapa GPS
+  mapa: {
+    height: 200,
+    borderRadius: 10,
+    overflow: 'hidden',
+  },
+  gpsTexto: {
+    fontSize: 12,
+    color: colorTextoSecundario,
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
   },
 
   // Mini tarjetas
