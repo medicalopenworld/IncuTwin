@@ -4,6 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { collection, doc, getDocs, getFirestore, query, updateDoc, where } from 'firebase/firestore';
 import * as Notifications from 'expo-notifications';
+import * as Haptics from 'expo-haptics';
 import { app, auth } from '../comun/firebase';
 import {
   colorAcento,
@@ -30,6 +31,7 @@ export default function EscaneoPantalla({ navigation }) {
       const snapshot = await getDocs(q);
 
       if (snapshot.empty) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         Alert.alert('QR no válido', 'No se encontró ninguna incutwin con ese código.', [
           { text: 'Reintentar', onPress: () => { yaEscaneado.current = false; setProcesando(false); } },
         ]);
@@ -40,6 +42,7 @@ export default function EscaneoPantalla({ navigation }) {
       const incutwinData = incutwinDoc.data();
 
       if (incutwinData.propietarioUid === uid) {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         Alert.alert('Ya la tienes', 'Esta incutwin ya está en tu lista.', [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
@@ -47,6 +50,7 @@ export default function EscaneoPantalla({ navigation }) {
       }
 
       await updateDoc(doc(db, 'incutwins', incutwinDoc.id), { propietarioUid: uid });
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
       await Notifications.scheduleNotificationAsync({
         content: {
