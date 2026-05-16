@@ -15,6 +15,7 @@ import RegistroPantalla from './pantallas/RegistroPantalla';
 import PrincipalPantalla from './pantallas/PrincipalPantalla';
 import DetallePantalla from './pantallas/DetallePantalla';
 import PerfilPantalla from './pantallas/PerfilPantalla';
+import EscaneoPantalla from './pantallas/EscaneoPantalla';
 
 const Stack = createNativeStackNavigator();
 const store = ConfigureStore();
@@ -52,6 +53,7 @@ export default function App() {
               <Stack.Screen name="Principal" component={PrincipalPantalla} />
               <Stack.Screen name="Detalle" component={DetallePantalla} />
               <Stack.Screen name="Perfil" component={PerfilPantalla} />
+              <Stack.Screen name="Escaneo" component={EscaneoPantalla} />
             </Stack.Navigator>
           </NavigationContainer>
           <StatusBar style="dark" />

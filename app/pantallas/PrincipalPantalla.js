@@ -47,6 +47,14 @@ class PrincipalPantalla extends Component {
     }
   }
 
+  componentDidUpdate(prevProps) {
+    const prevRefresh = prevProps.route?.params?.refreshAt;
+    const currRefresh = this.props.route?.params?.refreshAt;
+    if (currRefresh && currRefresh !== prevRefresh) {
+      this.handleRefresh();
+    }
+  }
+
   componentWillUnmount() {
     this.props.unsubscribeRealtime();
   }
@@ -94,6 +102,7 @@ class PrincipalPantalla extends Component {
     const enLinea = incutwins.filter((i) => i.enLinea).length;
 
     return (
+      <View style={styles.flex}>
       <ScrollView
         style={styles.fondo}
         contentContainerStyle={styles.contenedor}
@@ -150,7 +159,7 @@ class PrincipalPantalla extends Component {
             <Text style={styles.vacioTexto}>No tienes incutwins asignadas</Text>
           </View>
         ) : (
-          incutwins.map((item) => (
+          [...incutwins].sort((a, b) => (b.enLinea ? 1 : 0) - (a.enLinea ? 1 : 0)).map((item) => (
             <TouchableOpacity
               key={item.docId}
               style={styles.tarjeta}
@@ -198,6 +207,15 @@ class PrincipalPantalla extends Component {
           ))
         )}
       </ScrollView>
+
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => navigation.navigate('Escaneo')}
+        activeOpacity={0.85}
+      >
+        <MaterialCommunityIcons name="qrcode-scan" size={26} color="white" />
+      </TouchableOpacity>
+      </View>
     );
   }
 }
@@ -205,9 +223,29 @@ class PrincipalPantalla extends Component {
 export default connect(mapStateToProps, mapDispatchToProps)(PrincipalPantalla);
 
 const styles = StyleSheet.create({
+  flex: {
+    flex: 1,
+    backgroundColor: colorPrimario,
+  },
   fondo: {
     flex: 1,
     backgroundColor: colorPrimario,
+  },
+  fab: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    backgroundColor: colorAcento,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
   contenedor: {
     paddingHorizontal: 20,
@@ -316,7 +354,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#064E3B',
   },
   badgeGris: {
-    backgroundColor: '#E0F2FE',
+    backgroundColor: '#1E293B',
   },
   badgeTexto: {
     fontSize: 11,
