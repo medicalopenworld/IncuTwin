@@ -7,9 +7,18 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Provider } from 'react-redux';
 import { onAuthStateChanged } from 'firebase/auth';
+import * as Notifications from 'expo-notifications';
 import { ConfigureStore } from './redux/configureStore';
 import { auth } from './comun/firebase';
 import { colorAcento, colorPrimario } from './comun/comun';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 import LoginPantalla from './pantallas/LoginPantalla';
 import RegistroPantalla from './pantallas/RegistroPantalla';
 import PrincipalPantalla from './pantallas/PrincipalPantalla';
@@ -24,6 +33,7 @@ export default function App() {
   const [usuario, setUsuario] = useState(undefined);
 
   useEffect(() => {
+    Notifications.requestPermissionsAsync();
     const unsuscribir = onAuthStateChanged(auth, (user) => {
       setUsuario(user ?? null);
     });

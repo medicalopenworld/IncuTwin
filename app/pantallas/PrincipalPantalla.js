@@ -166,7 +166,7 @@ class PrincipalPantalla extends Component {
               onPress={() => navigation.navigate('Detalle', { incutwinId: item.docId, incubadoraId: item.incubadoraId })}
               activeOpacity={0.8}
             >
-              {/* Fila superior: icono + ID + badge */}
+              {/* Fila superior: icono + nombre + badge */}
               <View style={styles.tarjetaFila}>
                 <MaterialCommunityIcons
                   name="wifi"
@@ -174,9 +174,12 @@ class PrincipalPantalla extends Component {
                   color={item.enLinea ? colorAcentoClaro : colorTextoSecundario}
                   style={styles.iconoWifi}
                 />
-                <Text style={styles.tarjetaId}>
-                  {item.incubadoraId?.toUpperCase() ?? item.docId.toUpperCase()}
-                </Text>
+                <View style={styles.tarjetaTextos}>
+                  <Text style={styles.tarjetaNombre}>{item.nombre ?? '—'}</Text>
+                  <Text style={styles.tarjetaId}>
+                    {item.incubadoraId?.toUpperCase() ?? item.docId.toUpperCase()}
+                  </Text>
+                </View>
                 <View style={[styles.badge, item.enLinea ? styles.badgeVerde : styles.badgeGris]}>
                   <Text style={styles.badgeTexto}>
                     {item.enLinea ? 'En línea' : 'Sin conexión'}
@@ -332,11 +335,18 @@ const styles = StyleSheet.create({
   iconoWifi: {
     marginRight: 2,
   },
-  tarjetaId: {
+  tarjetaTextos: {
     flex: 1,
+    gap: 2,
+  },
+  tarjetaNombre: {
     color: colorTexto,
     fontWeight: 'bold',
-    fontSize: 14,
+    fontSize: 15,
+  },
+  tarjetaId: {
+    color: colorTextoSecundario,
+    fontSize: 12,
   },
   tarjetaHospital: {
     color: colorTextoSecundario,

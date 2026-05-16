@@ -12,14 +12,6 @@ import {
   colorTextoSecundario,
 } from '../comun/comun';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
-});
-
 export default function EscaneoPantalla({ navigation }) {
   const [permission, requestPermission] = useCameraPermissions();
   const [procesando, setProcesando] = useState(false);
