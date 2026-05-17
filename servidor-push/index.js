@@ -68,6 +68,11 @@ async function enviarNotificacion(uid, titulo, cuerpo, data) {
     const [ticket] = await expo.sendPushNotificationsAsync([mensaje]);
     if (ticket.status === 'error') {
       console.error(`[Push] Error ticket: ${ticket.message}`);
+      // Token inválido (app desinstalada) → borrar de Firestore
+      if (ticket.details?.error === 'DeviceNotRegistered') {
+        await firestore.collection('usuarios').doc(uid).update({ pushToken: admin.firestore.FieldValue.delete() });
+        console.log(`[Push] Token inválido eliminado para uid=${uid}`);
+      }
     } else {
       console.log(`[Push] OK → ${titulo} para uid=${uid}`);
     }
