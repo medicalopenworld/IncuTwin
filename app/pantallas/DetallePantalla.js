@@ -183,15 +183,6 @@ class DetallePantalla extends Component {
           <FilaInfo icono="hospital-building" label="Hospital" valor={incutwin.hospital} />
           <FilaInfo icono="city" label="Ciudad" valor={incutwin.ciudad} />
           <FilaInfo icono="earth" label="País" valor={incutwin.pais} />
-
-          <View style={styles.filaInfo}>
-            <MaterialCommunityIcons name="led-on" size={18} color={colorTextoSecundario} style={styles.filaIcono} />
-            <Text style={styles.filaLabel}>Color LED</Text>
-            <View style={styles.filaValorFila}>
-              <View style={[styles.colorCirculo, { backgroundColor: incutwin.colorLED ?? '#888' }]} />
-              <Text style={styles.filaValor}>{incutwin.colorLED ?? '—'}</Text>
-            </View>
-          </View>
         </View>
 
         {/* Tarjeta bebé — solo si está en línea */}
@@ -428,17 +419,6 @@ const styles = StyleSheet.create({
     textAlign: 'right',
     flexShrink: 1,
   },
-  filaValorFila: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  colorCirculo: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-  },
-
   // Sin bebé
   sinBebeContenedor: {
     alignItems: 'center',
