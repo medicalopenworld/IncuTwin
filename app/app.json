@@ -22,7 +22,12 @@
       },
       "edgeToEdgeEnabled": true,
       "package": "com.jlacostaarpide.incutwinapp",
-      "googleServicesFile": "./google-services.json"
+      "googleServicesFile": "./google-services.json",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCskYXozWZCUPY3ba0HpbN-HtbN8EWDHw8"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
