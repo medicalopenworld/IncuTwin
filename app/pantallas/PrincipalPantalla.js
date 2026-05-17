@@ -46,6 +46,9 @@ class PrincipalPantalla extends Component {
         this.props.subscribeRealtime(incutwins);
       }
     }
+    this._focusUnsub = this.props.navigation.addListener('focus', () => {
+      this.forceUpdate();
+    });
   }
 
   componentDidUpdate(prevProps) {
@@ -58,6 +61,7 @@ class PrincipalPantalla extends Component {
 
   componentWillUnmount() {
     this.props.unsubscribeRealtime();
+    this._focusUnsub?.();
   }
 
   handleRefresh = async () => {
@@ -79,8 +83,8 @@ class PrincipalPantalla extends Component {
   render() {
     const { navigation } = this.props;
     const { isLoading, errMess, incutwins } = this.props.incutwins;
-    const email = auth.currentUser?.email ?? '';
-    const nombre = email.split('@')[0];
+    const usuario = auth.currentUser;
+    const nombre = usuario?.displayName?.trim() || usuario?.email?.split('@')[0] || '';
 
     if (isLoading) {
       return (

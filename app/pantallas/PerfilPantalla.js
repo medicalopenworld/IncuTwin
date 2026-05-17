@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { sendPasswordResetEmail, signOut } from 'firebase/auth';
+import { sendPasswordResetEmail, signOut, updateProfile } from 'firebase/auth';
 import { auth } from '../comun/firebase';
 import {
   colorAcento,
@@ -20,10 +20,11 @@ function formatearFecha(isoString) {
   return fecha.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' });
 }
 
-function obtenerIniciales(email) {
-  if (!email) return '?';
-  const nombre = email.split('@')[0];
-  return nombre.slice(0, 2).toUpperCase();
+function obtenerIniciales(nombre, email) {
+  const fuente = nombre?.trim() || email?.split('@')[0] || '?';
+  const partes = fuente.split(' ').filter(Boolean);
+  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
+  return fuente.slice(0, 2).toUpperCase();
 }
 
 export default function PerfilPantalla({ navigation }) {
@@ -33,7 +34,34 @@ export default function PerfilPantalla({ navigation }) {
   const usuario = auth.currentUser;
   const email = usuario?.email ?? '';
   const fechaRegistro = formatearFecha(usuario?.metadata?.creationTime);
-  const iniciales = obtenerIniciales(email);
+
+  const [editandoNombre, setEditandoNombre] = useState(false);
+  const [nombreInput, setNombreInput] = useState(usuario?.displayName ?? '');
+  const [guardandoNombre, setGuardandoNombre] = useState(false);
+  const nombreMostrado = usuario?.displayName?.trim() || email.split('@')[0];
+  const iniciales = obtenerIniciales(usuario?.displayName, email);
+
+  const handleGuardarNombre = async () => {
+    const trimmed = nombreInput.trim();
+    if (!trimmed) {
+      Alert.alert('Nombre vacío', 'Escribe un nombre antes de guardar.');
+      return;
+    }
+    try {
+      setGuardandoNombre(true);
+      await updateProfile(usuario, { displayName: trimmed });
+      setEditandoNombre(false);
+    } catch {
+      Alert.alert('Error', 'No se pudo guardar el nombre. Inténtalo de nuevo.');
+    } finally {
+      setGuardandoNombre(false);
+    }
+  };
+
+  const handleCancelarNombre = () => {
+    setNombreInput(usuario?.displayName ?? '');
+    setEditandoNombre(false);
+  };
 
   const handleCambiarContrasena = async () => {
     Alert.alert(
@@ -48,7 +76,7 @@ export default function PerfilPantalla({ navigation }) {
               setEnviandoReset(true);
               await sendPasswordResetEmail(auth, email);
               Alert.alert('Correo enviado', 'Revisa tu bandeja de entrada para restablecer la contraseña.');
-            } catch (error) {
+            } catch {
               Alert.alert('Error', 'No se pudo enviar el correo. Inténtalo de nuevo.');
             } finally {
               setEnviandoReset(false);
@@ -93,6 +121,7 @@ export default function PerfilPantalla({ navigation }) {
         <View style={styles.avatarCirculo}>
           <Text style={styles.avatarIniciales}>{iniciales}</Text>
         </View>
+        <Text style={styles.nombreMostrado}>{nombreMostrado}</Text>
         <Text style={styles.emailTexto}>{email}</Text>
         <Text style={styles.fechaTexto}>Miembro desde {fechaRegistro}</Text>
       </View>
@@ -101,6 +130,49 @@ export default function PerfilPantalla({ navigation }) {
       <View style={styles.tarjeta}>
         <Text style={styles.seccionTitulo}>Cuenta</Text>
 
+        {/* Nombre de usuario */}
+        <View style={styles.filaInfo}>
+          <MaterialCommunityIcons name="account-outline" size={20} color={colorTextoSecundario} />
+          <View style={styles.filaTextos}>
+            <Text style={styles.filaLabel}>Nombre de usuario</Text>
+            {editandoNombre ? (
+              <View style={styles.inputFila}>
+                <TextInput
+                  style={styles.input}
+                  value={nombreInput}
+                  onChangeText={setNombreInput}
+                  placeholder="Tu nombre"
+                  placeholderTextColor={colorTextoSecundario}
+                  autoFocus
+                  maxLength={40}
+                  returnKeyType="done"
+                  onSubmitEditing={handleGuardarNombre}
+                />
+                <TouchableOpacity onPress={handleGuardarNombre} disabled={guardandoNombre} style={styles.inputAccion}>
+                  <MaterialCommunityIcons
+                    name={guardandoNombre ? 'loading' : 'check'}
+                    size={20}
+                    color={colorAcentoClaro}
+                  />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleCancelarNombre} style={styles.inputAccion}>
+                  <MaterialCommunityIcons name="close" size={20} color={colorTextoSecundario} />
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.inputFila}>
+                <Text style={styles.filaValor}>{usuario?.displayName?.trim() || '—'}</Text>
+                <TouchableOpacity onPress={() => setEditandoNombre(true)} style={styles.inputAccion}>
+                  <MaterialCommunityIcons name="pencil-outline" size={18} color={colorTextoSecundario} />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        </View>
+
+        <View style={styles.separador} />
+
+        {/* Email */}
         <View style={styles.filaInfo}>
           <MaterialCommunityIcons name="email-outline" size={20} color={colorTextoSecundario} />
           <View style={styles.filaTextos}>
@@ -111,6 +183,7 @@ export default function PerfilPantalla({ navigation }) {
 
         <View style={styles.separador} />
 
+        {/* Fecha */}
         <View style={styles.filaInfo}>
           <MaterialCommunityIcons name="calendar-outline" size={20} color={colorTextoSecundario} />
           <View style={styles.filaTextos}>
@@ -172,7 +245,7 @@ const styles = StyleSheet.create({
   avatarContenedor: {
     alignItems: 'center',
     marginBottom: 32,
-    gap: 8,
+    gap: 6,
   },
   avatarCirculo: {
     width: 84,
@@ -188,15 +261,18 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colorTexto,
   },
-  emailTexto: {
-    fontSize: 18,
-    fontWeight: '600',
+  nombreMostrado: {
+    fontSize: 20,
+    fontWeight: 'bold',
     color: colorTexto,
+  },
+  emailTexto: {
+    fontSize: 13,
+    color: colorTextoSecundario,
   },
   fechaTexto: {
     fontSize: 13,
     color: colorTextoSecundario,
-  colorTexto,
   },
 
   // Tarjeta
@@ -211,7 +287,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colorTextoSecundario,
-  colorTexto,
     textTransform: 'uppercase',
     letterSpacing: 0.8,
   },
@@ -229,7 +304,6 @@ const styles = StyleSheet.create({
   filaLabel: {
     fontSize: 12,
     color: colorTextoSecundario,
-  colorTexto,
   },
   filaValor: {
     fontSize: 14,
@@ -239,6 +313,24 @@ const styles = StyleSheet.create({
   separador: {
     height: 1,
     backgroundColor: '#1E293B',
+  },
+
+  // Input edición nombre
+  inputFila: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  input: {
+    flex: 1,
+    fontSize: 14,
+    color: colorTexto,
+    borderBottomWidth: 1,
+    borderBottomColor: colorAcento,
+    paddingVertical: 2,
+  },
+  inputAccion: {
+    padding: 4,
   },
 
   // Fila botón
