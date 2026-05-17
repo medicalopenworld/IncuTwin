@@ -1,5 +1,5 @@
 import { Component } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar } from 'react-native';
 import { connect } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
@@ -21,11 +21,14 @@ const mapStateToProps = (state, ownProps) => ({
 });
 
 class DetallePantalla extends Component {
-  _escala = new Animated.Value(1);
+  _escala   = new Animated.Value(1);
   _animacion = null;
+  _shimmer   = new Animated.Value(0);
+  _shimmerLoop = null;
 
   componentDidMount() {
     this._iniciarLatido(this.props.incutwin?.bpm);
+    if (this.props.incutwin?.holdDetected) this._iniciarShimmer();
   }
 
   componentDidUpdate(prevProps) {
@@ -33,7 +36,6 @@ class DetallePantalla extends Component {
     const bpmActual = this.props.incutwin?.bpm;
     const conBebeAnterior = prevProps.incutwin?.conBebe;
     const conBebeActual = this.props.incutwin?.conBebe;
-
     const enLineaActual = this.props.incutwin?.enLinea;
     const enLineaAnterior = prevProps.incutwin?.enLinea;
 
@@ -48,10 +50,33 @@ class DetallePantalla extends Component {
     } else if (seDesconectó) {
       this._iniciarLatido(0);
     }
+
+    const holdAnterior = prevProps.incutwin?.holdDetected;
+    const holdActual = this.props.incutwin?.holdDetected;
+    if (holdActual && !holdAnterior) this._iniciarShimmer();
+    if (!holdActual && holdAnterior) this._detenerShimmer();
   }
 
   componentWillUnmount() {
     this._animacion?.stop();
+    this._shimmerLoop?.stop();
+  }
+
+  _iniciarShimmer() {
+    this._shimmerLoop?.stop();
+    this._shimmer.setValue(0);
+    this._shimmerLoop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(this._shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
+        Animated.timing(this._shimmer, { toValue: 0, duration: 1500, useNativeDriver: true }),
+      ])
+    );
+    this._shimmerLoop.start();
+  }
+
+  _detenerShimmer() {
+    this._shimmerLoop?.stop();
+    this._shimmer.setValue(0);
   }
 
   _iniciarLatido(bpm) {
@@ -88,7 +113,16 @@ class DetallePantalla extends Component {
     const tieneBpm = incutwin.bpm > 0;
     const tieneTemp = incutwin.temperatura > 0;
 
+    const shimmerOpacity = this._shimmer.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 0.38],
+    });
+
     return (
+      <View style={[styles.fondoWrapper, { backgroundColor: incutwin.holdDetected ? '#0EA5E9' : colorPrimario }]}>
+        {incutwin.holdDetected && (
+          <Animated.View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#FFFFFF', opacity: shimmerOpacity }]} pointerEvents="none" />
+        )}
       <ScrollView style={styles.fondo} contentContainerStyle={styles.contenedor}>
 
         {/* Botón volver */}
@@ -231,6 +265,7 @@ class DetallePantalla extends Component {
         )}
 
       </ScrollView>
+      </View>
     );
   }
 }
@@ -248,9 +283,11 @@ function FilaInfo({ icono, iconoColor = colorTextoSecundario, label, valor }) {
 export default connect(mapStateToProps)(DetallePantalla);
 
 const styles = StyleSheet.create({
+  fondoWrapper: {
+    flex: 1,
+  },
   fondo: {
     flex: 1,
-    backgroundColor: colorPrimario,
   },
   contenedor: {
     paddingHorizontal: 20,

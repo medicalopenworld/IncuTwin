@@ -1,6 +1,7 @@
-import { Component } from 'react';
+import { Component, useRef, useEffect } from 'react';
 import {
   ActivityIndicator,
+  Animated,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -160,53 +161,11 @@ class PrincipalPantalla extends Component {
           </View>
         ) : (
           [...incutwins].sort((a, b) => (b.enLinea ? 1 : 0) - (a.enLinea ? 1 : 0)).map((item) => (
-            <TouchableOpacity
+            <IncutwinCard
               key={item.docId}
-              style={styles.tarjeta}
+              item={item}
               onPress={() => navigation.navigate('Detalle', { incutwinId: item.docId, incubadoraId: item.incubadoraId })}
-              activeOpacity={0.8}
-            >
-              {/* Fila superior: icono + nombre + badge */}
-              <View style={styles.tarjetaFila}>
-                <MaterialCommunityIcons
-                  name="wifi"
-                  size={22}
-                  color={item.enLinea ? colorAcentoClaro : colorTextoSecundario}
-                  style={styles.iconoWifi}
-                />
-                <View style={styles.tarjetaTextos}>
-                  <Text style={styles.tarjetaNombre}>{item.nombre ?? '—'}</Text>
-                  <Text style={styles.tarjetaId}>
-                    {item.incubadoraId?.toUpperCase() ?? item.docId.toUpperCase()}
-                  </Text>
-                </View>
-                <View style={[styles.badge, item.enLinea ? styles.badgeVerde : styles.badgeGris]}>
-                  <Text style={styles.badgeTexto}>
-                    {item.enLinea ? 'En línea' : 'Sin conexión'}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Hospital */}
-              <View style={styles.tarjetaFila}>
-                <MaterialCommunityIcons name="map-marker" size={16} color={colorTextoSecundario} />
-                <Text style={styles.tarjetaHospital}>{item.hospital ?? '—'}</Text>
-              </View>
-
-              {/* Bebé */}
-              {item.enLinea && (
-                item.conBebe ? (
-                  <View style={styles.bebeInfo}>
-                    <MaterialCommunityIcons name="baby-face-outline" size={16} color={colorAlerta} />
-                    <Text style={styles.bebeTexto}>
-                      {item.bebe?.nombre ?? 'Sin nombre'} · {item.bebe?.semanas ?? '?'} sem
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.sinBebe}>Sin bebé</Text>
-                )
-              )}
-            </TouchableOpacity>
+            />
           ))
         )}
       </ScrollView>
@@ -221,6 +180,79 @@ class PrincipalPantalla extends Component {
       </View>
     );
   }
+}
+
+function IncutwinCard({ item, onPress }) {
+  const pulse = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    let anim;
+    if (item.holdDetected) {
+      // Siempre brillante: pulsa entre azul cielo y blanco puro, sin volver al oscuro
+      anim = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1, duration: 450, useNativeDriver: false }),
+          Animated.timing(pulse, { toValue: 0, duration: 450, useNativeDriver: false }),
+        ])
+      );
+      anim.start();
+    } else {
+      pulse.setValue(0);
+    }
+    return () => anim?.stop();
+  }, [item.holdDetected]);
+
+  // Azul brillante ↔ blanco puro. Nunca oscuro.
+  const cardBg = item.holdDetected
+    ? pulse.interpolate({
+        inputRange: [0, 1],
+        outputRange: ['#38BDF8', '#FFFFFF'],
+      })
+    : colorPrimarioMedio;
+
+  return (
+    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={styles.tarjetaWrapper}>
+      <Animated.View style={[styles.tarjeta, { backgroundColor: cardBg }]}>
+        <View style={styles.tarjetaFila}>
+          <MaterialCommunityIcons
+            name="wifi"
+            size={22}
+            color={item.enLinea ? colorAcentoClaro : colorTextoSecundario}
+            style={styles.iconoWifi}
+          />
+          <View style={styles.tarjetaTextos}>
+            <Text style={styles.tarjetaNombre}>{item.nombre ?? '—'}</Text>
+            <Text style={styles.tarjetaId}>
+              {item.incubadoraId?.toUpperCase() ?? item.docId.toUpperCase()}
+            </Text>
+          </View>
+          <View style={[styles.badge, item.enLinea ? styles.badgeVerde : styles.badgeGris]}>
+            <Text style={styles.badgeTexto}>
+              {item.enLinea ? 'En línea' : 'Sin conexión'}
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.tarjetaFila}>
+          <MaterialCommunityIcons name="map-marker" size={16} color={colorTextoSecundario} />
+          <Text style={styles.tarjetaHospital}>{item.hospital ?? '—'}</Text>
+        </View>
+
+        {item.enLinea && (
+          item.conBebe ? (
+            <View style={styles.bebeInfo}>
+              <MaterialCommunityIcons name="baby-face-outline" size={16} color={colorAlerta} />
+              <Text style={styles.bebeTexto}>
+                {item.bebe?.nombre ?? 'Sin nombre'} · {item.bebe?.semanas ?? '?'} sem
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.sinBebe}>Sin bebé</Text>
+          )
+        )}
+      </Animated.View>
+    </TouchableOpacity>
+  );
 }
 
 export default connect(mapStateToProps, mapDispatchToProps)(PrincipalPantalla);
@@ -320,11 +352,13 @@ const styles = StyleSheet.create({
   },
 
   // Tarjeta incutwin
+  tarjetaWrapper: {
+    marginBottom: 12,
+  },
   tarjeta: {
     backgroundColor: colorPrimarioMedio,
     borderRadius: 14,
     padding: 16,
-    marginBottom: 12,
     gap: 8,
   },
   tarjetaFila: {
