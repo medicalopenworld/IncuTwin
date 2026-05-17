@@ -124,9 +124,6 @@ async function evaluarCambio(incubadoraId, nuevo) {
   const navData = { incutwinId: incutwin.docId, incubadoraId };
 
   // --- Conexión / desconexión ---
-  if (anterior.enLinea !== nuevo.enLinea) {
-    console.log(`[CAMBIO] ${incubadoraId} enLinea: ${anterior.enLinea}(${typeof anterior.enLinea}) → ${nuevo.enLinea}(${typeof nuevo.enLinea})`);
-  }
   if (anterior.enLinea && !nuevo.enLinea) {
     await enviarNotificacion(uid, 'Incutwin desconectada', `${nombre} ha perdido la conexión.`, navData);
     return;
