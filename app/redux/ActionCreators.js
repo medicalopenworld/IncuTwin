@@ -1,8 +1,8 @@
-import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, query, where, getDocs, doc, updateDoc, deleteField } from 'firebase/firestore';
 import { ref, onValue } from 'firebase/database';
 import * as Notifications from 'expo-notifications';
 import { app, database } from '../comun/firebase';
-import { INCUTWINS_LOADING, INCUTWINS_SUCCESS, INCUTWINS_FAILED, INCUTWIN_REALTIME_UPDATE } from './ActionTypes';
+import { INCUTWINS_LOADING, INCUTWINS_SUCCESS, INCUTWINS_FAILED, INCUTWIN_REALTIME_UPDATE, INCUTWIN_REMOVE } from './ActionTypes';
 
 const BPM_MIN = 100;
 const BPM_MAX = 180;
@@ -90,4 +90,10 @@ export const unsubscribeRealtime = () => () => {
   _unsubscribers.forEach((unsub) => unsub());
   _unsubscribers = [];
   _initialized.clear();
+};
+
+export const removeIncutwin = (docId) => (dispatch) => {
+  dispatch({ type: INCUTWIN_REMOVE, payload: docId });
+  const db = getFirestore(app);
+  updateDoc(doc(db, 'incutwins', docId), { propietarioUid: deleteField() }).catch(() => {});
 };

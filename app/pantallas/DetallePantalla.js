@@ -1,7 +1,8 @@
 import { Component } from 'react';
-import { Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar } from 'react-native';
+import { Alert, Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View, StatusBar } from 'react-native';
 import { connect } from 'react-redux';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { removeIncutwin } from '../redux/ActionCreators';
 import MapView, { Marker } from 'react-native-maps';
 import {
   colorAcento,
@@ -19,6 +20,8 @@ const mapStateToProps = (state, ownProps) => ({
     (i) => i.docId === ownProps.route.params.incutwinId
   ),
 });
+
+const mapDispatchToProps = { removeIncutwin };
 
 class DetallePantalla extends Component {
   _escala   = new Animated.Value(1);
@@ -61,6 +64,25 @@ class DetallePantalla extends Component {
     this._animacion?.stop();
     this._shimmerLoop?.stop();
   }
+
+  handleEliminar = () => {
+    const { incutwin, navigation } = this.props;
+    Alert.alert(
+      'Eliminar incutwin',
+      `¿Quieres desvincular "${incutwin.nombre ?? incutwin.incubadoraId}"? Podrás añadirla de nuevo escaneando su QR.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            this.props.removeIncutwin(incutwin.docId);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  };
 
   _iniciarShimmer() {
     this._shimmerLoop?.stop();
@@ -125,11 +147,16 @@ class DetallePantalla extends Component {
         )}
       <ScrollView style={styles.fondo} contentContainerStyle={styles.contenedor}>
 
-        {/* Botón volver */}
-        <TouchableOpacity style={styles.volver} onPress={() => navigation.goBack()}>
-          <MaterialCommunityIcons name="arrow-left" size={22} color={colorTexto} />
-          <Text style={styles.volverTexto}>Volver</Text>
-        </TouchableOpacity>
+        {/* Cabecera: volver + eliminar */}
+        <View style={styles.cabecera}>
+          <TouchableOpacity style={styles.volver} onPress={() => navigation.goBack()}>
+            <MaterialCommunityIcons name="arrow-left" size={22} color={colorTexto} />
+            <Text style={styles.volverTexto}>Volver</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={this.handleEliminar} style={styles.eliminarBoton}>
+            <MaterialCommunityIcons name="trash-can-outline" size={22} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
 
         {/* Nombre + badge estado */}
         <View style={styles.tituloFila}>
@@ -280,7 +307,7 @@ function FilaInfo({ icono, iconoColor = colorTextoSecundario, label, valor }) {
   );
 }
 
-export default connect(mapStateToProps)(DetallePantalla);
+export default connect(mapStateToProps, mapDispatchToProps)(DetallePantalla);
 
 const styles = StyleSheet.create({
   fondoWrapper: {
@@ -306,16 +333,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
 
-  // Volver
+  // Cabecera
+  cabecera: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 28,
+  },
   volver: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    marginBottom: 28,
   },
   volverTexto: {
     color: colorTexto,
     fontSize: 16,
+  },
+  eliminarBoton: {
+    padding: 4,
   },
 
   // Título

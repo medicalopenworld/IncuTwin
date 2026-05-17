@@ -1,4 +1,4 @@
-import { INCUTWINS_LOADING, INCUTWINS_SUCCESS, INCUTWINS_FAILED, INCUTWIN_REALTIME_UPDATE } from './ActionTypes';
+import { INCUTWINS_LOADING, INCUTWINS_SUCCESS, INCUTWINS_FAILED, INCUTWIN_REALTIME_UPDATE, INCUTWIN_REMOVE } from './ActionTypes';
 
 const initialState = {
   isLoading: false,
@@ -22,6 +22,11 @@ export const incutwinReducer = (state = initialState, action) => {
             ? { ...item, ...action.payload.data }
             : item
         ),
+      };
+    case INCUTWIN_REMOVE:
+      return {
+        ...state,
+        incutwins: state.incutwins.filter((item) => item.docId !== action.payload),
       };
     default:
       return state;
