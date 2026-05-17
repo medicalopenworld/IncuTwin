@@ -7,9 +7,6 @@ import { app } from './firebase';
 export async function registrarTokenPush(uid) {
   if (!uid) return;
 
-  // Solo dispositivos físicos reciben push notifications reales
-  if (!Constants.isDevice) return;
-
   const { status } = await Notifications.getPermissionsAsync();
   if (status !== 'granted') return;
 

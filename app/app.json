@@ -25,6 +25,14 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-notifications"]
+    "plugins": [
+      "expo-notifications"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0acb8aa8-75c3-4f84-9449-2698d6a617d9"
+      }
+    },
+    "owner": "jlacostaarpide"
   }
 }
