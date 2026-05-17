@@ -86,22 +86,52 @@ async function enviarNotificacion(uid, titulo, cuerpo, data) {
 // =============================================================================
 async function evaluarCambio(incubadoraId, nuevo) {
   const anterior = estadoAnterior[incubadoraId];
-  if (!anterior) return; // primera carga, sin estado previo
+  if (!anterior) {
+    console.log(`[EVAL] ${incubadoraId} — sin estado anterior, ignorando`);
+    return;
+  }
+
+  console.log(`[EVAL] ${incubadoraId} enLinea:${anterior.enLinea}→${nuevo.enLinea} conBebe:${anterior.conBebe}→${nuevo.conBebe} holdDetected:${anterior.holdDetected}→${nuevo.holdDetected} bpm:${anterior.bpm}→${nuevo.bpm}`);
 
   const incutwin = await getIncutwinFirestore(incubadoraId);
-  if (!incutwin?.propietarioUid) return;
+  if (!incutwin) {
+    console.log(`[EVAL] ${incubadoraId} — no encontrada en Firestore`);
+    return;
+  }
+  if (!incutwin.propietarioUid) {
+    console.log(`[EVAL] ${incubadoraId} — sin propietarioUid`);
+    return;
+  }
 
   const uid     = incutwin.propietarioUid;
   const nombre  = incutwin.nombre ?? incubadoraId;
   const navData = { incutwinId: incutwin.docId, incubadoraId };
 
-  // --- Desconexión ---
+  // --- Conexión / desconexión ---
   if (anterior.enLinea && !nuevo.enLinea) {
     await enviarNotificacion(uid, 'Incutwin desconectada', `${nombre} ha perdido la conexión.`, navData);
     return;
   }
+  if (!anterior.enLinea && nuevo.enLinea) {
+    await enviarNotificacion(uid, 'Incutwin conectada', `${nombre} está ahora en línea.`, navData);
+  }
 
-  if (!nuevo.enLinea || !nuevo.conBebe) return;
+  if (!nuevo.enLinea) return;
+
+  // --- Bebé ---
+  if (!anterior.conBebe && nuevo.conBebe) {
+    await enviarNotificacion(uid, '👶 Bebé asignado', `Se ha asignado un bebé a ${nombre}.`, navData);
+  } else if (anterior.conBebe && !nuevo.conBebe) {
+    await enviarNotificacion(uid, 'Bebé retirado', `El bebé ha sido retirado de ${nombre}.`, navData);
+  }
+
+  // --- Mano detectada ---
+  if (!anterior.holdDetected && nuevo.holdDetected && nuevo.conBebe) {
+    const bebe = incutwin.bebe?.nombre ?? 'tu bebé';
+    await enviarNotificacion(uid, '💛 Mensaje de cariño', `Acabas de mandar un mensaje de cariño a ${bebe}.`, navData);
+  }
+
+  if (!nuevo.conBebe) return;
 
   // --- BPM ---
   if (nuevo.bpm > 0) {
