@@ -28,10 +28,15 @@ const TEMP_MAX = 37.5;
 // Estado anterior de cada incubadora (en memoria)
 const estadoAnterior = {};
 
+// Cache de datos Firestore para no consultar en cada cambio de RTDB
+const firestoreCache = {};
+
 // =============================================================================
 // Obtiene el docId de Firestore y el propietarioUid de una incutwin por su id
 // =============================================================================
 async function getIncutwinFirestore(incubadoraId) {
+  if (firestoreCache[incubadoraId]) return firestoreCache[incubadoraId];
+
   const snap = await firestore
     .collection('incutwins')
     .where('id', '==', incubadoraId)
@@ -39,8 +44,19 @@ async function getIncutwinFirestore(incubadoraId) {
     .get();
   if (snap.empty) return null;
   const docSnap = snap.docs[0];
-  return { docId: docSnap.id, ...docSnap.data() };
+  const data = { docId: docSnap.id, ...docSnap.data() };
+  firestoreCache[incubadoraId] = data;
+  return data;
 }
+
+// Escucha cambios en Firestore (propietarioUid) para mantener el cache actualizado
+firestore.collection('incutwins').onSnapshot((snap) => {
+  snap.docs.forEach((docSnap) => {
+    const data = docSnap.data();
+    if (data.id) firestoreCache[data.id] = { docId: docSnap.id, ...data };
+  });
+  console.log('[Firestore] Cache actualizado');
+});
 
 // =============================================================================
 // Envía una notificación push a un usuario concreto
