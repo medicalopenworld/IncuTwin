@@ -100,8 +100,7 @@ async function enviarNotificacion(uid, titulo, cuerpo, data) {
 // =============================================================================
 // Evalúa qué notificaciones lanzar al detectar un cambio en una incubadora
 // =============================================================================
-async function evaluarCambio(incubadoraId, nuevo) {
-  const anterior = estadoAnterior[incubadoraId];
+async function evaluarCambio(incubadoraId, nuevo, anterior) {
   if (!anterior) {
     console.log(`[EVAL] ${incubadoraId} — sin estado anterior, ignorando`);
     return;
@@ -174,15 +173,15 @@ async function evaluarCambio(incubadoraId, nuevo) {
 // Listener principal — escucha cambios en /incutwins en tiempo real
 // =============================================================================
 rtdb.ref('incutwins').on('child_changed', async (snapshot) => {
-  const id    = snapshot.key;
-  const nuevo = snapshot.val();
+  const id       = snapshot.key;
+  const nuevo    = snapshot.val();
+  const anterior = estadoAnterior[id];
+  estadoAnterior[id] = nuevo;
 
   try {
-    await evaluarCambio(id, nuevo);
+    await evaluarCambio(id, nuevo, anterior);
   } catch (e) {
     console.error(`[RTDB] Error procesando ${id}:`, e.message);
-  } finally {
-    estadoAnterior[id] = nuevo;
   }
 });
 
