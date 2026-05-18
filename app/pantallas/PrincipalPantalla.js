@@ -103,7 +103,7 @@ class PrincipalPantalla extends Component {
     }
 
     const totalIncutwins = incutwins.length;
-    const conBebe = incutwins.filter((i) => i.conBebe).length;
+    const conBebe = incutwins.filter((i) => i.enLinea && i.conBebe).length;
     const enLinea = incutwins.filter((i) => i.enLinea).length;
 
     return (
