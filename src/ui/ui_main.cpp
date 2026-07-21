@@ -541,16 +541,18 @@ static void ui_apply_state(void) {
         parents_until = 0;
     }
     prev_baby = show_baby;
-    bool parents = parents_until != 0 &&
-                   (int32_t)(millis() - parents_until) < 0;
+    if (parents_until != 0 && (int32_t)(millis() - parents_until) >= 0)
+        parents_until = 0; /* expirada: que no re-arme tras el wrap */
+    bool parents_active = parents_until != 0 &&
+                          (int32_t)(millis() - parents_until) < 0;
 
     wifi_icon_update(&st);
-    home_set_view(parents ? VIEW_PARENTS
-                          : show_baby ? VIEW_BABY : VIEW_EMPTY);
+    home_set_view(parents_active ? VIEW_PARENTS
+                                 : show_baby ? VIEW_BABY : VIEW_EMPTY);
     sound_on_state(&st);
 
     /* status bar: one line that always tells the IncuTwin state */
-    if (parents)
+    if (parents_active)
         status_bar_set(STR_ST_PARENTS, COL_OK);
     else if (!st.wifi_connected)
         status_bar_set(STR_ST_NO_WIFI, COL_RED);
