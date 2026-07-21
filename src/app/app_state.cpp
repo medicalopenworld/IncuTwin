@@ -23,3 +23,11 @@ void state_init(void) {
 
 void state_lock(void) { xSemaphoreTake(s_mutex, portMAX_DELAY); }
 void state_unlock(void) { xSemaphoreGive(s_mutex); }
+
+thermo_state_t thermo_from_str(const char *s) {
+    if (!s) return THERMO_OFF;
+    if (!strcmp(s, "heating")) return THERMO_HEATING;
+    if (!strcmp(s, "stable")) return THERMO_STABLE;
+    if (!strcmp(s, "alarm")) return THERMO_ALARM;
+    return THERMO_OFF;
+}
