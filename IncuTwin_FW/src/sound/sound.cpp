@@ -21,13 +21,21 @@ static const melody_note_t BOOT_MELODY[] = {
 static const melody_note_t BABY_MELODY[] = {
     {784, 90}, {1047, 90}, {1319, 220}};           /* G5 C6 E6    */
 
+/* three rising C-major arpeggios + held top note: "level clear" feel */
+static const melody_note_t PARENTS_MELODY[] = {
+    {523, 80},  {659, 80},  {784, 80},  {1047, 80},   /* C5 E5 G5 C6 */
+    {659, 80},  {784, 80},  {1047, 80}, {1319, 80},   /* E5 G5 C6 E6 */
+    {784, 80},  {1047, 80}, {1319, 80}, {1568, 200},  /* G5 C6 E6 G6 */
+    {0, 60},    {1568, 80}, {0, 40},    {2093, 400},  /* ta-ta... C7! */
+};
+
 /* heartbeat "lub-dub" (E4/C4; one octave up if too quiet on hardware) */
 #define HB_LUB_HZ 330
 #define HB_LUB_MS 50
 #define HB_GAP_MS 110
 #define HB_DUB_HZ 262
 #define HB_DUB_MS 40
-#define HB_WINDOW_MS 10000 /* audible heartbeat after baby detected */
+#define HB_WINDOW_MS 3000 /* audible heartbeat after baby detected */
 
 static bool s_enabled = true;
 
@@ -157,6 +165,10 @@ bool sound_is_enabled(void) { return s_enabled; }
 
 void sound_play_boot(void) {
     seq_start(BOOT_MELODY, ARRAY_LEN(BOOT_MELODY));
+}
+
+void sound_play_parents(void) {
+    seq_start(PARENTS_MELODY, ARRAY_LEN(PARENTS_MELODY));
 }
 
 void sound_on_state(const twin_state_t *st) {
