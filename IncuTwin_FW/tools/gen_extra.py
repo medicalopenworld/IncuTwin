@@ -124,6 +124,18 @@ def make_incunest_empty():
                         color=(255, 255, 255))
 
 
+def make_baby_parents():
+    """Images/Baby_with_parents.png upright on the portrait screen, same
+    treatment as the empty incubator: crop white margins, pad to 240x320."""
+    im = Image.open(os.path.join(IMAGES, "Baby_with_parents.png")).convert("RGB")
+    bg = Image.new("RGB", im.size, (255, 255, 255))
+    diff = ImageChops.difference(im, bg).convert("L")
+    bbox = diff.point(lambda v: 255 if v > 16 else 0).getbbox()
+    im = im.crop(bbox)
+    return ImageOps.pad(im, (SCREEN_W, SCREEN_H), Image.LANCZOS,
+                        color=(255, 255, 255))
+
+
 def emit_true_color(name, im, f):
     """RGB565 without alpha (full-screen backgrounds: 2 bytes/px)."""
     w, h = im.size
@@ -155,6 +167,7 @@ extern const lv_img_dsc_t img_wifi_1;
 extern const lv_img_dsc_t img_wifi_2;
 extern const lv_img_dsc_t img_wifi_3;
 extern const lv_img_dsc_t img_incunest_empty;
+extern const lv_img_dsc_t img_baby_parents;
 """
 
 
@@ -167,6 +180,7 @@ def main():
     wifis = [make_wifi(i) for i in range(4)]
     wifi_off = make_wifi_off()
     empty = make_incunest_empty()
+    parents = make_baby_parents()
 
     wm.save(os.path.join(PREVIEW, "wordmark.png"))
     th.save(os.path.join(PREVIEW, "icon_thermo.png"))
@@ -175,6 +189,7 @@ def main():
     for i, w in enumerate(wifis):
         w.save(os.path.join(PREVIEW, f"wifi_{i}.png"))
     empty.save(os.path.join(PREVIEW, "incunest_empty.png"))
+    parents.save(os.path.join(PREVIEW, "baby_parents.png"))
     print("wordmark:", wm.size, " empty:", empty.size)
 
     with open(os.path.join(ASSETS, "img_extra.c"), "w") as f:
@@ -186,6 +201,7 @@ def main():
         for i, w in enumerate(wifis):
             emit_true_color_alpha(f"img_wifi_{i}", w, f)
         emit_true_color("img_incunest_empty", empty, f)
+        emit_true_color("img_baby_parents", parents, f)
 
     # append externs to assets.h if missing (gen_assets.py rewrites the file)
     hpath = os.path.join(ASSETS, "assets.h")
