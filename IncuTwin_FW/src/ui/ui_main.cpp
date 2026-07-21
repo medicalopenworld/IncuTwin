@@ -38,7 +38,7 @@ typedef enum {
 
 static lv_obj_t *scr_splash, *scr_home, *scr_settings;
 static lv_obj_t *s_halo;
-static lv_obj_t *s_empty_img, *s_wifi_img;
+static lv_obj_t *s_empty_img, *s_parents_img, *s_wifi_img;
 static lv_obj_t *s_icon_thermo, *s_icon_photo, *s_icon_heart;
 static lv_obj_t *s_btn_hand, *s_lbl_hand;
 static lv_obj_t *s_status, *s_lbl_status;
@@ -235,6 +235,13 @@ static void build_home(void) {
     lv_img_set_src(s_empty_img, &img_incunest_empty);
     lv_obj_set_pos(s_empty_img, 0, 0);
     lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
+
+    /* full-screen "baby with parents", shown for a while after the baby
+     * leaves the incubator (see PARENTS_MODE_MS) */
+    s_parents_img = lv_img_create(scr_home);
+    lv_img_set_src(s_parents_img, &img_baby_parents);
+    lv_obj_set_pos(s_parents_img, 0, 0);
+    lv_obj_add_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
 
     /* breathing halo behind the baby */
     s_halo = lv_obj_create(scr_home);
@@ -465,20 +472,30 @@ static void wifi_icon_update(const twin_state_t *st) {
     }
 }
 
-/* show the animated baby (online with baby) or the empty incubator */
-static void home_set_view(bool show_baby) {
+/* what fills the centre of the home screen */
+typedef enum {
+    VIEW_EMPTY = 0, /* empty incubator (offline / no baby) */
+    VIEW_BABY,      /* animated baby + icons + hand button */
+    VIEW_PARENTS,   /* baby out with parents               */
+} home_view_t;
+
+static void home_set_view(home_view_t view) {
     lv_obj_t *widgets[] = {baby_widget_obj(), s_icon_thermo, s_icon_photo,
                            s_icon_heart, s_btn_hand};
     for (auto *w : widgets) {
-        if (show_baby)
+        if (view == VIEW_BABY)
             lv_obj_clear_flag(w, LV_OBJ_FLAG_HIDDEN);
         else
             lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
     }
-    if (show_baby)
-        lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
-    else
+    if (view == VIEW_EMPTY)
         lv_obj_clear_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
+    if (view == VIEW_PARENTS)
+        lv_obj_clear_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
 }
 
 static void status_bar_set(str_id_t sid, lv_color_t col) {
@@ -499,12 +516,43 @@ static void ui_apply_state(void) {
                   st.incubator_online && !stale;
     bool show_baby = online && st.baby_present;
 
+    /* traza cada transicion del bebe con los flags que la explican */
+    static int prev_show = -1;
+    if ((int)show_baby != prev_show) {
+        prev_show = show_baby;
+        Serial.printf("[ui] show_baby=%d wifi=%d cloud=%d node=%d inc_on=%d "
+                      "stale=%d baby=%d hr=%u thermo=%d age_ms=%lu t=%lu\n",
+                      show_baby, st.wifi_connected, st.cloud_connected,
+                      st.node_seen, st.incubator_online, stale,
+                      st.baby_present, st.heart_rate, (int)st.thermo,
+                      (unsigned long)(millis() - st.last_update_ms),
+                      (unsigned long)millis());
+    }
+
+    /* ventana "con sus papás": cualquier caída de show_baby la abre;
+     * el bebé de vuelta la cancela. Resta con signo por el rollover. */
+    static bool prev_baby = false;
+    static uint32_t parents_until = 0; /* 0 = inactiva */
+    if (!show_baby && prev_baby) {
+        parents_until = millis() + PARENTS_MODE_MS;
+        if (parents_until == 0) parents_until = 1;
+        sound_play_parents();
+    } else if (show_baby) {
+        parents_until = 0;
+    }
+    prev_baby = show_baby;
+    bool parents = parents_until != 0 &&
+                   (int32_t)(millis() - parents_until) < 0;
+
     wifi_icon_update(&st);
-    home_set_view(show_baby);
+    home_set_view(parents ? VIEW_PARENTS
+                          : show_baby ? VIEW_BABY : VIEW_EMPTY);
     sound_on_state(&st);
 
     /* status bar: one line that always tells the IncuTwin state */
-    if (!st.wifi_connected)
+    if (parents)
+        status_bar_set(STR_ST_PARENTS, COL_OK);
+    else if (!st.wifi_connected)
         status_bar_set(STR_ST_NO_WIFI, COL_RED);
     else if (!st.cloud_connected)
         status_bar_set(STR_ST_CONNECTING, COL_WARM);

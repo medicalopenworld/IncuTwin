@@ -37,6 +37,7 @@
 #define DEFAULT_SKIN_TONE 1       /* hasta que llegue el del país asignado  */
 #define SPLASH_MS 2500
 #define DATA_STALE_S 90           /* incubadora sin conexión si no hay datos */
+#define PARENTS_MODE_MS (15UL * 60UL * 1000UL) /* ventana "con sus papás" */
 #define FACTORY_RESET_HOLD_MS 10000 /* mantener engranaje para reset         */
 
 #define FW_TITLE "incutwin"       /* debe coincidir con el paquete OTA en TB */
