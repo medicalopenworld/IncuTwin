@@ -13,6 +13,11 @@
 
 static WebServer *s_http = nullptr;
 
+/* --------------------------------------------------------------------- demo */
+
+static volatile bool s_demo_run = false;
+static volatile uint32_t s_demo_interval_ms = 10000;
+
 /* ---------------------------------------------------------------- escenarios */
 
 typedef struct {
@@ -146,6 +151,21 @@ static void handle_state_post(void) {
     handle_state_get(); /* responde con el estado resultante */
 }
 
+static void handle_demo_post(void) {
+    String body = s_http->arg("plain");
+    StaticJsonDocument<128> doc;
+    if (deserializeJson(doc, body) != DeserializationError::Ok ||
+        !doc["run"].is<bool>()) {
+        s_http->send(400, "text/plain", "bad json");
+        return;
+    }
+    int ival = doc["interval_s"] | 10;
+    s_demo_interval_ms = (uint32_t)constrain(ival, 2, 120) * 1000UL;
+    s_demo_run = doc["run"].as<bool>();
+    s_http->send(200, "application/json",
+                 s_demo_run ? "{\"run\":true}" : "{\"run\":false}");
+}
+
 /* Página única de control. Sin dependencias externas. Estilo del portal. */
 static const char SIM_PAGE[] PROGMEM = R"HTML(<!DOCTYPE html><html><head>
 <meta charset='utf-8'>
@@ -250,6 +270,9 @@ static void handle_root(void) {
 static void sim_task(void *arg) {
     (void)arg;
     uint32_t last_touch = 0;
+    uint32_t last_demo = 0;
+    size_t demo_idx = 0;
+
     while (true) {
         if (s_http) s_http->handleClient();
 
@@ -261,6 +284,15 @@ static void sim_task(void *arg) {
             g_state.last_update_ms = millis();
             state_unlock();
         }
+
+        /* Demo: rota los escenarios en bucle, en firmware, para
+         * sobrevivir al cierre de la pestaña del navegador. */
+        if (s_demo_run && millis() - last_demo >= s_demo_interval_ms) {
+            last_demo = millis();
+            apply_scenario(SCENARIOS[demo_idx].id);
+            demo_idx = (demo_idx + 1) % N_SCENARIOS;
+        }
+
         vTaskDelay(pdMS_TO_TICKS(5));
     }
 }
@@ -285,6 +317,7 @@ void sim_server_start(void) {
     s_http->on("/", handle_root);
     s_http->on("/state", HTTP_GET, handle_state_get);
     s_http->on("/state", HTTP_POST, handle_state_post);
+    s_http->on("/demo", HTTP_POST, handle_demo_post);
     s_http->begin();
 
     xTaskCreatePinnedToCore(sim_task, "sim_http", 8192, nullptr, 1, nullptr, 0);
