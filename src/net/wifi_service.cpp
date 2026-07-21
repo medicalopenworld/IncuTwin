@@ -19,6 +19,14 @@ static void on_wifi_event(WiFiEvent_t event) {
     state_unlock();
 
     if (disconnected) WiFi.reconnect();
+
+    if (connected) {
+        Serial.printf("[wifi] IP: %s\n", WiFi.localIP().toString().c_str());
+#ifdef SIM_MODE
+        Serial.printf("[SIM] panel de control: http://%s/\n",
+                      WiFi.localIP().toString().c_str());
+#endif
+    }
 }
 
 void wifi_service_start(void) {
