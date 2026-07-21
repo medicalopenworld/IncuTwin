@@ -133,7 +133,9 @@ static void handle_state_post(void) {
         s_http->send(400, "text/plain", "bad body size");
         return;
     }
-    StaticJsonDocument<768> doc;
+    /* Buffer JSON: 1024 bytes para evitar fallos de NoMemory
+     * cuando el JSON válido se acerca a 768 B (tamaño max del cuerpo). */
+    StaticJsonDocument<1024> doc;
     if (deserializeJson(doc, body) != DeserializationError::Ok ||
         !doc.is<JsonObjectConst>()) {
         s_http->send(400, "text/plain", "bad json");
