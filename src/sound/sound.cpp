@@ -8,6 +8,7 @@
 #include "pins_config.h"
 
 #define BUZZER_LEDC_CH 2 /* backlight owns ch 0; 0-1 share a timer */
+#define ARRAY_LEN(a) (sizeof(a) / sizeof((a)[0]))
 
 typedef struct {
     uint16_t freq;   /* Hz, 0 = rest */
@@ -41,6 +42,7 @@ static bool s_holding = false;
 static uint32_t s_hb_until = 0;   /* window deadline (0 = closed)  */
 static uint8_t s_hb_phase = 0;    /* 0 lub, 1 gap, 2 dub, 3 rest   */
 static uint32_t s_hb_next = 0;
+static bool s_hb_idle = true;
 static bool s_prev_inside = false;
 
 static void tone_out(uint16_t freq) { ledcWriteTone(BUZZER_LEDC_CH, freq); }
@@ -100,8 +102,8 @@ static void sound_tick(lv_timer_t *t) {
         s_seq_idx++;
         if (s_seq_idx >= s_seq_len) {
             seq_stop();
-            s_hb_phase = 0; /* resume heartbeat from a clean lub */
-            s_hb_next = now;
+            s_hb_idle = true; /* resume heartbeat from a clean lub */
+            s_hb_phase = 0;
         } else {
             tone_out(s_seq[s_seq_idx].freq);
             s_note_end = now + s_seq[s_seq_idx].dur_ms;
@@ -110,10 +112,15 @@ static void sound_tick(lv_timer_t *t) {
     }
 
     if (hb_active()) {
+        if (s_hb_idle) {
+            s_hb_idle = false;
+            s_hb_phase = 0;
+            s_hb_next = now;
+        }
         hb_step(now);
-    } else if (s_hb_phase != 0) { /* just deactivated: silence output */
+    } else if (!s_hb_idle) { /* just deactivated: silence output */
+        s_hb_idle = true;
         s_hb_phase = 0;
-        s_hb_next = 0;
         tone_out(0);
     }
 }
@@ -142,13 +149,14 @@ void sound_set_enabled(bool on) {
         seq_stop();
         s_hb_until = 0;
         s_hb_phase = 0;
+        s_hb_idle = true;
     }
 }
 
 bool sound_is_enabled(void) { return s_enabled; }
 
 void sound_play_boot(void) {
-    seq_start(BOOT_MELODY, sizeof(BOOT_MELODY) / sizeof(BOOT_MELODY[0]));
+    seq_start(BOOT_MELODY, ARRAY_LEN(BOOT_MELODY));
 }
 
 void sound_on_state(const twin_state_t *st) {
@@ -158,11 +166,11 @@ void sound_on_state(const twin_state_t *st) {
     bool online = st->wifi_connected && st->cloud_connected &&
                   st->node_seen && st->incubator_online && !stale;
 
-    s_bpm = online ? st->heart_rate : 0; /* mirror the on-screen heart */
-
     bool inside = online && st->baby_present;
+    s_bpm = inside ? st->heart_rate : 0; /* mirror the on-screen heart */
+
     if (inside && !s_prev_inside) {
-        seq_start(BABY_MELODY, sizeof(BABY_MELODY) / sizeof(BABY_MELODY[0]));
+        seq_start(BABY_MELODY, ARRAY_LEN(BABY_MELODY));
         s_hb_until = millis() + HB_WINDOW_MS;
         if (s_hb_until == 0) s_hb_until = 1; /* 0 means "closed" */
     }
