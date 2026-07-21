@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pio run:*)",
+      "Bash(xargs -I{} sh -c 'nm \"{}\" 2>/dev/null | grep -l \"wrap_log_printf\"')",
+      "Bash(find \"C:/Users/Pablo/.platformio/packages/framework-arduinoespressif32-libs/esp32s3\" -name \"*.a\" -exec sh -c 'nm \"{}\" 2>/dev/null | grep -q \"wrap_log_printf\" && echo \"{}\"' \\\\;)",
+      "Bash(xargs grep:*)",
+      "Bash(nm \"C:/Users/Pablo/.platformio/packages/framework-arduinoespressif32-libs/esp32s3/lib/liblog.a\")",
+      "Bash(nm \"C:/Users/Pablo/.platformio/packages/framework-arduinoespressif32-libs/esp32s3/lib/libcore.a\")",
+      "Bash(\"C:/Users/Pablo/.platformio/packages/toolchain-xtensa-esp-elf/bin/xtensa-esp-elf-nm.exe\" \"C:/Users/Pablo/.platformio/packages/framework-arduinoespressif32-libs/esp32s3/lib/liblog.a\")",
+      "Bash(xargs -I{} sh -c '\"C:/Users/Pablo/.platformio/packages/toolchain-xtensa-esp-elf/bin/xtensa-esp-elf-nm.exe\" \"{}\" 2>/dev/null | grep -q \"wrap_log_printf\" && echo \"{}\"')",
+      "Bash(\"C:/Users/Pablo/.platformio/packages/toolchain-xtensa-esp-elf/bin/xtensa-esp-elf-nm.exe\" \"C:/Users/Pablo/.platformio/packages/framework-arduinoespressif32-libs/esp32s3/qio_opi/libfreertos.a\")",
+      "Bash(cat motherBoard/platformio.ini)",
+      "Bash(cat motherBoard/platformio.ini.bak)",
+      "Bash(ls motherBoard/*.ini)",
+      "Bash(awk 'NR==3209,/^}/' Display_HMI/src/UITask.cpp)",
+      "Bash(~/.platformio/penv/Scripts/platformio.exe run *)",
+      "Bash(git -C \"C:/Users/Pablo/Documents/IncuNest_dev/IncuNest/Firmware\" diff HEAD -- Display_HMI/src/UITask.cpp)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(grep -n \"basictemperatureControl\\\\|basicControl\\\\|36\\\\|2\\\\\\\\.0\" \"C:/Users/Pablo/Documents/IncuNest_dev/IncuNest/Firmware/motherBoard/src/main.cpp\")",
+      "Bash(xargs -I{} echo {})",
+      "Bash(sort -u -t: -k3)",
+      "Bash(awk -F: '{print $3}')",
+      "Bash(python3 -c ' *)",
+      "Bash(npm --version)",
+      "Bash(py --version)",
+      "Bash(curl -s -m 8 -o /dev/null -w \"npm registry: %{http_code}\\\\n\" https://registry.npmjs.org/lv_font_conv)",
+      "Bash(curl -s -m 8 -o /dev/null -w \"google fonts: %{http_code}\\\\n\" https://fonts.google.com)",
+      "Bash(npm install *)",
+      "Bash(lv_font_conv --version)"
+    ]
+  }
+}
