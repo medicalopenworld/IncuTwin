@@ -40,8 +40,9 @@ g_state ──> UI (core 1, igual que en producción)
 - Con `SIM_MODE`, `main.cpp` **no** llama a `firebase_stream_start()`:
   el simulador es la única fuente que escribe `g_state`. No hay
   carreras entre datos reales y simulados.
-- `wifi_service_start()` y `tb_client_start()` siguen arrancando igual
-  (el panel se une a la WiFi de casa normalmente).
+- `wifi_service_start()` sigue arrancando igual; `tb_client_start()`
+  **no arranca en SIM_MODE**: evita provisión falsa de ThingsBoard,
+  telemetría contaminada y riesgo de auto-flashearse por OTA en una demo.
 - El panel imprime su IP por serie y la muestra en Ajustes (ya existe
   `WiFi.localIP()` en la pantalla de Ajustes).
 - En SIM_MODE, `sim_server` fija al arrancar un estado inicial sano:

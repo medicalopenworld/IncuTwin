@@ -113,7 +113,9 @@ void setup() {
         /* primer arranque: asistente de onboarding.
          * La tarea de ThingsBoard se provisiona sola al haber WiFi. */
         ui_onboarding_start();
+#ifndef SIM_MODE
         tb_client_start();
+#endif
         Serial.printf("IncuTwin %s (SN %s) onboarding\n", FW_VERSION,
                       identity_sn());
     } else {
@@ -124,7 +126,9 @@ void setup() {
 #else
         firebase_stream_start();
 #endif
+#ifndef SIM_MODE
         tb_client_start();
+#endif
         Serial.printf("IncuTwin %s (SN %s) ready\n", FW_VERSION,
                       identity_sn());
     }
