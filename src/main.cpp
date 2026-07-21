@@ -17,6 +17,7 @@
 #include "config.h"
 #include "display/LGFX_CrowPanel28.h"
 #include "net/firebase_stream.h"
+#include "net/sim_server.h"
 #include "net/tb_client.h"
 #include "net/wifi_service.h"
 #include "pins_config.h"
@@ -118,7 +119,11 @@ void setup() {
     } else {
         ui_init();
         wifi_service_start();
+#ifdef SIM_MODE
+        sim_server_start();
+#else
         firebase_stream_start();
+#endif
         tb_client_start();
         Serial.printf("IncuTwin %s (SN %s) ready\n", FW_VERSION,
                       identity_sn());
