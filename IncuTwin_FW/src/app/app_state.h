@@ -46,6 +46,10 @@ void state_init(void);
 void state_lock(void);
 void state_unlock(void);
 
+/* Parse thermoregulation state from string.
+ * Maps "heating"/"stable"/"alarm" to enum; unknown/NULL -> THERMO_OFF. */
+thermo_state_t thermo_from_str(const char *s);
+
 #ifdef __cplusplus
 }
 #endif

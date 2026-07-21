@@ -28,19 +28,11 @@ static void set_cloud(bool ok) {
 
 /* ---- apply one SSE event to g_state -------------------------------------- */
 
-static thermo_state_t parse_thermo(const char *s) {
-    if (!s) return THERMO_OFF;
-    if (!strcmp(s, "heating")) return THERMO_HEATING;
-    if (!strcmp(s, "stable")) return THERMO_STABLE;
-    if (!strcmp(s, "alarm")) return THERMO_ALARM;
-    return THERMO_OFF;
-}
-
 static void apply_field(const char *key, JsonVariantConst v) {
     if (!strcmp(key, "online")) {
         g_state.incubator_online = v.as<bool>();
     } else if (!strcmp(key, "thermo")) {
-        g_state.thermo = parse_thermo(v.as<const char *>());
+        g_state.thermo = thermo_from_str(v.as<const char *>());
     } else if (!strcmp(key, "photo")) {
         g_state.phototherapy = v.as<bool>();
     } else if (!strcmp(key, "hr")) {
