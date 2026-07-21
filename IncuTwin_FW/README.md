@@ -69,6 +69,21 @@ pio device monitor
 > Si el puerto no aparece, mantén pulsado **BOOT** y pulsa **RESET** para
 > entrar en modo descarga.
 
+### Modo simulación (desarrollo/demos)
+
+Para probar la UI sin IncuNest ni Firebase, flashea el entorno `_sim`:
+
+```bash
+pio run -t upload -e crowpanel_advance_28_sim
+```
+
+El panel levanta un servidor web en su IP (visible por serie y en
+Ajustes). Abre `http://<ip>/` desde el móvil o PC en la misma WiFi:
+escenarios de un toque (alarma, fototerapia, incubadora vacía...),
+control campo a campo (thermo, hr, skin...) y una demo automática que
+rota los escenarios — pensada para ferias. En este build el panel NO
+se conecta a Firebase; no distribuir este binario.
+
 ## Estructura
 
 ```
