@@ -49,7 +49,9 @@ static lv_obj_t *s_btn_es, *s_btn_en;
 static lv_obj_t *s_swatches[BABY_SKIN_TONE_COUNT];
 static lv_obj_t *s_lbl_settings_title, *s_lbl_lang, *s_lbl_tone, *s_lbl_hint;
 static lv_obj_t *s_lbl_back, *s_lbl_wifi, *s_lbl_cloud, *s_lbl_ver;
-static lv_obj_t *s_lbl_sound, *s_sw_sound;
+static lv_obj_t *s_lbl_sound, *s_btn_vol[4];
+static const str_id_t VOL_STR[4] = {STR_VOL_OFF, STR_VOL_LOW, STR_VOL_MID,
+                                    STR_VOL_HIGH};
 
 static const uint32_t SWATCH_COLORS[BABY_SKIN_TONE_COUNT] = {
     0xF4C1A6, 0xE9AF8C, 0xD0946C, 0xAC704E, 0x865438, 0x5C3A28};
@@ -178,9 +180,21 @@ static void lang_clicked(lv_event_t *e) {
     update_texts();
 }
 
-static void sound_switch_changed(lv_event_t *e) {
-    lv_obj_t *sw = lv_event_get_target(e);
-    sound_set_enabled(lv_obj_has_state(sw, LV_STATE_CHECKED));
+static void vol_btns_refresh(void) {
+    for (int i = 0; i < 4; i++) {
+        bool sel = sound_get_volume() == (uint8_t)i;
+        lv_obj_set_style_bg_color(s_btn_vol[i], sel ? COL_NAVY : COL_CARD, 0);
+        lv_obj_set_style_text_color(lv_obj_get_child(s_btn_vol[i], 0),
+                                    sel ? lv_color_white() : COL_NAVY, 0);
+    }
+}
+
+static void vol_clicked(lv_event_t *e) {
+    uint8_t level = (uint8_t)(intptr_t)lv_event_get_user_data(e);
+    if (level == sound_get_volume()) return;
+    sound_set_volume(level);
+    vol_btns_refresh();
+    if (level > 0) sound_play_test(); /* preview the new loudness */
 }
 
 static void lang_btns_refresh(void) {
@@ -345,11 +359,11 @@ static void build_settings(void) {
     s_lbl_lang = lv_label_create(scr_settings);
     lv_label_set_text(s_lbl_lang, tr(STR_LANGUAGE));
     lv_obj_set_style_text_color(s_lbl_lang, COL_NAVY_DARK, 0);
-    lv_obj_set_pos(s_lbl_lang, 12, 62);
+    lv_obj_set_pos(s_lbl_lang, 12, 56);
 
     s_btn_es = lv_btn_create(scr_settings);
-    lv_obj_set_size(s_btn_es, 104, 44);
-    lv_obj_set_pos(s_btn_es, 12, 84);
+    lv_obj_set_size(s_btn_es, 104, 40);
+    lv_obj_set_pos(s_btn_es, 12, 76);
     lv_obj_set_style_radius(s_btn_es, 12, 0);
     lv_obj_set_style_border_width(s_btn_es, 2, 0);
     lv_obj_set_style_border_color(s_btn_es, COL_NAVY, 0);
@@ -361,8 +375,8 @@ static void build_settings(void) {
     lv_obj_center(l);
 
     s_btn_en = lv_btn_create(scr_settings);
-    lv_obj_set_size(s_btn_en, 104, 44);
-    lv_obj_set_pos(s_btn_en, 124, 84);
+    lv_obj_set_size(s_btn_en, 104, 40);
+    lv_obj_set_pos(s_btn_en, 124, 76);
     lv_obj_set_style_radius(s_btn_en, 12, 0);
     lv_obj_set_style_border_width(s_btn_en, 2, 0);
     lv_obj_set_style_border_color(s_btn_en, COL_NAVY, 0);
@@ -376,12 +390,12 @@ static void build_settings(void) {
     s_lbl_tone = lv_label_create(scr_settings);
     lv_label_set_text(s_lbl_tone, tr(STR_SKIN_TONE));
     lv_obj_set_style_text_color(s_lbl_tone, COL_NAVY_DARK, 0);
-    lv_obj_set_pos(s_lbl_tone, 12, 144);
+    lv_obj_set_pos(s_lbl_tone, 12, 124);
 
     for (int i = 0; i < BABY_SKIN_TONE_COUNT; i++) {
         s_swatches[i] = lv_obj_create(scr_settings);
         lv_obj_set_size(s_swatches[i], 34, 34);
-        lv_obj_set_pos(s_swatches[i], 12 + i * 37, 166);
+        lv_obj_set_pos(s_swatches[i], 12 + i * 37, 144);
         lv_obj_set_style_radius(s_swatches[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_color(s_swatches[i],
                                   lv_color_hex(SWATCH_COLORS[i]), 0);
@@ -394,24 +408,33 @@ static void build_settings(void) {
     lv_label_set_text(s_lbl_hint, tr(STR_SKIN_HINT));
     lv_obj_set_style_text_color(s_lbl_hint, COL_OFFLINE, 0);
     lv_obj_set_style_text_font(s_lbl_hint, &lv_font_es_12, 0);
-    lv_obj_set_pos(s_lbl_hint, 12, 208);
+    lv_obj_set_pos(s_lbl_hint, 12, 182);
     lv_obj_set_width(s_lbl_hint, 216);
     lv_label_set_long_mode(s_lbl_hint, LV_LABEL_LONG_WRAP);
 
-    /* sound on/off */
+    /* sound volume */
     s_lbl_sound = lv_label_create(scr_settings);
     lv_label_set_text(s_lbl_sound, tr(STR_SOUND));
     lv_obj_set_style_text_color(s_lbl_sound, COL_NAVY_DARK, 0);
-    lv_obj_set_pos(s_lbl_sound, 12, 248);
+    lv_obj_set_pos(s_lbl_sound, 12, 214);
 
-    s_sw_sound = lv_switch_create(scr_settings);
-    lv_obj_set_size(s_sw_sound, 56, 30);
-    lv_obj_set_pos(s_sw_sound, 172, 242);
-    lv_obj_set_style_bg_color(s_sw_sound, COL_NAVY, LV_PART_INDICATOR |
-                                                        LV_STATE_CHECKED);
-    if (sound_is_enabled()) lv_obj_add_state(s_sw_sound, LV_STATE_CHECKED);
-    lv_obj_add_event_cb(s_sw_sound, sound_switch_changed,
-                        LV_EVENT_VALUE_CHANGED, nullptr);
+    static const int16_t VOL_X[4] = {12, 74, 124, 182};
+    static const int16_t VOL_W[4] = {56, 44, 52, 44};
+    for (int i = 0; i < 4; i++) {
+        s_btn_vol[i] = lv_btn_create(scr_settings);
+        lv_obj_set_size(s_btn_vol[i], VOL_W[i], 32);
+        lv_obj_set_pos(s_btn_vol[i], VOL_X[i], 234);
+        lv_obj_set_style_radius(s_btn_vol[i], 10, 0);
+        lv_obj_set_style_border_width(s_btn_vol[i], 2, 0);
+        lv_obj_set_style_border_color(s_btn_vol[i], COL_NAVY, 0);
+        lv_obj_set_style_shadow_width(s_btn_vol[i], 0, 0);
+        lv_obj_add_event_cb(s_btn_vol[i], vol_clicked, LV_EVENT_CLICKED,
+                            (void *)(intptr_t)i);
+        lv_obj_t *vl = lv_label_create(s_btn_vol[i]);
+        lv_label_set_text(vl, tr(VOL_STR[i]));
+        lv_obj_set_style_text_font(vl, &lv_font_es_12, 0);
+        lv_obj_center(vl);
+    }
 
     /* info footer (stacked: the portrait screen is only 240 px wide) */
     s_lbl_wifi = lv_label_create(scr_settings);
@@ -432,6 +455,7 @@ static void build_settings(void) {
 
     lang_btns_refresh();
     swatch_refresh();
+    vol_btns_refresh();
 }
 
 /* ------------------------------------------------------------ translation */
@@ -443,6 +467,8 @@ static void update_texts(void) {
     lv_label_set_text(s_lbl_tone, tr(STR_SKIN_TONE));
     lv_label_set_text(s_lbl_hint, tr(STR_SKIN_HINT));
     lv_label_set_text(s_lbl_sound, tr(STR_SOUND));
+    for (int i = 0; i < 4; i++)
+        lv_label_set_text(lv_obj_get_child(s_btn_vol[i], 0), tr(VOL_STR[i]));
     lv_label_set_text_fmt(s_lbl_back, LV_SYMBOL_LEFT " %s", tr(STR_BACK));
     lang_btns_refresh();
     state_lock();
