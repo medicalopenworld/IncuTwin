@@ -14,7 +14,9 @@
  *   - festive "baby with parents" jingle when the baby leaves the
  *     incubator (triggered by the UI on the show_baby falling edge)
  *   - audible heartbeat while the baby is being touched
- *   - on/off toggle persisted in NVS ("incutwin"/"sound", default on)
+ *   - 4-level volume (off/low/mid/high) via LEDC duty, persisted in
+ *     NVS ("incutwin"/"vol", default high; migrates the old on/off
+ *     "sound" key)
  */
 
 #include <stdbool.h>
@@ -26,6 +28,11 @@ extern "C" {
 #endif
 
 void sound_init(void);   /* LEDC channel + NVS + lv_timer */
+void sound_set_volume(uint8_t level); /* 0 off .. 3 high; persists NVS */
+uint8_t sound_get_volume(void);
+void sound_play_test(void); /* short beep to preview the active level  */
+
+/* deprecated on/off wrappers — removed when the UI switches to levels */
 void sound_set_enabled(bool on);
 bool sound_is_enabled(void);
 
