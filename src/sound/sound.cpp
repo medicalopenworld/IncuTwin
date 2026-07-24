@@ -187,11 +187,6 @@ void sound_play_test(void) {
     seq_start(TEST_MELODY, ARRAY_LEN(TEST_MELODY));
 }
 
-/* deprecated wrappers — removed when the UI switches to levels */
-void sound_set_enabled(bool on) { sound_set_volume(on ? 3 : 0); }
-
-bool sound_is_enabled(void) { return s_volume > 0; }
-
 void sound_play_boot(void) {
     seq_start(BOOT_MELODY, ARRAY_LEN(BOOT_MELODY));
 }

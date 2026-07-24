@@ -32,10 +32,6 @@ void sound_set_volume(uint8_t level); /* 0 off .. 3 high; persists NVS */
 uint8_t sound_get_volume(void);
 void sound_play_test(void); /* short beep to preview the active level  */
 
-/* deprecated on/off wrappers — removed when the UI switches to levels */
-void sound_set_enabled(bool on);
-bool sound_is_enabled(void);
-
 void sound_play_boot(void);
 void sound_play_parents(void); /* festive jingle: baby out with parents */
 void sound_on_state(const twin_state_t *st); /* edge detect + bpm cache */
