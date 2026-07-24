@@ -28,6 +28,10 @@ typedef enum {
     STR_AWAKE,
     STR_BEATING,
     STR_SOUND,
+    STR_VOL_OFF,
+    STR_VOL_LOW,
+    STR_VOL_MID,
+    STR_VOL_HIGH,
     /* status bar + hand button */
     STR_ST_NO_WIFI,
     STR_ST_CONNECTING,
