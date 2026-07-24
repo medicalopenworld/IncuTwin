@@ -23,8 +23,8 @@ solo estados con colores e iconos grandes, en español e inglés.
   fototerapia, rojo pulsante en alarma.
 - **Notificaciones retro por buzzer**: jingle 8-bit al arrancar, fanfarria
   cuando la incubadora detecta al bebé (`baby`) con 10 s de latido
-  audible, y "lub-dub" al bpm real mientras tocas al bebé. Silenciable
-  desde Ajustes (persistente).
+  audible, y "lub-dub" al bpm real mientras tocas al bebé. Volumen de 4
+  niveles (Apagado/Bajo/Medio/Alto) desde Ajustes (persistente).
 - **Estados de uso** en 3 iconos circulares (Calor, Luz y Corazón): el
   color del borde indica el estado, sin texto ni números.
 - **Barra superior**: icono WiFi con nivel de cobertura (4 niveles por
