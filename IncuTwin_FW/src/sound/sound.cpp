@@ -43,7 +43,7 @@ static const melody_note_t TEST_MELODY[] = {{1047, 120}};
 /* volume: 0 off, 1 low, 2 mid, 3 high. Duty at the 10-bit LEDC
  * resolution ledcWriteTone() configures; loudness is roughly
  * logarithmic in duty, values to be calibrated on hardware. */
-static const uint16_t VOLUME_DUTY[] = {0, 8, 60, 512};
+static const uint16_t VOLUME_DUTY[] = {0, 8, 20, 512};
 static uint8_t s_volume = 3;
 
 /* one-shot melody being played (nullptr = none) */

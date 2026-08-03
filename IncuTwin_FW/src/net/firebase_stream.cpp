@@ -48,6 +48,14 @@ static void apply_field(const char *key, JsonVariantConst v) {
 }
 
 static void apply_event(const char *event, const String &data) {
+    if (!strcmp(event, "keep-alive")) {
+        /* SSE: sin eventos = sin cambios; el keep-alive prueba que el
+         * estado sigue vigente, asi que cuenta como dato fresco */
+        state_lock();
+        g_state.last_update_ms = millis();
+        state_unlock();
+        return;
+    }
     if (strcmp(event, "put") != 0 && strcmp(event, "patch") != 0) return;
 
     StaticJsonDocument<768> doc;
@@ -226,10 +234,16 @@ static void stream_task(void *arg) {
             continue;
         }
         bool had_stream = open_stream();
-        set_cloud(false);
         s_client.stop();
 
-        backoff = had_stream ? 1000 : min<uint32_t>(backoff * 2, 30000);
+        if (had_stream) {
+            /* Firebase recicla streams sanos: reconectar sin marcar la
+             * nube caida, o el bebe parpadea en cada reciclo */
+            backoff = 1000;
+        } else {
+            set_cloud(false);
+            backoff = min<uint32_t>(backoff * 2, 30000);
+        }
         vTaskDelay(pdMS_TO_TICKS(backoff));
     }
 }

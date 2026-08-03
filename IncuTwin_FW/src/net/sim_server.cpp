@@ -48,6 +48,8 @@ static bool apply_scenario(const char *id) {
     for (size_t i = 0; i < N_SCENARIOS; i++) {
         if (strcmp(SCENARIOS[i].id, id) != 0) continue;
         const sim_scenario_t &sc = SCENARIOS[i];
+        Serial.printf("[sim] scenario '%s' t=%lu\n", id,
+                      (unsigned long)millis());
         state_lock();
         g_state.node_seen = sc.linked;
         g_state.incubator_online = sc.online;
@@ -129,6 +131,8 @@ static void handle_state_get(void) {
 
 static void handle_state_post(void) {
     String body = s_http->arg("plain");
+    Serial.printf("[sim] POST /state %s t=%lu\n", body.c_str(),
+                  (unsigned long)millis());
     if (body.length() == 0 || body.length() > 768) {
         s_http->send(400, "text/plain", "bad body size");
         return;
@@ -302,18 +306,12 @@ static void sim_task(void *arg) {
 /* ---------------------------------------------------------------------- API */
 
 void sim_server_start(void) {
-    /* Estado inicial sano: como si hubiera IncuNest vinculada y en línea. */
+    /* Estado inicial: sin vincular, como un dispositivo recién arrancado. */
     state_lock();
     g_state.cloud_connected = true;
-    g_state.node_seen = true;
-    g_state.incubator_online = true;
-    g_state.thermo = THERMO_STABLE;
-    g_state.heart_rate = 120;
-    g_state.awake = false;
-    g_state.baby_present = true;
-    g_state.last_update_ms = millis();
     g_state_dirty = true;
     state_unlock();
+    apply_scenario("unlinked");
 
     s_http = new WebServer(80);
     s_http->on("/", handle_root);
