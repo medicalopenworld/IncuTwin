@@ -1,0 +1,49 @@
+{
+  "incutwins": {
+    "INCUTWIN-YL001": {
+      "enLinea": true,
+      "conBebe": true,
+      "bpm": 142,
+      "temperatura": 36.5,
+      "holdDetected": false,
+      "gpsLat": 42.8182,
+      "gpsLon": -1.6445
+    },
+    "INCUTWIN-D4E5F6": {
+      "enLinea": true,
+      "conBebe": false,
+      "bpm": 0,
+      "temperatura": 36.2,
+      "holdDetected": false,
+      "gpsLat": 0.3476,
+      "gpsLon": 32.5825
+    },
+    "INCUTWIN-PB002": {
+      "enLinea": false,
+      "conBebe": false,
+      "bpm": 0,
+      "temperatura": 0,
+      "holdDetected": false,
+      "gpsLat": 40.4168,
+      "gpsLon": -3.7038
+    },
+    "INCUTWIN-A1B2C3": {
+      "enLinea": true,
+      "conBebe": true,
+      "bpm": 138,
+      "temperatura": 36.6,
+      "holdDetected": false,
+      "gpsLat": 14.7167,
+      "gpsLon": -17.4677
+    },
+    "INCUTWIN-PB001": {
+      "enLinea": true,
+      "conBebe": true,
+      "bpm": 145,
+      "temperatura": 36.8,
+      "holdDetected": false,
+      "gpsLat": 41.3851,
+      "gpsLon": 2.1734
+    }
+  }
+}
