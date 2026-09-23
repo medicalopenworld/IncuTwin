@@ -10,6 +10,7 @@
 #include <freertos/task.h>
 
 #include "app/app_state.h"
+#include "app/scenarios.h"
 
 static WebServer *s_http = nullptr;
 
@@ -18,53 +19,8 @@ static WebServer *s_http = nullptr;
 static volatile bool s_demo_run = false;
 static volatile uint32_t s_demo_interval_ms = 10000;
 
-/* ---------------------------------------------------------------- escenarios */
-
-typedef struct {
-    const char *id;
-    bool linked;   /* node_seen  */
-    bool online;   /* incubator_online */
-    thermo_state_t thermo;
-    bool photo;
-    uint16_t hr;
-    bool awake;
-    bool baby;
-} sim_scenario_t;
-
-static const sim_scenario_t SCENARIOS[] = {
-    {"sleep",    true,  true,  THERMO_STABLE,  false, 120, false, true},
-    {"awake",    true,  true,  THERMO_STABLE,  false, 140, true,  true},
-    {"heating",  true,  true,  THERMO_HEATING, false, 130, false, true},
-    {"alarm",    true,  true,  THERMO_ALARM,   false, 180, true,  true},
-    {"photo",    true,  true,  THERMO_STABLE,  true,  130, false, true},
-    {"empty",    true,  true,  THERMO_STABLE,  false, 0,   false, false},
-    {"off",      true,  false, THERMO_OFF,     false, 0,   false, true},
-    {"unlinked", false, false, THERMO_OFF,     false, 0,   false, true},
-};
-static const size_t N_SCENARIOS = sizeof(SCENARIOS) / sizeof(SCENARIOS[0]);
-
-/* Aplica un escenario. Debe llamarse SIN el lock cogido. */
-static bool apply_scenario(const char *id) {
-    for (size_t i = 0; i < N_SCENARIOS; i++) {
-        if (strcmp(SCENARIOS[i].id, id) != 0) continue;
-        const sim_scenario_t &sc = SCENARIOS[i];
-        Serial.printf("[sim] scenario '%s' t=%lu\n", id,
-                      (unsigned long)millis());
-        state_lock();
-        g_state.node_seen = sc.linked;
-        g_state.incubator_online = sc.online;
-        g_state.thermo = sc.thermo;
-        g_state.phototherapy = sc.photo;
-        g_state.heart_rate = sc.hr;
-        g_state.awake = sc.awake;
-        g_state.baby_present = sc.baby;
-        g_state.last_update_ms = millis();
-        g_state_dirty = true;
-        state_unlock();
-        return true;
-    }
-    return false;
-}
+/* Los escenarios viven en app/scenarios.h: se comparten con el modo demo
+ * del boton BOOT (app/demo_mode.h). */
 
 /* ------------------------------------------------------------- campo a campo */
 
@@ -149,7 +105,7 @@ static void handle_state_post(void) {
 
     /* primero el escenario (si viene), luego los campos lo refinan */
     const char *scen = obj["scenario"] | (const char *)nullptr;
-    if (scen && !apply_scenario(scen)) {
+    if (scen && !scenario_apply(scen)) {
         s_http->send(400, "text/plain", "unknown scenario");
         return;
     }
@@ -295,8 +251,8 @@ static void sim_task(void *arg) {
          * sobrevivir al cierre de la pestaña del navegador. */
         if (s_demo_run && millis() - last_demo >= s_demo_interval_ms) {
             last_demo = millis();
-            apply_scenario(SCENARIOS[demo_idx].id);
-            demo_idx = (demo_idx + 1) % N_SCENARIOS;
+            scenario_apply_idx(demo_idx);
+            demo_idx = (demo_idx + 1) % scenario_count();
         }
 
         vTaskDelay(pdMS_TO_TICKS(5));
@@ -311,7 +267,7 @@ void sim_server_start(void) {
     g_state.cloud_connected = true;
     g_state_dirty = true;
     state_unlock();
-    apply_scenario("unlinked");
+    scenario_apply("unlinked");
 
     s_http = new WebServer(80);
     s_http->on("/", handle_root);

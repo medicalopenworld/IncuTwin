@@ -8,6 +8,7 @@
 #include <freertos/task.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
 #include "config.h"
 
@@ -18,6 +19,7 @@ static String s_host = FIREBASE_HOST;
 static String s_path; /* set on start */
 
 static void set_cloud(bool ok) {
+    if (demo_is_active()) return; /* la demo manda sobre g_state */
     state_lock();
     if (g_state.cloud_connected != ok) {
         g_state.cloud_connected = ok;
@@ -48,6 +50,7 @@ static void apply_field(const char *key, JsonVariantConst v) {
 }
 
 static void apply_event(const char *event, const String &data) {
+    if (demo_is_active()) return; /* no pisar los escenarios de la demo */
     if (!strcmp(event, "keep-alive")) {
         /* SSE: sin eventos = sin cambios; el keep-alive prueba que el
          * estado sigue vigente, asi que cuenta como dato fresco */
