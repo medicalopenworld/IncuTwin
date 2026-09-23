@@ -7,7 +7,7 @@
  * from setup()/LVGL callbacks.
  *
  *   - boot jingle
- *   - "baby detected" fanfare on the (online && baby_present) rising
+ *   - "baby detected" fanfare on the (online && baby == BABY_IN) rising
  *     edge — the same show_baby condition the UI uses — plus an
  *     audible heartbeat window of 3 s (the on-screen heart keeps
  *     beating on its own, always)

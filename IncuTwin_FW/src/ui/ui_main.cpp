@@ -13,6 +13,7 @@
 #include "baby_widget.h"
 #include "config.h"
 #include "i18n.h"
+#include "net/tb_client.h"
 #include "sound/sound.h"
 #include "theme.h"
 
@@ -153,6 +154,9 @@ static void gear_long_pressed(lv_event_t *e) {
 static void baby_touched(lv_event_t *e) {
     lv_event_code_t c = lv_event_get_code(e);
     if (c == LV_EVENT_PRESSED) {
+#ifndef SIM_MODE
+        tb_client_hand_hold();
+#endif
         usage_hand_begin();
         sound_hand_hold(true);
         baby_set_awake(true);
@@ -251,8 +255,8 @@ static void build_home(void) {
     lv_obj_set_pos(s_empty_img, 0, 0);
     lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
 
-    /* full-screen "baby with parents", shown for a while after the baby
-     * leaves the incubator (see PARENTS_MODE_MS) */
+    /* full-screen "baby with parents", shown while the baby
+     * is with the parents or went home ("baby" = parents / out+home) */
     s_parents_img = lv_img_create(scr_home);
     lv_img_set_src(s_parents_img, &img_baby_parents);
     lv_obj_set_pos(s_parents_img, 0, 0);
@@ -555,48 +559,30 @@ static void ui_apply_state(void) {
                  (millis() - st.last_update_ms) > (DATA_STALE_S * 1000UL);
     bool online = st.wifi_connected && st.cloud_connected && st.node_seen &&
                   st.incubator_online && !stale;
-    bool show_baby = online && st.baby_present;
+    bool show_baby = online && st.baby == BABY_IN;
+    /* "con sus papás": canguro (baby=parents) o alta a casa (out+home) */
+    bool went_home = st.baby == BABY_OUT && st.home;
+    bool parents_active = online && (st.baby == BABY_PARENTS || went_home);
 
     /* traza cada transicion del bebe con los flags que la explican */
     static int prev_show = -1;
     if ((int)show_baby != prev_show) {
         prev_show = show_baby;
         Serial.printf("[ui] show_baby=%d wifi=%d cloud=%d node=%d inc_on=%d "
-                      "stale=%d baby=%d hr=%u thermo=%d age_ms=%lu t=%lu\n",
+                      "stale=%d baby=%s home=%d hr=%u thermo=%d age_ms=%lu "
+                      "t=%lu\n",
                       show_baby, st.wifi_connected, st.cloud_connected,
                       st.node_seen, st.incubator_online, stale,
-                      st.baby_present, st.heart_rate, (int)st.thermo,
+                      baby_to_str(st.baby), st.home, st.heart_rate,
+                      (int)st.thermo,
                       (unsigned long)(millis() - st.last_update_ms),
                       (unsigned long)millis());
     }
 
-    /* ventana "con sus papás": cualquier caída de show_baby la abre;
-     * el bebé de vuelta la cancela. Resta con signo por el rollover. */
-    static bool prev_baby = false;
-    static uint32_t parents_until = 0; /* 0 = inactiva */
-
-    /* Saltar de escenario en el modo demo no debe arrastrar transitorios:
-     * sin esto, tras "empty" los estados apagado/sin vincular seguirían
-     * mostrando a los papás durante PARENTS_MODE_MS. */
-    static uint32_t prev_demo_seq = 0;
-    uint32_t demo_seq_now = demo_seq();
-    if (demo_seq_now != prev_demo_seq) {
-        prev_demo_seq = demo_seq_now;
-        parents_until = 0;
-    }
-
-    if (!show_baby && prev_baby) {
-        parents_until = millis() + PARENTS_MODE_MS;
-        if (parents_until == 0) parents_until = 1;
-        sound_play_parents();
-    } else if (show_baby) {
-        parents_until = 0;
-    }
-    prev_baby = show_baby;
-    if (parents_until != 0 && (int32_t)(millis() - parents_until) >= 0)
-        parents_until = 0; /* expirada: que no re-arme tras el wrap */
-    bool parents_active = parents_until != 0 &&
-                          (int32_t)(millis() - parents_until) < 0;
+    /* fanfarria al entrar en "con sus papás" (canguro o alta a casa) */
+    static bool prev_parents = false;
+    if (parents_active && !prev_parents) sound_play_parents();
+    prev_parents = parents_active;
 
     if (demo_is_active()) {
         lv_obj_add_flag(s_wifi_img, LV_OBJ_FLAG_HIDDEN);
@@ -612,7 +598,7 @@ static void ui_apply_state(void) {
 
     /* status bar: one line that always tells the IncuTwin state */
     if (parents_active)
-        status_bar_set(STR_ST_PARENTS, COL_OK);
+        status_bar_set(went_home ? STR_ST_HOME : STR_ST_PARENTS, COL_OK);
     else if (!st.wifi_connected)
         status_bar_set(STR_ST_NO_WIFI, COL_RED);
     else if (!st.cloud_connected)
@@ -621,7 +607,7 @@ static void ui_apply_state(void) {
         status_bar_set(STR_ST_UNLINKED, COL_OFFLINE);
     else if (!online)
         status_bar_set(STR_ST_OFF, COL_OFFLINE);
-    else if (!st.baby_present)
+    else if (st.baby != BABY_IN)
         status_bar_set(STR_ST_NO_BABY, COL_PHOTO);
     else if (st.thermo == THERMO_ALARM)
         status_bar_set(STR_ALARM, COL_RED);
