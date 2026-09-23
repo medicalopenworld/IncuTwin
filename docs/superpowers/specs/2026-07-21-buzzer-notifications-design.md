@@ -122,9 +122,11 @@ Firebase `"baby"`, default `true` — junto con `node_seen` y la vista
 ## Verificación (manual — este repo no tiene entorno de test nativo)
 
 1. Arranque → jingle C5–E5–G5–C6 una sola vez.
-2. `curl` PATCH con `{"baby_inside":true}` → fanfarria + latido audible
-   ~10 s; el corazón visual sigue después.
-3. `baby_inside` se mantiene `true` → sin re-notificación; `false → true`
+2. `curl` PATCH con `{"baby":true, ...}` → fanfarria + latido audible
+   ~10 s; el corazón visual sigue después. Como `baby` tiene default
+   `true`, primero hay que hacer PATCH `{"baby":false}` y luego
+   `{"baby":true}` para forzar el flanco.
+3. `baby` se mantiene `true` → sin re-notificación; `false → true`
    de nuevo → re-notifica.
 4. Mantener el dedo sobre el bebé → latido mientras dura el toque
    (con `hr > 0`).

@@ -5,6 +5,7 @@
 #include <lvgl.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
 #include "app/usage_stats.h"
 #include "assets/assets.h"
@@ -12,6 +13,7 @@
 #include "baby_widget.h"
 #include "config.h"
 #include "i18n.h"
+#include "net/tb_client.h"
 #include "sound/sound.h"
 #include "theme.h"
 
@@ -38,7 +40,7 @@ typedef enum {
 
 static lv_obj_t *scr_splash, *scr_home, *scr_settings;
 static lv_obj_t *s_halo;
-static lv_obj_t *s_empty_img, *s_wifi_img;
+static lv_obj_t *s_empty_img, *s_parents_img, *s_wifi_img, *s_demo_badge;
 static lv_obj_t *s_icon_thermo, *s_icon_photo, *s_icon_heart;
 static lv_obj_t *s_btn_hand, *s_lbl_hand;
 static lv_obj_t *s_status, *s_lbl_status;
@@ -49,7 +51,9 @@ static lv_obj_t *s_btn_es, *s_btn_en;
 static lv_obj_t *s_swatches[BABY_SKIN_TONE_COUNT];
 static lv_obj_t *s_lbl_settings_title, *s_lbl_lang, *s_lbl_tone, *s_lbl_hint;
 static lv_obj_t *s_lbl_back, *s_lbl_wifi, *s_lbl_cloud, *s_lbl_ver;
-static lv_obj_t *s_lbl_sound, *s_sw_sound;
+static lv_obj_t *s_lbl_sound, *s_btn_vol[4];
+static const str_id_t VOL_STR[4] = {STR_VOL_OFF, STR_VOL_LOW, STR_VOL_MID,
+                                    STR_VOL_HIGH};
 
 static const uint32_t SWATCH_COLORS[BABY_SKIN_TONE_COUNT] = {
     0xF4C1A6, 0xE9AF8C, 0xD0946C, 0xAC704E, 0x865438, 0x5C3A28};
@@ -150,6 +154,9 @@ static void gear_long_pressed(lv_event_t *e) {
 static void baby_touched(lv_event_t *e) {
     lv_event_code_t c = lv_event_get_code(e);
     if (c == LV_EVENT_PRESSED) {
+#ifndef SIM_MODE
+        tb_client_hand_hold();
+#endif
         usage_hand_begin();
         sound_hand_hold(true);
         baby_set_awake(true);
@@ -178,9 +185,21 @@ static void lang_clicked(lv_event_t *e) {
     update_texts();
 }
 
-static void sound_switch_changed(lv_event_t *e) {
-    lv_obj_t *sw = lv_event_get_target(e);
-    sound_set_enabled(lv_obj_has_state(sw, LV_STATE_CHECKED));
+static void vol_btns_refresh(void) {
+    for (int i = 0; i < 4; i++) {
+        bool sel = sound_get_volume() == (uint8_t)i;
+        lv_obj_set_style_bg_color(s_btn_vol[i], sel ? COL_NAVY : COL_CARD, 0);
+        lv_obj_set_style_text_color(lv_obj_get_child(s_btn_vol[i], 0),
+                                    sel ? lv_color_white() : COL_NAVY, 0);
+    }
+}
+
+static void vol_clicked(lv_event_t *e) {
+    uint8_t level = (uint8_t)(intptr_t)lv_event_get_user_data(e);
+    if (level == sound_get_volume()) return;
+    sound_set_volume(level);
+    vol_btns_refresh();
+    if (level > 0) sound_play_test(); /* preview the new loudness */
 }
 
 static void lang_btns_refresh(void) {
@@ -236,6 +255,13 @@ static void build_home(void) {
     lv_obj_set_pos(s_empty_img, 0, 0);
     lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
 
+    /* full-screen "baby with parents", shown while the baby
+     * is with the parents or went home ("baby" = parents / out+home) */
+    s_parents_img = lv_img_create(scr_home);
+    lv_img_set_src(s_parents_img, &img_baby_parents);
+    lv_obj_set_pos(s_parents_img, 0, 0);
+    lv_obj_add_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
+
     /* breathing halo behind the baby */
     s_halo = lv_obj_create(scr_home);
     lv_obj_set_size(s_halo, 190, 190);
@@ -287,12 +313,29 @@ static void build_home(void) {
     lv_label_set_text(s_lbl_status, tr(STR_ST_CONNECTING));
     lv_obj_set_style_text_font(s_lbl_status, &lv_font_es_14, 0);
     lv_obj_set_style_text_color(s_lbl_status, COL_OFFLINE, 0);
+    lv_obj_set_width(s_lbl_status, 216); /* nombre largo: puntos suspensivos */
+    lv_label_set_long_mode(s_lbl_status, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(s_lbl_status, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(s_lbl_status);
 
     /* top bar: wifi coverage | wordmark | gear */
     s_wifi_img = lv_img_create(scr_home);
     lv_img_set_src(s_wifi_img, &img_wifi_off);
     lv_obj_set_pos(s_wifi_img, 8, 8);
+
+    /* insignia DEMO: ocupa el hueco del icono de WiFi mientras manda el
+     * modo demo — la cobertura que se pintaría ahí sería mentira */
+    s_demo_badge = lv_label_create(scr_home);
+    lv_label_set_text(s_demo_badge, "DEMO");
+    lv_obj_set_style_text_font(s_demo_badge, &lv_font_es_12, 0);
+    lv_obj_set_style_text_color(s_demo_badge, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(s_demo_badge, COL_CORAL, 0);
+    lv_obj_set_style_bg_opa(s_demo_badge, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(s_demo_badge, 8, 0);
+    lv_obj_set_style_pad_hor(s_demo_badge, 4, 0);
+    lv_obj_set_style_pad_ver(s_demo_badge, 3, 0);
+    lv_obj_set_pos(s_demo_badge, 6, 11);
+    lv_obj_add_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_t *wm = lv_img_create(scr_home);
     lv_img_set_src(wm, &img_wordmark);
@@ -338,11 +381,11 @@ static void build_settings(void) {
     s_lbl_lang = lv_label_create(scr_settings);
     lv_label_set_text(s_lbl_lang, tr(STR_LANGUAGE));
     lv_obj_set_style_text_color(s_lbl_lang, COL_NAVY_DARK, 0);
-    lv_obj_set_pos(s_lbl_lang, 12, 62);
+    lv_obj_set_pos(s_lbl_lang, 12, 56);
 
     s_btn_es = lv_btn_create(scr_settings);
-    lv_obj_set_size(s_btn_es, 104, 44);
-    lv_obj_set_pos(s_btn_es, 12, 84);
+    lv_obj_set_size(s_btn_es, 104, 40);
+    lv_obj_set_pos(s_btn_es, 12, 76);
     lv_obj_set_style_radius(s_btn_es, 12, 0);
     lv_obj_set_style_border_width(s_btn_es, 2, 0);
     lv_obj_set_style_border_color(s_btn_es, COL_NAVY, 0);
@@ -354,8 +397,8 @@ static void build_settings(void) {
     lv_obj_center(l);
 
     s_btn_en = lv_btn_create(scr_settings);
-    lv_obj_set_size(s_btn_en, 104, 44);
-    lv_obj_set_pos(s_btn_en, 124, 84);
+    lv_obj_set_size(s_btn_en, 104, 40);
+    lv_obj_set_pos(s_btn_en, 124, 76);
     lv_obj_set_style_radius(s_btn_en, 12, 0);
     lv_obj_set_style_border_width(s_btn_en, 2, 0);
     lv_obj_set_style_border_color(s_btn_en, COL_NAVY, 0);
@@ -369,12 +412,12 @@ static void build_settings(void) {
     s_lbl_tone = lv_label_create(scr_settings);
     lv_label_set_text(s_lbl_tone, tr(STR_SKIN_TONE));
     lv_obj_set_style_text_color(s_lbl_tone, COL_NAVY_DARK, 0);
-    lv_obj_set_pos(s_lbl_tone, 12, 144);
+    lv_obj_set_pos(s_lbl_tone, 12, 124);
 
     for (int i = 0; i < BABY_SKIN_TONE_COUNT; i++) {
         s_swatches[i] = lv_obj_create(scr_settings);
         lv_obj_set_size(s_swatches[i], 34, 34);
-        lv_obj_set_pos(s_swatches[i], 12 + i * 37, 166);
+        lv_obj_set_pos(s_swatches[i], 12 + i * 37, 144);
         lv_obj_set_style_radius(s_swatches[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_color(s_swatches[i],
                                   lv_color_hex(SWATCH_COLORS[i]), 0);
@@ -387,24 +430,33 @@ static void build_settings(void) {
     lv_label_set_text(s_lbl_hint, tr(STR_SKIN_HINT));
     lv_obj_set_style_text_color(s_lbl_hint, COL_OFFLINE, 0);
     lv_obj_set_style_text_font(s_lbl_hint, &lv_font_es_12, 0);
-    lv_obj_set_pos(s_lbl_hint, 12, 208);
+    lv_obj_set_pos(s_lbl_hint, 12, 182);
     lv_obj_set_width(s_lbl_hint, 216);
     lv_label_set_long_mode(s_lbl_hint, LV_LABEL_LONG_WRAP);
 
-    /* sound on/off */
+    /* sound volume */
     s_lbl_sound = lv_label_create(scr_settings);
     lv_label_set_text(s_lbl_sound, tr(STR_SOUND));
     lv_obj_set_style_text_color(s_lbl_sound, COL_NAVY_DARK, 0);
-    lv_obj_set_pos(s_lbl_sound, 12, 248);
+    lv_obj_set_pos(s_lbl_sound, 12, 214);
 
-    s_sw_sound = lv_switch_create(scr_settings);
-    lv_obj_set_size(s_sw_sound, 56, 30);
-    lv_obj_set_pos(s_sw_sound, 172, 242);
-    lv_obj_set_style_bg_color(s_sw_sound, COL_NAVY, LV_PART_INDICATOR |
-                                                        LV_STATE_CHECKED);
-    if (sound_is_enabled()) lv_obj_add_state(s_sw_sound, LV_STATE_CHECKED);
-    lv_obj_add_event_cb(s_sw_sound, sound_switch_changed,
-                        LV_EVENT_VALUE_CHANGED, nullptr);
+    static const int16_t VOL_X[4] = {12, 74, 124, 182};
+    static const int16_t VOL_W[4] = {56, 44, 52, 44};
+    for (int i = 0; i < 4; i++) {
+        s_btn_vol[i] = lv_btn_create(scr_settings);
+        lv_obj_set_size(s_btn_vol[i], VOL_W[i], 32);
+        lv_obj_set_pos(s_btn_vol[i], VOL_X[i], 234);
+        lv_obj_set_style_radius(s_btn_vol[i], 10, 0);
+        lv_obj_set_style_border_width(s_btn_vol[i], 2, 0);
+        lv_obj_set_style_border_color(s_btn_vol[i], COL_NAVY, 0);
+        lv_obj_set_style_shadow_width(s_btn_vol[i], 0, 0);
+        lv_obj_add_event_cb(s_btn_vol[i], vol_clicked, LV_EVENT_CLICKED,
+                            (void *)(intptr_t)i);
+        lv_obj_t *vl = lv_label_create(s_btn_vol[i]);
+        lv_label_set_text(vl, tr(VOL_STR[i]));
+        lv_obj_set_style_text_font(vl, &lv_font_es_12, 0);
+        lv_obj_center(vl);
+    }
 
     /* info footer (stacked: the portrait screen is only 240 px wide) */
     s_lbl_wifi = lv_label_create(scr_settings);
@@ -425,6 +477,7 @@ static void build_settings(void) {
 
     lang_btns_refresh();
     swatch_refresh();
+    vol_btns_refresh();
 }
 
 /* ------------------------------------------------------------ translation */
@@ -436,6 +489,8 @@ static void update_texts(void) {
     lv_label_set_text(s_lbl_tone, tr(STR_SKIN_TONE));
     lv_label_set_text(s_lbl_hint, tr(STR_SKIN_HINT));
     lv_label_set_text(s_lbl_sound, tr(STR_SOUND));
+    for (int i = 0; i < 4; i++)
+        lv_label_set_text(lv_obj_get_child(s_btn_vol[i], 0), tr(VOL_STR[i]));
     lv_label_set_text_fmt(s_lbl_back, LV_SYMBOL_LEFT " %s", tr(STR_BACK));
     lang_btns_refresh();
     state_lock();
@@ -465,26 +520,53 @@ static void wifi_icon_update(const twin_state_t *st) {
     }
 }
 
-/* show the animated baby (online with baby) or the empty incubator */
-static void home_set_view(bool show_baby) {
+/* what fills the centre of the home screen */
+typedef enum {
+    VIEW_EMPTY = 0, /* empty incubator (offline / no baby) */
+    VIEW_BABY,      /* animated baby + icons + hand button */
+    VIEW_PARENTS,   /* baby out with parents               */
+} home_view_t;
+
+static void home_set_view(home_view_t view) {
     lv_obj_t *widgets[] = {baby_widget_obj(), s_icon_thermo, s_icon_photo,
                            s_icon_heart, s_btn_hand};
     for (auto *w : widgets) {
-        if (show_baby)
+        if (view == VIEW_BABY)
             lv_obj_clear_flag(w, LV_OBJ_FLAG_HIDDEN);
         else
             lv_obj_add_flag(w, LV_OBJ_FLAG_HIDDEN);
     }
-    if (show_baby)
-        lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
-    else
+    if (view == VIEW_EMPTY)
         lv_obj_clear_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
+    if (view == VIEW_PARENTS)
+        lv_obj_clear_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
+    else
+        lv_obj_add_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
+}
+
+static void status_bar_text(const char *txt, lv_color_t col) {
+    if (strcmp(lv_label_get_text(s_lbl_status), txt) != 0)
+        lv_label_set_text(s_lbl_status, txt);
+    lv_obj_set_style_text_color(s_lbl_status, col, 0);
+    lv_obj_set_style_border_color(s_status, col, 0);
 }
 
 static void status_bar_set(str_id_t sid, lv_color_t col) {
-    lv_label_set_text(s_lbl_status, tr(sid));
-    lv_obj_set_style_text_color(s_lbl_status, col, 0);
-    lv_obj_set_style_border_color(s_status, col, 0);
+    status_bar_text(tr(sid), col);
+}
+
+/* "Lucía · 1250 g · 3 días" (lo que la familia comparta; ver twin_fields.h) */
+static void status_bar_baby(const twin_state_t *st, lv_color_t col) {
+    static char buf[64];
+    int n = snprintf(buf, sizeof(buf), "%s", st->baby_name);
+    if (st->baby_weight_g > 0 && n < (int)sizeof(buf))
+        n += snprintf(buf + n, sizeof(buf) - n, " · %u g", st->baby_weight_g);
+    if (st->baby_age_d >= 0 && n < (int)sizeof(buf))
+        snprintf(buf + n, sizeof(buf) - n, " · %d %s", st->baby_age_d,
+                 tr(st->baby_age_d == 1 ? STR_DAY : STR_DAYS));
+    status_bar_text(buf, col);
 }
 
 static void ui_apply_state(void) {
@@ -497,14 +579,47 @@ static void ui_apply_state(void) {
                  (millis() - st.last_update_ms) > (DATA_STALE_S * 1000UL);
     bool online = st.wifi_connected && st.cloud_connected && st.node_seen &&
                   st.incubator_online && !stale;
-    bool show_baby = online && st.baby_present;
+    bool show_baby = online && st.baby == BABY_IN;
+    /* "con sus papás": canguro (baby=parents) o alta a casa (out+home) */
+    bool went_home = st.baby == BABY_OUT && st.home;
+    bool parents_active = online && (st.baby == BABY_PARENTS || went_home);
 
-    wifi_icon_update(&st);
-    home_set_view(show_baby);
+    /* traza cada transicion del bebe con los flags que la explican */
+    static int prev_show = -1;
+    if ((int)show_baby != prev_show) {
+        prev_show = show_baby;
+        Serial.printf("[ui] show_baby=%d wifi=%d cloud=%d node=%d inc_on=%d "
+                      "stale=%d baby=%s home=%d hr=%u thermo=%d age_ms=%lu "
+                      "t=%lu\n",
+                      show_baby, st.wifi_connected, st.cloud_connected,
+                      st.node_seen, st.incubator_online, stale,
+                      baby_to_str(st.baby), st.home, st.heart_rate,
+                      (int)st.thermo,
+                      (unsigned long)(millis() - st.last_update_ms),
+                      (unsigned long)millis());
+    }
+
+    /* fanfarria al entrar en "con sus papás" (canguro o alta a casa) */
+    static bool prev_parents = false;
+    if (parents_active && !prev_parents) sound_play_parents();
+    prev_parents = parents_active;
+
+    if (demo_is_active()) {
+        lv_obj_add_flag(s_wifi_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_clear_flag(s_wifi_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
+        wifi_icon_update(&st);
+    }
+    home_set_view(parents_active ? VIEW_PARENTS
+                                 : show_baby ? VIEW_BABY : VIEW_EMPTY);
     sound_on_state(&st);
 
     /* status bar: one line that always tells the IncuTwin state */
-    if (!st.wifi_connected)
+    if (parents_active)
+        status_bar_set(went_home ? STR_ST_HOME : STR_ST_PARENTS, COL_OK);
+    else if (!st.wifi_connected)
         status_bar_set(STR_ST_NO_WIFI, COL_RED);
     else if (!st.cloud_connected)
         status_bar_set(STR_ST_CONNECTING, COL_WARM);
@@ -512,10 +627,12 @@ static void ui_apply_state(void) {
         status_bar_set(STR_ST_UNLINKED, COL_OFFLINE);
     else if (!online)
         status_bar_set(STR_ST_OFF, COL_OFFLINE);
-    else if (!st.baby_present)
+    else if (st.baby != BABY_IN)
         status_bar_set(STR_ST_NO_BABY, COL_PHOTO);
     else if (st.thermo == THERMO_ALARM)
         status_bar_set(STR_ALARM, COL_RED);
+    else if (st.baby_name[0])
+        status_bar_baby(&st, COL_OK);
     else
         status_bar_set(st.awake ? STR_ST_BABY_AWAKE : STR_ST_BABY_SLEEP,
                        COL_OK);

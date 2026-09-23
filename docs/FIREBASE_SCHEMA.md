@@ -100,3 +100,8 @@ curl -X PUT \
 ```
 
 El panel debe reaccionar en menos de un segundo.
+
+Alternativa sin Firebase: flashear el build `crowpanel_advance_28_sim`
+y usar el servidor de simulación embebido (`http://<ip-del-panel>/`).
+Acepta el mismo esquema de campos por `POST /state`, más `linked`
+(bool, simula la existencia del nodo) y `scenario` (string).

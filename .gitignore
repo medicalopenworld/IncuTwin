@@ -4,3 +4,6 @@ tools/preview/
 __pycache__/
 *.pyc
 desktop.ini
+
+# Secretos locales (claves de provision de ThingsBoard)
+include/secrets.h

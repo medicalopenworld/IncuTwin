@@ -23,8 +23,8 @@ solo estados con colores e iconos grandes, en español e inglés.
   fototerapia, rojo pulsante en alarma.
 - **Notificaciones retro por buzzer**: jingle 8-bit al arrancar, fanfarria
   cuando la incubadora detecta al bebé (`baby`) con 10 s de latido
-  audible, y "lub-dub" al bpm real mientras tocas al bebé. Silenciable
-  desde Ajustes (persistente).
+  audible, y "lub-dub" al bpm real mientras tocas al bebé. Volumen de 4
+  niveles (Apagado/Bajo/Medio/Alto) desde Ajustes (persistente).
 - **Estados de uso** en 3 iconos circulares (Calor, Luz y Corazón): el
   color del borde indica el estado, sin texto ni números.
 - **Barra superior**: icono WiFi con nivel de cobertura (4 niveles por
@@ -51,6 +51,8 @@ solo estados con colores e iconos grandes, en español e inglés.
   al bebé) y **OTA** gestionada desde ThingsBoard.
 - **Serialización en fabricación** con `tools/factory_provision.py`
   (NVS de fábrica + etiqueta QR imprimible + manifiesto CSV).
+- **Modo demo con el botón BOOT**: ciclado de estados sin WiFi para
+  enseñar el panel en ferias (ver más abajo).
 - Factory reset: mantener pulsado el engranaje y confirmar.
 
 ## Compilar y flashear
@@ -68,6 +70,50 @@ pio device monitor
 
 > Si el puerto no aparece, mantén pulsado **BOOT** y pulsa **RESET** para
 > entrar en modo descarga.
+
+### Modo demo con el botón BOOT (sin WiFi)
+
+Va en el firmware normal, así que **cualquier panel ya provisionado
+sirve para enseñarlo**, sin red ni IncuNest:
+
+| Acción | Efecto |
+|---|---|
+| **BOOT pulsado 2 s** | entra o sale del modo demo (pitido de confirmación) |
+| **BOOT pulsación corta** (ya en demo) | siguiente escenario |
+| **BOOT pulsación corta** (fuera de demo) | nada — no molesta en campo |
+
+Los 8 escenarios se ciclan en bucle en este orden: bebé dormido →
+despierto → calentando → alarma → fototerapia → incubadora vacía →
+IncuNest apagada → sin vincular. Cada uno dispara el sonido que le
+toca, así que la demo también luce el buzzer.
+
+Mientras está activo, el panel se pinta a sí mismo como conectado
+(hace falta para que la UI muestre al bebé) y sustituye el icono de
+WiFi por una insignia **DEMO**, para que no se confunda con datos
+reales. Al salir se restaura el estado que había al entrar. El panel
+sin provisionar arranca en el onboarding y ahí el botón no hace nada.
+
+> Pulsar BOOT **durante el arranque** sigue metiendo la placa en modo
+> descarga; el modo demo solo lee el botón ya arrancado.
+
+Implementación: `src/app/demo_mode.cpp` (botón + estado) y
+`src/app/scenarios.cpp` (tabla de escenarios, compartida con el build
+de simulación).
+
+### Modo simulación (desarrollo/demos)
+
+Para probar la UI sin IncuNest ni Firebase, flashea el entorno `_sim`:
+
+```bash
+pio run -t upload -e crowpanel_advance_28_sim
+```
+
+El panel levanta un servidor web en su IP (visible por serie y en
+Ajustes). Abre `http://<ip>/` desde el móvil o PC en la misma WiFi:
+escenarios de un toque (alarma, fototerapia, incubadora vacía...),
+control campo a campo (thermo, hr, skin...) y una demo automática que
+rota los escenarios — pensada para ferias. En este build el panel NO
+se conecta a Firebase; no distribuir este binario.
 
 ## Estructura
 

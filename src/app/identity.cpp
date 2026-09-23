@@ -96,6 +96,12 @@ void prov_set_tb_token(const char *token) {
     s_prov.end();
 }
 
+void prov_clear_tb_token(void) {
+    prov_open(false);
+    s_prov.remove("token");
+    s_prov.end();
+}
+
 const char *prov_pair_code(void) {
     static char code[8] = {0};
     if (code[0]) return code;
