@@ -4,7 +4,8 @@
 // metadata.ss_itw_state       -> estado previo (JSON) fetched by "Originator attributes"
 // metadata.ss_itw_t_parents_min, ss_itw_t_idle_min -> timeouts opcionales por incubadora
 // metadata.SN                 -> último valor de telemetría SN (fallback: deviceName)
-// metadata.ss_itw_show_name   -> 'true': el panel emparejado muestra el nombre del bebé
+// metadata.ss_itw_show_name   -> 'true': el panel emparejado muestra nombre, peso de ingreso
+//                                y días desde el ingreso del bebé
 //                                (excepción consentida al "nada de nombres sale de TB";
 //                                nunca va en los eventos del webhook)
 // metadata.cs_baby_*          -> client attributes del bebé ya guardados (sincroniza el
@@ -177,11 +178,15 @@ out.push({ msg: { itw_state: JSON.stringify(st), itw_baby_state: st.baby_state, 
   itw_stay_id: st.stay_id === null ? '' : st.stay_id, itw_seq: st.seq },  // TB rechaza atributos null
   metadata: mdWith('ITW_STATE'), msgType: 'POST_ATTRIBUTES_REQUEST' });
 var went_home = st.baby_state === 'out' && st.out_home === true;
-var name = '';
-if (metadata.ss_itw_show_name === 'true' && (st.baby_state === 'in' || st.baby_state === 'parents' || went_home))
+var name = '', weight_g = 0, age_d = -1;
+if (metadata.ss_itw_show_name === 'true' && (st.baby_state === 'in' || st.baby_state === 'parents' || went_home)) {
   name = String(metadata.cs_baby_name || '').trim().substring(0, 20);
+  weight_g = parseInt(metadata.cs_baby_weight_g) || 0;
+  // sin fecha de nacimiento en TB: "edad" = días desde el ingreso
+  if (st.admission_epoch > 0) age_d = Math.max(0, Math.floor((now - st.admission_epoch * 1000) / 86400000));
+}
 out.push({ msg: { online: st.online, thermo: st.heat, photo: st.photo, hr: st.hr === null ? 0 : st.hr,
-  baby: st.baby_state, home: went_home, name: name, updated: now },
+  baby: st.baby_state, home: went_home, name: name, weight_g: weight_g, age_d: age_d, updated: now },
   metadata: mdWith('ITW_PANEL'), msgType: 'POST_ATTRIBUTES_REQUEST' });
 for (var e = 0; e < events.length; e++) {
   var md = mdWith('ITW_EVENT');

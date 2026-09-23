@@ -20,7 +20,7 @@
 #define MQTT_BUF_SIZE (OTA_CHUNK_SIZE + 512)
 
 /* shared attributes que se piden al conectar: OTA + estado del gemelo */
-#define REQ_SHARED_KEYS                                                  "fw_title,fw_version,fw_size,fw_checksum,fw_checksum_algorithm,"     "online,thermo,photo,hr,baby,home,name,skin,awake"
+#define REQ_SHARED_KEYS                                                  "fw_title,fw_version,fw_size,fw_checksum,fw_checksum_algorithm,"     "online,thermo,photo,hr,baby,home,name,weight_g,age_d,skin,awake"
 
 static WiFiClient s_net;
 static PubSubClient s_mqtt(s_net);

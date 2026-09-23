@@ -22,9 +22,10 @@ y se re-provisiona con el perfil `IncuTwin`.
 ## Nombre del bebé (opcional, rama `feat/baby-name`)
 
 Con consentimiento de la familia: `python tb/tb_apply_incutwin_state.py --enable IncuNest-1_2 --attr=itw_show_name=true`.
-El panel sustituye el logotipo por el nombre (`baby_name` del asistente,
-máx. 20 caracteres) mientras el bebé está dentro, con sus papás o ya en
-casa. Nunca sale en los eventos ni en el visor. Para quitarlo:
+Con el bebé dentro, la barra inferior cambia "Bebé durmiendo" por
+"Nombre · peso g · N días" (`baby_name` máx. 20 caracteres, peso de
+ingreso del asistente, días desde el ingreso: TB no tiene fecha de
+nacimiento). Nunca sale en los eventos ni en el visor. Para quitarlo:
 `--attr=itw_show_name=false`.
 
 ## Guion (5 min)

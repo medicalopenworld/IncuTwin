@@ -42,6 +42,8 @@ typedef enum {
     STR_ST_BABY_AWAKE,
     STR_ST_PARENTS,
     STR_ST_HOME,
+    STR_DAY,
+    STR_DAYS,
     STR_HAND,
     /* onboarding */
     STR_OB_LANG_TITLE,

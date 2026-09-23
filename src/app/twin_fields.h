@@ -11,6 +11,8 @@
  *   home    bool     con baby=out: alta a casa
  *   name    string   nombre del bebé ("" = no compartido; solo si la
  *                    incubadora tiene itw_show_name en TB)
+ *   weight_g int     peso de ingreso (0 = no compartido)
+ *   age_d   int      días desde el ingreso (-1 = no compartido)
  *   skin    int      tono 0..5
  *   awake   bool
  *

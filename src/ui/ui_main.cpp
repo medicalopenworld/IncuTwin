@@ -44,7 +44,6 @@ static lv_obj_t *s_empty_img, *s_parents_img, *s_wifi_img, *s_demo_badge;
 static lv_obj_t *s_icon_thermo, *s_icon_photo, *s_icon_heart;
 static lv_obj_t *s_btn_hand, *s_lbl_hand;
 static lv_obj_t *s_status, *s_lbl_status;
-static lv_obj_t *s_wordmark, *s_lbl_name;
 static halo_mode_t s_halo_mode = HALO_CALM;
 
 /* settings widgets */
@@ -314,6 +313,9 @@ static void build_home(void) {
     lv_label_set_text(s_lbl_status, tr(STR_ST_CONNECTING));
     lv_obj_set_style_text_font(s_lbl_status, &lv_font_es_14, 0);
     lv_obj_set_style_text_color(s_lbl_status, COL_OFFLINE, 0);
+    lv_obj_set_width(s_lbl_status, 216); /* nombre largo: puntos suspensivos */
+    lv_label_set_long_mode(s_lbl_status, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(s_lbl_status, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(s_lbl_status);
 
     /* top bar: wifi coverage | wordmark | gear */
@@ -335,21 +337,9 @@ static void build_home(void) {
     lv_obj_set_pos(s_demo_badge, 6, 11);
     lv_obj_add_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
 
-    s_wordmark = lv_img_create(scr_home);
-    lv_img_set_src(s_wordmark, &img_wordmark);
-    lv_obj_align(s_wordmark, LV_ALIGN_TOP_MID, 0, 8);
-
-    /* nombre del bebé: ocupa el sitio del wordmark cuando la familia lo
-     * comparte (entre el icono de WiFi y el engranaje: ~140 px) */
-    s_lbl_name = lv_label_create(scr_home);
-    lv_label_set_text(s_lbl_name, "");
-    lv_obj_set_width(s_lbl_name, 140);
-    lv_label_set_long_mode(s_lbl_name, LV_LABEL_LONG_DOT);
-    lv_obj_set_style_text_align(s_lbl_name, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_font(s_lbl_name, &lv_font_es_20, 0);
-    lv_obj_set_style_text_color(s_lbl_name, COL_NAVY, 0);
-    lv_obj_align(s_lbl_name, LV_ALIGN_TOP_MID, 0, 10);
-    lv_obj_add_flag(s_lbl_name, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_t *wm = lv_img_create(scr_home);
+    lv_img_set_src(wm, &img_wordmark);
+    lv_obj_align(wm, LV_ALIGN_TOP_MID, 0, 8);
 
     lv_obj_t *gear = lv_btn_create(scr_home);
     lv_obj_set_size(gear, 42, 30);
@@ -556,10 +546,27 @@ static void home_set_view(home_view_t view) {
         lv_obj_add_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
 }
 
-static void status_bar_set(str_id_t sid, lv_color_t col) {
-    lv_label_set_text(s_lbl_status, tr(sid));
+static void status_bar_text(const char *txt, lv_color_t col) {
+    if (strcmp(lv_label_get_text(s_lbl_status), txt) != 0)
+        lv_label_set_text(s_lbl_status, txt);
     lv_obj_set_style_text_color(s_lbl_status, col, 0);
     lv_obj_set_style_border_color(s_status, col, 0);
+}
+
+static void status_bar_set(str_id_t sid, lv_color_t col) {
+    status_bar_text(tr(sid), col);
+}
+
+/* "Lucía · 1250 g · 3 días" (lo que la familia comparta; ver twin_fields.h) */
+static void status_bar_baby(const twin_state_t *st, lv_color_t col) {
+    static char buf[64];
+    int n = snprintf(buf, sizeof(buf), "%s", st->baby_name);
+    if (st->baby_weight_g > 0 && n < (int)sizeof(buf))
+        n += snprintf(buf + n, sizeof(buf) - n, " · %u g", st->baby_weight_g);
+    if (st->baby_age_d >= 0 && n < (int)sizeof(buf))
+        snprintf(buf + n, sizeof(buf) - n, " · %d %s", st->baby_age_d,
+                 tr(st->baby_age_d == 1 ? STR_DAY : STR_DAYS));
+    status_bar_text(buf, col);
 }
 
 static void ui_apply_state(void) {
@@ -607,18 +614,6 @@ static void ui_apply_state(void) {
     }
     home_set_view(parents_active ? VIEW_PARENTS
                                  : show_baby ? VIEW_BABY : VIEW_EMPTY);
-
-    /* nombre en lugar del wordmark mientras hay bebé que nombrar */
-    bool show_name = (show_baby || parents_active) && st.baby_name[0];
-    if (show_name) {
-        if (strcmp(lv_label_get_text(s_lbl_name), st.baby_name) != 0)
-            lv_label_set_text(s_lbl_name, st.baby_name);
-        lv_obj_clear_flag(s_lbl_name, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_add_flag(s_wordmark, LV_OBJ_FLAG_HIDDEN);
-    } else {
-        lv_obj_add_flag(s_lbl_name, LV_OBJ_FLAG_HIDDEN);
-        lv_obj_clear_flag(s_wordmark, LV_OBJ_FLAG_HIDDEN);
-    }
     sound_on_state(&st);
 
     /* status bar: one line that always tells the IncuTwin state */
@@ -636,6 +631,8 @@ static void ui_apply_state(void) {
         status_bar_set(STR_ST_NO_BABY, COL_PHOTO);
     else if (st.thermo == THERMO_ALARM)
         status_bar_set(STR_ALARM, COL_RED);
+    else if (st.baby_name[0])
+        status_bar_baby(&st, COL_OK);
     else
         status_bar_set(st.awake ? STR_ST_BABY_AWAKE : STR_ST_BABY_SLEEP,
                        COL_OK);
