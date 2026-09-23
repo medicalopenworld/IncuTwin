@@ -27,6 +27,9 @@ bool twin_apply_field(const char *key, JsonVariantConst v) {
             g_state.baby = baby_from_str(v.as<const char *>());
     } else if (!strcmp(key, "home")) {
         g_state.home = v.as<bool>();
+    } else if (!strcmp(key, "name")) {
+        strlcpy(g_state.baby_name, v.as<const char *>() ? v.as<const char *>() : "",
+                sizeof(g_state.baby_name));
     } else {
         return false;
     }

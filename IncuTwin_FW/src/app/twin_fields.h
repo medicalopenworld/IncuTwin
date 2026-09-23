@@ -9,6 +9,8 @@
  *   hr      int      lpm redondeados a 5 (0 = sin pulso)
  *   baby    string   none | in | parents | out   (bool legado: true=in)
  *   home    bool     con baby=out: alta a casa
+ *   name    string   nombre del bebé ("" = no compartido; solo si la
+ *                    incubadora tiene itw_show_name en TB)
  *   skin    int      tono 0..5
  *   awake   bool
  *

@@ -2,11 +2,11 @@ const fs=require('fs');
 const fn=new Function('msg','metadata','msgType', fs.readFileSync(require('path').join(__dirname,'itw_state_machine.js'),'utf8'));
 let state=null; let evs=[];
 function step(msg,msgType,ts){
-  const md={deviceName:'IncuNest-TEST',SN:'TEST-001',ts:String(ts)}; if(state) md.ss_itw_state=state;
+  const md={deviceName:'IncuNest-TEST',SN:'TEST-001',ts:String(ts),ss_itw_show_name:'true',cs_baby_name:'  Lucía  '}; if(state) md.ss_itw_state=state;
   const out=fn(msg,md,msgType);
   state=out.find(o=>o.metadata.itw_out==='ITW_STATE').msg.itw_state;
   const panel=out.find(o=>o.metadata.itw_out==='ITW_PANEL').msg;
-  out.filter(o=>o.metadata.itw_out==='ITW_EVENT').forEach(o=>{evs.push(o.msg); console.log(new Date(ts).toISOString().slice(11,19), o.msg.event, JSON.stringify(o.msg.payload), 'stay='+o.msg.stay_id, 'panel.baby='+panel.baby,'thermo='+panel.thermo);});
+  out.filter(o=>o.metadata.itw_out==='ITW_EVENT').forEach(o=>{evs.push(o.msg); console.log(new Date(ts).toISOString().slice(11,19), o.msg.event, JSON.stringify(o.msg.payload), 'stay='+o.msg.stay_id, 'panel.baby='+panel.baby,'name='+JSON.stringify(panel.name),'thermo='+panel.thermo);});
 }
 let t=Date.parse('2026-09-14T08:00:00Z'); const S=1000, M=60*S, H=60*M;
 // standby, perfil viejo en slot (baby_seq=5 pero sin terapia)

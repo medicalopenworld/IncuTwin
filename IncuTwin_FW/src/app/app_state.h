@@ -34,6 +34,7 @@ typedef struct {
     uint16_t heart_rate;     /* bpm, 0 = no pulse sensor / no signal     */
     baby_state_t baby;       /* "baby" field; default BABY_IN            */
     bool home;               /* with BABY_OUT: discharged home           */
+    char baby_name[24];      /* "" = not shared (itw_show_name in TB)    */
 
     /* baby avatar */
     uint8_t skin_tone;       /* 0..5, set remotely (ThingsBoard attr)    */

@@ -20,7 +20,7 @@
 #define MQTT_BUF_SIZE (OTA_CHUNK_SIZE + 512)
 
 /* shared attributes que se piden al conectar: OTA + estado del gemelo */
-#define REQ_SHARED_KEYS                                                  "fw_title,fw_version,fw_size,fw_checksum,fw_checksum_algorithm,"     "online,thermo,photo,hr,baby,home,skin,awake"
+#define REQ_SHARED_KEYS                                                  "fw_title,fw_version,fw_size,fw_checksum,fw_checksum_algorithm,"     "online,thermo,photo,hr,baby,home,name,skin,awake"
 
 static WiFiClient s_net;
 static PubSubClient s_mqtt(s_net);
@@ -249,7 +249,10 @@ static void mqtt_callback(char *topic, uint8_t *payload, unsigned int len) {
     /* shared attributes (pushed or requested) */
     if (strncmp(topic, "v1/devices/me/attributes", 24) == 0) {
         StaticJsonDocument<1024> doc;
-        if (deserializeJson(doc, payload, len) != DeserializationError::Ok)
+        /* const: ArduinoJson copia; con uint8_t* parsearía en el sitio y
+         * el buffer de PubSubClient ya no valdría para la traza */
+        if (deserializeJson(doc, (const char *)payload, len) !=
+            DeserializationError::Ok)
             return;
         /* el latido ({"updated":...} cada ~5 s) no se traza */
         if (!(doc.size() == 1 && doc.containsKey("updated")))

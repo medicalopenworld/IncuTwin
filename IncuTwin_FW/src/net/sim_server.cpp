@@ -67,6 +67,7 @@ static void handle_state_get(void) {
     doc["baby"] = g_state.baby == BABY_IN; /* bool: lo usa el checkbox */
     doc["baby_state"] = baby_to_str(g_state.baby);
     doc["home"] = g_state.home;
+    doc["name"] = g_state.baby_name;
     state_unlock();
     String out;
     serializeJson(doc, out);
