@@ -5,6 +5,7 @@
 #include <lvgl.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
 #include "app/usage_stats.h"
 #include "assets/assets.h"
@@ -12,6 +13,7 @@
 #include "baby_widget.h"
 #include "config.h"
 #include "i18n.h"
+#include "net/tb_client.h"
 #include "sound/sound.h"
 #include "theme.h"
 
@@ -38,7 +40,7 @@ typedef enum {
 
 static lv_obj_t *scr_splash, *scr_home, *scr_settings;
 static lv_obj_t *s_halo;
-static lv_obj_t *s_empty_img, *s_parents_img, *s_wifi_img;
+static lv_obj_t *s_empty_img, *s_parents_img, *s_wifi_img, *s_demo_badge;
 static lv_obj_t *s_icon_thermo, *s_icon_photo, *s_icon_heart;
 static lv_obj_t *s_btn_hand, *s_lbl_hand;
 static lv_obj_t *s_status, *s_lbl_status;
@@ -152,6 +154,9 @@ static void gear_long_pressed(lv_event_t *e) {
 static void baby_touched(lv_event_t *e) {
     lv_event_code_t c = lv_event_get_code(e);
     if (c == LV_EVENT_PRESSED) {
+#ifndef SIM_MODE
+        tb_client_hand_hold();
+#endif
         usage_hand_begin();
         sound_hand_hold(true);
         baby_set_awake(true);
@@ -250,8 +255,8 @@ static void build_home(void) {
     lv_obj_set_pos(s_empty_img, 0, 0);
     lv_obj_add_flag(s_empty_img, LV_OBJ_FLAG_HIDDEN);
 
-    /* full-screen "baby with parents", shown for a while after the baby
-     * leaves the incubator (see PARENTS_MODE_MS) */
+    /* full-screen "baby with parents", shown while the baby
+     * is with the parents or went home ("baby" = parents / out+home) */
     s_parents_img = lv_img_create(scr_home);
     lv_img_set_src(s_parents_img, &img_baby_parents);
     lv_obj_set_pos(s_parents_img, 0, 0);
@@ -308,12 +313,29 @@ static void build_home(void) {
     lv_label_set_text(s_lbl_status, tr(STR_ST_CONNECTING));
     lv_obj_set_style_text_font(s_lbl_status, &lv_font_es_14, 0);
     lv_obj_set_style_text_color(s_lbl_status, COL_OFFLINE, 0);
+    lv_obj_set_width(s_lbl_status, 216); /* nombre largo: puntos suspensivos */
+    lv_label_set_long_mode(s_lbl_status, LV_LABEL_LONG_DOT);
+    lv_obj_set_style_text_align(s_lbl_status, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_center(s_lbl_status);
 
     /* top bar: wifi coverage | wordmark | gear */
     s_wifi_img = lv_img_create(scr_home);
     lv_img_set_src(s_wifi_img, &img_wifi_off);
     lv_obj_set_pos(s_wifi_img, 8, 8);
+
+    /* insignia DEMO: ocupa el hueco del icono de WiFi mientras manda el
+     * modo demo — la cobertura que se pintaría ahí sería mentira */
+    s_demo_badge = lv_label_create(scr_home);
+    lv_label_set_text(s_demo_badge, "DEMO");
+    lv_obj_set_style_text_font(s_demo_badge, &lv_font_es_12, 0);
+    lv_obj_set_style_text_color(s_demo_badge, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(s_demo_badge, COL_CORAL, 0);
+    lv_obj_set_style_bg_opa(s_demo_badge, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(s_demo_badge, 8, 0);
+    lv_obj_set_style_pad_hor(s_demo_badge, 4, 0);
+    lv_obj_set_style_pad_ver(s_demo_badge, 3, 0);
+    lv_obj_set_pos(s_demo_badge, 6, 11);
+    lv_obj_add_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
 
     lv_obj_t *wm = lv_img_create(scr_home);
     lv_img_set_src(wm, &img_wordmark);
@@ -524,10 +546,27 @@ static void home_set_view(home_view_t view) {
         lv_obj_add_flag(s_parents_img, LV_OBJ_FLAG_HIDDEN);
 }
 
-static void status_bar_set(str_id_t sid, lv_color_t col) {
-    lv_label_set_text(s_lbl_status, tr(sid));
+static void status_bar_text(const char *txt, lv_color_t col) {
+    if (strcmp(lv_label_get_text(s_lbl_status), txt) != 0)
+        lv_label_set_text(s_lbl_status, txt);
     lv_obj_set_style_text_color(s_lbl_status, col, 0);
     lv_obj_set_style_border_color(s_status, col, 0);
+}
+
+static void status_bar_set(str_id_t sid, lv_color_t col) {
+    status_bar_text(tr(sid), col);
+}
+
+/* "Lucía · 1250 g · 3 días" (lo que la familia comparta; ver twin_fields.h) */
+static void status_bar_baby(const twin_state_t *st, lv_color_t col) {
+    static char buf[64];
+    int n = snprintf(buf, sizeof(buf), "%s", st->baby_name);
+    if (st->baby_weight_g > 0 && n < (int)sizeof(buf))
+        n += snprintf(buf + n, sizeof(buf) - n, " · %u g", st->baby_weight_g);
+    if (st->baby_age_d >= 0 && n < (int)sizeof(buf))
+        snprintf(buf + n, sizeof(buf) - n, " · %d %s", st->baby_age_d,
+                 tr(st->baby_age_d == 1 ? STR_DAY : STR_DAYS));
+    status_bar_text(buf, col);
 }
 
 static void ui_apply_state(void) {
@@ -540,46 +579,46 @@ static void ui_apply_state(void) {
                  (millis() - st.last_update_ms) > (DATA_STALE_S * 1000UL);
     bool online = st.wifi_connected && st.cloud_connected && st.node_seen &&
                   st.incubator_online && !stale;
-    bool show_baby = online && st.baby_present;
+    bool show_baby = online && st.baby == BABY_IN;
+    /* "con sus papás": canguro (baby=parents) o alta a casa (out+home) */
+    bool went_home = st.baby == BABY_OUT && st.home;
+    bool parents_active = online && (st.baby == BABY_PARENTS || went_home);
 
     /* traza cada transicion del bebe con los flags que la explican */
     static int prev_show = -1;
     if ((int)show_baby != prev_show) {
         prev_show = show_baby;
         Serial.printf("[ui] show_baby=%d wifi=%d cloud=%d node=%d inc_on=%d "
-                      "stale=%d baby=%d hr=%u thermo=%d age_ms=%lu t=%lu\n",
+                      "stale=%d baby=%s home=%d hr=%u thermo=%d age_ms=%lu "
+                      "t=%lu\n",
                       show_baby, st.wifi_connected, st.cloud_connected,
                       st.node_seen, st.incubator_online, stale,
-                      st.baby_present, st.heart_rate, (int)st.thermo,
+                      baby_to_str(st.baby), st.home, st.heart_rate,
+                      (int)st.thermo,
                       (unsigned long)(millis() - st.last_update_ms),
                       (unsigned long)millis());
     }
 
-    /* ventana "con sus papás": cualquier caída de show_baby la abre;
-     * el bebé de vuelta la cancela. Resta con signo por el rollover. */
-    static bool prev_baby = false;
-    static uint32_t parents_until = 0; /* 0 = inactiva */
-    if (!show_baby && prev_baby) {
-        parents_until = millis() + PARENTS_MODE_MS;
-        if (parents_until == 0) parents_until = 1;
-        sound_play_parents();
-    } else if (show_baby) {
-        parents_until = 0;
-    }
-    prev_baby = show_baby;
-    if (parents_until != 0 && (int32_t)(millis() - parents_until) >= 0)
-        parents_until = 0; /* expirada: que no re-arme tras el wrap */
-    bool parents_active = parents_until != 0 &&
-                          (int32_t)(millis() - parents_until) < 0;
+    /* fanfarria al entrar en "con sus papás" (canguro o alta a casa) */
+    static bool prev_parents = false;
+    if (parents_active && !prev_parents) sound_play_parents();
+    prev_parents = parents_active;
 
-    wifi_icon_update(&st);
+    if (demo_is_active()) {
+        lv_obj_add_flag(s_wifi_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_clear_flag(s_wifi_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
+        wifi_icon_update(&st);
+    }
     home_set_view(parents_active ? VIEW_PARENTS
                                  : show_baby ? VIEW_BABY : VIEW_EMPTY);
     sound_on_state(&st);
 
     /* status bar: one line that always tells the IncuTwin state */
     if (parents_active)
-        status_bar_set(STR_ST_PARENTS, COL_OK);
+        status_bar_set(went_home ? STR_ST_HOME : STR_ST_PARENTS, COL_OK);
     else if (!st.wifi_connected)
         status_bar_set(STR_ST_NO_WIFI, COL_RED);
     else if (!st.cloud_connected)
@@ -588,10 +627,12 @@ static void ui_apply_state(void) {
         status_bar_set(STR_ST_UNLINKED, COL_OFFLINE);
     else if (!online)
         status_bar_set(STR_ST_OFF, COL_OFFLINE);
-    else if (!st.baby_present)
+    else if (st.baby != BABY_IN)
         status_bar_set(STR_ST_NO_BABY, COL_PHOTO);
     else if (st.thermo == THERMO_ALARM)
         status_bar_set(STR_ALARM, COL_RED);
+    else if (st.baby_name[0])
+        status_bar_baby(&st, COL_OK);
     else
         status_bar_set(st.awake ? STR_ST_BABY_AWAKE : STR_ST_BABY_SLEEP,
                        COL_OK);

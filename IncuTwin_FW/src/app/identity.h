@@ -35,6 +35,8 @@ bool prov_get_name(char *out, size_t len);
 /* token de acceso de ThingsBoard */
 bool prov_get_tb_token(char *out, size_t len);
 void prov_set_tb_token(const char *token);
+/* olvida el token: en el siguiente arranque el panel se re-provisiona */
+void prov_clear_tb_token(void);
 
 /* código de emparejamiento con la app (6 dígitos, generado una vez) */
 const char *prov_pair_code(void);

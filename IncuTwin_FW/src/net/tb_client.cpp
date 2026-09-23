@@ -10,17 +10,26 @@
 #include <freertos/task.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
+#include "app/twin_fields.h"
 #include "app/usage_stats.h"
 #include "config.h"
 
 #define OTA_CHUNK_SIZE 4096
 #define MQTT_BUF_SIZE (OTA_CHUNK_SIZE + 512)
 
+/* shared attributes que se piden al conectar: OTA + estado del gemelo */
+#define REQ_SHARED_KEYS                                                  "fw_title,fw_version,fw_size,fw_checksum,fw_checksum_algorithm,"     "online,thermo,photo,hr,baby,home,name,weight_g,age_d,skin,awake"
+
 static WiFiClient s_net;
 static PubSubClient s_mqtt(s_net);
 static volatile tb_status_t s_status = TB_IDLE;
 static char s_token[64] = {0};
+
+/* "coge mi mano": lo pide la UI, lo publica la tarea MQTT */
+static volatile bool s_hand_req = false;
+static uint32_t s_hand_last_ms = 0;
 
 /* provisioning response */
 static volatile bool s_prov_answered = false;
@@ -77,6 +86,47 @@ static void publish_usage(void) {
     doc["rssi"] = WiFi.RSSI();
     doc["uptime_s"] = (uint32_t)(millis() / 1000);
     publish_json("v1/devices/me/telemetry", doc);
+}
+
+/* ------------------------------------------------------------ twin state */
+
+static void set_cloud(bool ok) {
+    if (demo_is_active()) return; /* la demo manda sobre g_state */
+    state_lock();
+    if (g_state.cloud_connected != ok) {
+        g_state.cloud_connected = ok;
+        g_state_dirty = true;
+    }
+    state_unlock();
+}
+
+/* Shared attributes del gemelo (rama "estado del gemelo" en TB). Cada
+ * telemetría de la incubadora refresca "updated", así que un push llega
+ * con cada mensaje de la IncuNest y sirve de latido. */
+static void apply_twin_attrs(JsonObjectConst attrs) {
+    if (demo_is_active()) return; /* no pisar los escenarios de la demo */
+    bool any = false;
+    state_lock();
+    for (JsonPairConst kv : attrs) {
+        if (twin_apply_field(kv.key().c_str(), kv.value())) any = true;
+    }
+    if (any) {
+        g_state.node_seen = true;
+        g_state.last_update_ms = millis();
+        g_state_dirty = true;
+    }
+    state_unlock();
+
+    if (attrs.containsKey("hand_hold_until"))
+        Serial.printf("[tb] hand_hold_until=%llu\n",
+                      (unsigned long long)(attrs["hand_hold_until"] | 0ULL));
+}
+
+static void publish_hand_hold(void) {
+    StaticJsonDocument<64> doc;
+    doc["hand_hold"] = 1;
+    publish_json("v1/devices/me/telemetry", doc);
+    Serial.printf("[tb] hand_hold enviado t=%lu\n", (unsigned long)millis());
 }
 
 /* ------------------------------------------------------------------- OTA */
@@ -198,13 +248,22 @@ static void mqtt_callback(char *topic, uint8_t *payload, unsigned int len) {
 
     /* shared attributes (pushed or requested) */
     if (strncmp(topic, "v1/devices/me/attributes", 24) == 0) {
-        StaticJsonDocument<512> doc;
-        if (deserializeJson(doc, payload, len) != DeserializationError::Ok)
+        StaticJsonDocument<1024> doc;
+        /* const: ArduinoJson copia; con uint8_t* parsearía en el sitio y
+         * el buffer de PubSubClient ya no valdría para la traza */
+        if (deserializeJson(doc, (const char *)payload, len) !=
+            DeserializationError::Ok)
             return;
-        if (doc.containsKey("shared"))
-            ota_check_attrs(doc["shared"]);
-        else
-            ota_check_attrs(doc.as<JsonVariantConst>());
+        /* el latido ({"updated":...} cada ~5 s) no se traza */
+        if (!(doc.size() == 1 && doc.containsKey("updated")))
+            Serial.printf("[tb] %s: %.*s\n", topic, (int)min(len, 240u),
+                          (const char *)payload);
+        /* respuesta a una petición: {"shared":{...}}; push: {...} */
+        JsonObjectConst attrs = doc.containsKey("shared")
+                                    ? doc["shared"].as<JsonObjectConst>()
+                                    : doc.as<JsonObjectConst>();
+        ota_check_attrs(attrs);
+        apply_twin_attrs(attrs);
     }
 }
 
@@ -237,6 +296,7 @@ static bool do_provision(void) {
     }
     s_mqtt.disconnect();
 
+    Serial.printf("[tb] provision %s\n", s_prov_ok ? "OK" : "FALLIDA");
     if (s_prov_ok) {
         prov_set_tb_token(s_token);
         return true;
@@ -272,6 +332,7 @@ static void tb_task(void *arg) {
         /* connect with the device token */
         if (!s_mqtt.connected()) {
             s_status = TB_DISCONNECTED;
+            set_cloud(false);
             s_mqtt.setServer(TB_HOST, TB_PORT);
             s_mqtt.setCallback(mqtt_callback);
             if (!s_mqtt.connect(identity_sn(), s_token, "")) {
@@ -279,21 +340,32 @@ static void tb_task(void *arg) {
                 continue;
             }
             s_status = TB_CONNECTED;
+            set_cloud(true);
+            Serial.printf("[tb] conectado a %s como %s (token %.4s...)\n",
+                          TB_HOST, identity_sn(), s_token);
             s_mqtt.subscribe("v1/devices/me/attributes");
             s_mqtt.subscribe("v1/devices/me/attributes/response/+");
             s_mqtt.subscribe("v2/fw/response/+/chunk/+");
             publish_current_fw();
             publish_fw_state("UPDATED");
-            /* ask for pending OTA info */
-            StaticJsonDocument<128> req;
-            req["sharedKeys"] =
-                "fw_title,fw_version,fw_size,fw_checksum,fw_checksum_algorithm";
+            /* pending OTA info + current twin state */
+            StaticJsonDocument<256> req;
+            req["sharedKeys"] = REQ_SHARED_KEYS;
             publish_json("v1/devices/me/attributes/request/1", req);
         }
 
         s_mqtt.loop();
 
         if (s_ota.pending && !s_ota.active) ota_run();
+
+        if (s_hand_req) {
+            s_hand_req = false;
+            if (s_hand_last_ms == 0 ||
+                millis() - s_hand_last_ms >= HAND_HOLD_MIN_INTERVAL_S * 1000UL) {
+                s_hand_last_ms = millis();
+                publish_hand_hold();
+            }
+        }
 
         if (millis() - last_telemetry > TB_TELEMETRY_PERIOD_S * 1000UL) {
             last_telemetry = millis();
@@ -308,6 +380,11 @@ void tb_client_start(void) {
 }
 
 tb_status_t tb_status(void) { return s_status; }
+
+void tb_client_hand_hold(void) {
+    if (demo_is_active()) return; /* en la demo sin red no se envía nada */
+    s_hand_req = true;
+}
 
 bool tb_has_token(void) {
     if (s_token[0]) return true;
