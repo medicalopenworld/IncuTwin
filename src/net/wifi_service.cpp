@@ -4,6 +4,7 @@
 #include <WiFi.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
 #include "config.h"
 
@@ -12,11 +13,15 @@ static void on_wifi_event(WiFiEvent_t event) {
     bool disconnected = (event == ARDUINO_EVENT_WIFI_STA_DISCONNECTED);
     if (!connected && !disconnected) return;
 
-    state_lock();
-    g_state.wifi_connected = connected;
-    if (disconnected) g_state.cloud_connected = false;
-    g_state_dirty = true;
-    state_unlock();
+    /* En modo demo la conectividad la finge demo_mode: el reintento de
+     * WiFi sigue corriendo, pero no toca g_state. */
+    if (!demo_is_active()) {
+        state_lock();
+        g_state.wifi_connected = connected;
+        if (disconnected) g_state.cloud_connected = false;
+        g_state_dirty = true;
+        state_unlock();
+    }
 
     if (disconnected) WiFi.reconnect();
 

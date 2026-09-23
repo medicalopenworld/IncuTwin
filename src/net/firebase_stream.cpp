@@ -8,6 +8,7 @@
 #include <freertos/task.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
 #include "config.h"
 
@@ -18,6 +19,7 @@ static String s_host = FIREBASE_HOST;
 static String s_path; /* set on start */
 
 static void set_cloud(bool ok) {
+    if (demo_is_active()) return; /* la demo manda sobre g_state */
     state_lock();
     if (g_state.cloud_connected != ok) {
         g_state.cloud_connected = ok;
@@ -48,6 +50,15 @@ static void apply_field(const char *key, JsonVariantConst v) {
 }
 
 static void apply_event(const char *event, const String &data) {
+    if (demo_is_active()) return; /* no pisar los escenarios de la demo */
+    if (!strcmp(event, "keep-alive")) {
+        /* SSE: sin eventos = sin cambios; el keep-alive prueba que el
+         * estado sigue vigente, asi que cuenta como dato fresco */
+        state_lock();
+        g_state.last_update_ms = millis();
+        state_unlock();
+        return;
+    }
     if (strcmp(event, "put") != 0 && strcmp(event, "patch") != 0) return;
 
     StaticJsonDocument<768> doc;
@@ -226,10 +237,16 @@ static void stream_task(void *arg) {
             continue;
         }
         bool had_stream = open_stream();
-        set_cloud(false);
         s_client.stop();
 
-        backoff = had_stream ? 1000 : min<uint32_t>(backoff * 2, 30000);
+        if (had_stream) {
+            /* Firebase recicla streams sanos: reconectar sin marcar la
+             * nube caida, o el bebe parpadea en cada reciclo */
+            backoff = 1000;
+        } else {
+            set_cloud(false);
+            backoff = min<uint32_t>(backoff * 2, 30000);
+        }
         vTaskDelay(pdMS_TO_TICKS(backoff));
     }
 }

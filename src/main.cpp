@@ -12,6 +12,7 @@
 #include <lvgl.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
 #include "app/usage_stats.h"
 #include "config.h"
@@ -120,6 +121,7 @@ void setup() {
                       identity_sn());
     } else {
         ui_init();
+        demo_init(); /* BOOT: modo demo sin WiFi (solo con la UI principal) */
         wifi_service_start();
 #ifdef SIM_MODE
         sim_server_start();
@@ -138,6 +140,7 @@ void setup() {
 
 void loop() {
     lv_timer_handler();
+    demo_tick();
 
     /* contadores de uso: tick de 1 s */
     static uint32_t last_tick = 0;
@@ -146,7 +149,8 @@ void loop() {
         state_lock();
         bool online = g_state.incubator_online && g_state.cloud_connected;
         state_unlock();
-        usage_tick_1s(online);
+        /* la conectividad fingida de la demo no cuenta como uso real */
+        usage_tick_1s(online && !demo_is_active());
     }
     delay(5);
 }

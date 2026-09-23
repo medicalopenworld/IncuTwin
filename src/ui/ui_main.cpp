@@ -5,6 +5,7 @@
 #include <lvgl.h>
 
 #include "app/app_state.h"
+#include "app/demo_mode.h"
 #include "app/identity.h"
 #include "app/usage_stats.h"
 #include "assets/assets.h"
@@ -38,7 +39,7 @@ typedef enum {
 
 static lv_obj_t *scr_splash, *scr_home, *scr_settings;
 static lv_obj_t *s_halo;
-static lv_obj_t *s_empty_img, *s_parents_img, *s_wifi_img;
+static lv_obj_t *s_empty_img, *s_parents_img, *s_wifi_img, *s_demo_badge;
 static lv_obj_t *s_icon_thermo, *s_icon_photo, *s_icon_heart;
 static lv_obj_t *s_btn_hand, *s_lbl_hand;
 static lv_obj_t *s_status, *s_lbl_status;
@@ -315,6 +316,20 @@ static void build_home(void) {
     lv_img_set_src(s_wifi_img, &img_wifi_off);
     lv_obj_set_pos(s_wifi_img, 8, 8);
 
+    /* insignia DEMO: ocupa el hueco del icono de WiFi mientras manda el
+     * modo demo — la cobertura que se pintaría ahí sería mentira */
+    s_demo_badge = lv_label_create(scr_home);
+    lv_label_set_text(s_demo_badge, "DEMO");
+    lv_obj_set_style_text_font(s_demo_badge, &lv_font_es_12, 0);
+    lv_obj_set_style_text_color(s_demo_badge, lv_color_white(), 0);
+    lv_obj_set_style_bg_color(s_demo_badge, COL_CORAL, 0);
+    lv_obj_set_style_bg_opa(s_demo_badge, LV_OPA_COVER, 0);
+    lv_obj_set_style_radius(s_demo_badge, 8, 0);
+    lv_obj_set_style_pad_hor(s_demo_badge, 4, 0);
+    lv_obj_set_style_pad_ver(s_demo_badge, 3, 0);
+    lv_obj_set_pos(s_demo_badge, 6, 11);
+    lv_obj_add_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
+
     lv_obj_t *wm = lv_img_create(scr_home);
     lv_img_set_src(wm, &img_wordmark);
     lv_obj_align(wm, LV_ALIGN_TOP_MID, 0, 8);
@@ -559,6 +574,17 @@ static void ui_apply_state(void) {
      * el bebé de vuelta la cancela. Resta con signo por el rollover. */
     static bool prev_baby = false;
     static uint32_t parents_until = 0; /* 0 = inactiva */
+
+    /* Saltar de escenario en el modo demo no debe arrastrar transitorios:
+     * sin esto, tras "empty" los estados apagado/sin vincular seguirían
+     * mostrando a los papás durante PARENTS_MODE_MS. */
+    static uint32_t prev_demo_seq = 0;
+    uint32_t demo_seq_now = demo_seq();
+    if (demo_seq_now != prev_demo_seq) {
+        prev_demo_seq = demo_seq_now;
+        parents_until = 0;
+    }
+
     if (!show_baby && prev_baby) {
         parents_until = millis() + PARENTS_MODE_MS;
         if (parents_until == 0) parents_until = 1;
@@ -572,7 +598,14 @@ static void ui_apply_state(void) {
     bool parents_active = parents_until != 0 &&
                           (int32_t)(millis() - parents_until) < 0;
 
-    wifi_icon_update(&st);
+    if (demo_is_active()) {
+        lv_obj_add_flag(s_wifi_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_clear_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
+    } else {
+        lv_obj_clear_flag(s_wifi_img, LV_OBJ_FLAG_HIDDEN);
+        lv_obj_add_flag(s_demo_badge, LV_OBJ_FLAG_HIDDEN);
+        wifi_icon_update(&st);
+    }
     home_set_view(parents_active ? VIEW_PARENTS
                                  : show_baby ? VIEW_BABY : VIEW_EMPTY);
     sound_on_state(&st);

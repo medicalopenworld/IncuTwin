@@ -29,3 +29,8 @@
 
 /* On-board buzzer (PWM; factory firmware drives it with analogWrite(8, x)) */
 #define BUZZER_PIN 8
+
+/* BOOT button (strapping pin, active LOW with the internal pull-up).
+ * En runtime no tiene otra función: lo usa el modo demo (ver demo_mode.h).
+ * Pulsarlo durante el arranque sigue metiendo la placa en modo descarga. */
+#define BOOT_BTN_PIN 0

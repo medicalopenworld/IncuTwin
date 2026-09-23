@@ -96,16 +96,22 @@ static void yawn_scheduler_cb(lv_timer_t *t) {
 
 /* --------------------------------------------------------------- breathing */
 
+/* Nota: LVGL 8 no soporta transformar (zoom/rotacion) imagenes indexadas
+ * — se dibujan linea a linea y con zoom != 256 no se pintan. Los efectos
+ * de este widget deben evitar lv_img_set_zoom/lv_img_set_angle. */
+
 static void breath_anim_cb(void *var, int32_t v) {
-    lv_img_set_zoom((lv_obj_t *)var, (uint16_t)v);
+    lv_obj_set_y((lv_obj_t *)var, v);
 }
 
 static void start_breathing(void) {
+    lv_coord_t y0 = lv_obj_get_y(s_img);
+
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, s_img);
     lv_anim_set_exec_cb(&a, breath_anim_cb);
-    lv_anim_set_values(&a, 256, 271);
+    lv_anim_set_values(&a, y0, y0 - 3);
     lv_anim_set_time(&a, 2600);
     lv_anim_set_playback_time(&a, 2600);
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
@@ -116,7 +122,7 @@ static void start_breathing(void) {
 /* ------------------------------------------------------------------- heart */
 
 static void heart_anim_cb(void *var, int32_t v) {
-    lv_img_set_zoom((lv_obj_t *)var, (uint16_t)v);
+    lv_obj_set_style_opa((lv_obj_t *)var, (lv_opa_t)v, 0);
 }
 
 static void restart_heart_anim(void) {
@@ -134,7 +140,7 @@ static void restart_heart_anim(void) {
     lv_anim_init(&a);
     lv_anim_set_var(&a, s_heart);
     lv_anim_set_exec_cb(&a, heart_anim_cb);
-    lv_anim_set_values(&a, 190, 256);
+    lv_anim_set_values(&a, LV_OPA_40, LV_OPA_COVER);
     lv_anim_set_time(&a, period / 3);
     lv_anim_set_playback_time(&a, (period * 2) / 3);
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
