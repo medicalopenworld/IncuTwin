@@ -19,6 +19,14 @@ Si el panel quedó ligado a un device que no es del tenant, se envía
 `tb-forget` por el puerto serie (115200): borra el token, conserva la WiFi
 y se re-provisiona con el perfil `IncuTwin`.
 
+## Nombre del bebé (opcional, rama `feat/baby-name`)
+
+Con consentimiento de la familia: `python tb/tb_apply_incutwin_state.py --enable IncuNest-1_2 --attr=itw_show_name=true`.
+El panel sustituye el logotipo por el nombre (`baby_name` del asistente,
+máx. 20 caracteres) mientras el bebé está dentro, con sus papás o ya en
+casa. Nunca sale en los eventos ni en el visor. Para quitarlo:
+`--attr=itw_show_name=false`.
+
 ## Guion (5 min)
 
 | # | En la IncuNest (HMI) | Panel | Visor | Evento |

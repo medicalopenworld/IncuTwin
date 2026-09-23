@@ -28,6 +28,7 @@ Consecuencia: la heurística de presencia de v0.1 desaparece del contrato. `baby
 2. **`baby_seq` es el identificador natural del episodio** (`stay_id`). Se genera en el firmware, es único por incubadora y viaja en todos los payloads del bebé.
 3. **El desenlace existe como dato** (`baby_outcome`: 0 desconocido, 1 sobrevive, 2 fallece, 3 traslado). La decisión pendiente de v0.1 ya no es "si se puede saber" sino "qué se cuenta al padrino". Propuesta abajo (§3.4, `baby_out`).
 4. **Datos que nunca salen de TB**: `baby_name`, `baby_weight_g`, `baby_gest_weeks`, `baby_discharge_cause`, temperaturas, SpO2, alarmas. El webhook lleva categorías, no medidas.
+   *Excepción (24-09-2026, rama `feat/baby-name`):* con el server attribute `itw_show_name = true` en la incubadora —solo con consentimiento de la familia—, `baby_name` viaja como shared attribute `name` a los paneles emparejados mientras el bebé está `in`/`parents` o se ha ido a casa. Nunca va en los eventos del webhook ni en `itw_event`. Pendiente de decisión de producto para ir más allá de la demo.
 5. **Firmware IncuTwin**: sin cambios respecto a v0.1 (quitar Firebase, shared attributes, `hand_hold`, TLS). La pantalla "con sus papás" pasa a dispararse por evento canguro real, no por pérdida de señal.
 6. **ThingsBoard**: la rama "estado del gemelo" se cuelga de la rule chain raíz de IncuNest con un filtro `incutwin_enabled == true` por incubadora. Los 72 devices `IncuNest_HMI` hay que planificar retirarlos con el despliegue de `dev`.
 

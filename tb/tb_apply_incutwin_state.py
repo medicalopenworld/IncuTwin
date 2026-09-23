@@ -9,7 +9,8 @@ Hace:
   1. Crea/actualiza la rule chain "IncuNest_IncuTwin_state".
   2. Añade a la rule chain raíz un nodo "rule chain" hacia ella, conectado desde el
      Message Type Switch en: Post telemetry, Post attributes, Activity Event, Inactivity Event.
-  3. Pone incutwin_enabled=true e inactivityTimeout=180000 en las incubadoras indicadas con --enable.
+  3. Pone incutwin_enabled=true e inactivityTimeout=180000 en las incubadoras indicadas con --enable
+     (más --attr=clave=valor, p. ej. --attr=itw_show_name=true para mostrar el nombre en el panel).
 No toca ningún otro nodo ni dispositivo.
 """
 import json, os, sys, pathlib, requests
@@ -45,9 +46,9 @@ def chain_metadata(rc_id):
            {"scriptLang": "JS", "jsScript": "return metadata.ss_incutwin_enabled === 'true';", "tbelScript": "return metadata.ss_incutwin_enabled == 'true';"}, 0, 400, 200),
       node("metadata.TbGetAttributesNode", "estado previo + SN",
            {"tellFailureIfAbsent": False,
-            "clientAttributeNames": ["baby_seq", "baby_admission_epoch", "baby_kangaroo_count", "baby_thermo_min", "baby_phototherapy_min"],
+            "clientAttributeNames": ["baby_seq", "baby_admission_epoch", "baby_kangaroo_count", "baby_thermo_min", "baby_phototherapy_min", "baby_name"],
             "sharedAttributeNames": [],
-            "serverAttributeNames": ["itw_state", "itw_t_parents_min", "itw_t_idle_min"], "latestTsKeyNames": ["SN"], "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 650, 200),
+            "serverAttributeNames": ["itw_state", "itw_t_parents_min", "itw_t_idle_min", "itw_show_name"], "latestTsKeyNames": ["SN"], "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 650, 200),
       node("transform.TbTransformMsgNode", "máquina de estados IncuTwin",
            {"scriptLang": "JS", "jsScript": sm, "tbelScript": "return msg;"}, 0, 900, 200,
            "Contrato v0.2 §3.4. Emite ITW_STATE (server attrs), ITW_PANEL (shared attrs a paneles) e ITW_EVENT (webhook)."),
@@ -127,7 +128,8 @@ for name in names:
     attrs = {"incutwin_enabled": True, "inactivityTimeout": 180000}
     for a in args:
         if a.startswith("--attr="):  # p. ej. --attr=itw_t_parents_min=5
-            k, v = a[7:].split("=", 1); attrs[k] = int(v) if v.isdigit() else v
+            k, v = a[7:].split("=", 1)
+            attrs[k] = int(v) if v.isdigit() else (v == "true") if v in ("true", "false") else v
     post(f"/api/plugins/telemetry/DEVICE/{dev['id']['id']}/SERVER_SCOPE", attrs)
     print("habilitada", dev["name"], dev["id"]["id"], attrs)
 print("OK")
