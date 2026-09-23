@@ -18,6 +18,7 @@ void state_init(void) {
     g_state.skin_tone = DEFAULT_SKIN_TONE;
     g_state.awake = false;
     g_state.baby = BABY_IN; /* bridges without "baby" keep working */
+    g_state.baby_age_d = -1;
     g_state_dirty = true;
 }
 

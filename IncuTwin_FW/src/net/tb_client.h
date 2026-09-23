@@ -5,7 +5,7 @@
  *     obtiene un access token propio y lo guarda en NVS.
  *   - Estado del gemelo: shared attributes que empuja la rama "estado del
  *     gemelo" de la IncuNest emparejada (online, thermo, photo, hr, baby,
- *     home, name) -> g_state.
+ *     home, name, weight_g, age_d) -> g_state.
  *   - "Coge mi mano": telemetría {"hand_hold":1} al pulsar el botón.
  *   - Telemetría de uso periódica (horas encendido, conectado, Agarra mi
  *     mano) y estado.

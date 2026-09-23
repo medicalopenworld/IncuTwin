@@ -35,6 +35,8 @@ typedef struct {
     baby_state_t baby;       /* "baby" field; default BABY_IN            */
     bool home;               /* with BABY_OUT: discharged home           */
     char baby_name[24];      /* "" = not shared (itw_show_name in TB)    */
+    uint16_t baby_weight_g;  /* admission weight, 0 = not shared         */
+    int16_t baby_age_d;      /* days since admission, -1 = not shared    */
 
     /* baby avatar */
     uint8_t skin_tone;       /* 0..5, set remotely (ThingsBoard attr)    */

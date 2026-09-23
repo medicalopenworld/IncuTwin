@@ -68,6 +68,8 @@ static void handle_state_get(void) {
     doc["baby_state"] = baby_to_str(g_state.baby);
     doc["home"] = g_state.home;
     doc["name"] = g_state.baby_name;
+    doc["weight_g"] = g_state.baby_weight_g;
+    doc["age_d"] = g_state.baby_age_d;
     state_unlock();
     String out;
     serializeJson(doc, out);
