@@ -27,7 +27,8 @@ typedef struct {
     bool photo;
     uint16_t hr;
     bool awake;
-    bool baby;
+    baby_state_t baby;
+    bool home; /* con BABY_OUT: alta a casa */
 } scenario_t;
 
 size_t scenario_count(void);

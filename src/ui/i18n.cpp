@@ -46,6 +46,7 @@ static const char *STRINGS[STR_COUNT][2] = {
     /* STR_ST_BABY_SLEEP */ {"Bebé durmiendo", "Baby sleeping"},
     /* STR_ST_BABY_AWAKE */ {"Bebé despierto", "Baby awake"},
     /* STR_ST_PARENTS    */ {"Con sus papás", "With parents"},
+    /* STR_ST_HOME       */ {"¡Ya está en casa!", "Home at last!"},
     /* STR_HAND          */ {"Agarra mi mano", "Hold my hand"},
     /* STR_OB_LANG_TITLE */ {"Elige tu idioma", "Choose your language"},
     /* STR_OB_CONNECT_TITLE */ {"Conecta tu móvil", "Connect your phone"},

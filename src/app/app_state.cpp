@@ -17,7 +17,7 @@ void state_init(void) {
     g_state.thermo = THERMO_OFF;
     g_state.skin_tone = DEFAULT_SKIN_TONE;
     g_state.awake = false;
-    g_state.baby_present = true; /* bridges without "baby" keep working */
+    g_state.baby = BABY_IN; /* bridges without "baby" keep working */
     g_state_dirty = true;
 }
 
@@ -30,4 +30,21 @@ thermo_state_t thermo_from_str(const char *s) {
     if (!strcmp(s, "stable")) return THERMO_STABLE;
     if (!strcmp(s, "alarm")) return THERMO_ALARM;
     return THERMO_OFF;
+}
+
+baby_state_t baby_from_str(const char *s) {
+    if (!s) return BABY_NONE;
+    if (!strcmp(s, "in")) return BABY_IN;
+    if (!strcmp(s, "parents")) return BABY_PARENTS;
+    if (!strcmp(s, "out")) return BABY_OUT;
+    return BABY_NONE;
+}
+
+const char *baby_to_str(baby_state_t b) {
+    switch (b) {
+        case BABY_IN: return "in";
+        case BABY_PARENTS: return "parents";
+        case BABY_OUT: return "out";
+        default: return "none";
+    }
 }

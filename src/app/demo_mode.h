@@ -11,7 +11,7 @@
  *   - se falsea la conectividad del panel (wifi_connected /
  *     cloud_connected) y se refresca last_update_ms cada segundo, para
  *     que la UI se vea "en línea" sin red y no salte DATA_STALE_S
- *   - las fuentes reales (firebase_stream, wifi_service) no tocan
+ *   - las fuentes reales (tb_client, wifi_service) no tocan
  *     g_state: consultan demo_is_active()
  *
  * Al salir se restaura el g_state que había al entrar.

@@ -11,6 +11,7 @@
 
 #include "app/app_state.h"
 #include "app/scenarios.h"
+#include "app/twin_fields.h"
 
 static WebServer *s_http = nullptr;
 
@@ -30,27 +31,12 @@ static void apply_fields(JsonObjectConst obj) {
     for (JsonPairConst kv : obj) {
         const char *key = kv.key().c_str();
         JsonVariantConst v = kv.value();
-        if (!strcmp(key, "online")) {
-            g_state.incubator_online = v.as<bool>();
-        } else if (!strcmp(key, "linked")) {
+        if (!strcmp(key, "linked"))
             g_state.node_seen = v.as<bool>();
-        } else if (!strcmp(key, "thermo")) {
-            g_state.thermo = thermo_from_str(v.as<const char *>());
-        } else if (!strcmp(key, "photo")) {
-            g_state.phototherapy = v.as<bool>();
-        } else if (!strcmp(key, "hr")) {
-            int hr = v.as<int>();
-            g_state.heart_rate = (uint16_t)constrain(hr, 0, 300);
-        } else if (!strcmp(key, "skin")) {
-            int t = v.as<int>();
-            if (t >= 0 && t < 6) g_state.skin_tone = (uint8_t)t;
-        } else if (!strcmp(key, "awake")) {
-            g_state.awake = v.as<bool>();
-        } else if (!strcmp(key, "baby")) {
-            g_state.baby_present = v.as<bool>();
-        }
+        else
+            twin_apply_field(key, v);
         /* "scenario" ya se procesó en el handler; claves desconocidas
-         * se ignoran, como hace firebase_stream. */
+         * se ignoran, como hace tb_client. */
     }
     g_state.last_update_ms = millis();
     g_state_dirty = true;
@@ -78,7 +64,9 @@ static void handle_state_get(void) {
     doc["hr"] = g_state.heart_rate;
     doc["skin"] = g_state.skin_tone;
     doc["awake"] = g_state.awake;
-    doc["baby"] = g_state.baby_present;
+    doc["baby"] = g_state.baby == BABY_IN; /* bool: lo usa el checkbox */
+    doc["baby_state"] = baby_to_str(g_state.baby);
+    doc["home"] = g_state.home;
     state_unlock();
     String out;
     serializeJson(doc, out);

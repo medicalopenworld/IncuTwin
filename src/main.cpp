@@ -3,7 +3,7 @@
  * Board: Elecrow CrowPanel Advance 2.8" (ESP32-S3, ST7789 320x240,
  * FT5x06/FT6336 touch — confirmed via I2C scan on this unit; Elecrow
  * ships this line with either that chip or a GT911 depending on batch).
- * Data:  ThingsBoard -> Firebase RTDB -> this panel (SSE streaming).
+ * Data:  ThingsBoard shared attributes -> this panel (MQTT, tb_client).
  */
 
 #include <Arduino.h>
@@ -17,7 +17,6 @@
 #include "app/usage_stats.h"
 #include "config.h"
 #include "display/LGFX_CrowPanel28.h"
-#include "net/firebase_stream.h"
 #include "net/sim_server.h"
 #include "net/tb_client.h"
 #include "net/wifi_service.h"
@@ -126,9 +125,6 @@ void setup() {
 #ifdef SIM_MODE
         sim_server_start();
 #else
-        firebase_stream_start();
-#endif
-#ifndef SIM_MODE
         tb_client_start();
 #endif
         Serial.printf("IncuTwin %s (SN %s) ready\n", FW_VERSION,
@@ -138,8 +134,33 @@ void setup() {
     sound_play_boot();
 }
 
+/* Consola serie de soporte. "tb-forget": borra el token de ThingsBoard
+ * (conserva WiFi y onboarding) y reinicia para re-provisionarse, p. ej.
+ * si el panel quedó ligado a un device de otro tenant o borrado. */
+static void console_poll(void) {
+    static char line[24];
+    static size_t n = 0;
+    while (Serial.available()) {
+        char c = (char)Serial.read();
+        if (c == '\r') continue;
+        if (c != '\n') {
+            if (n < sizeof(line) - 1) line[n++] = c;
+            continue;
+        }
+        line[n] = 0;
+        n = 0;
+        if (!strcmp(line, "tb-forget")) {
+            Serial.println("[console] token TB borrado, reiniciando");
+            prov_clear_tb_token();
+            delay(200);
+            ESP.restart();
+        }
+    }
+}
+
 void loop() {
     lv_timer_handler();
+    console_poll();
     demo_tick();
 
     /* contadores de uso: tick de 1 s */

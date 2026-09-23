@@ -202,7 +202,7 @@ void sound_on_state(const twin_state_t *st) {
     bool online = st->wifi_connected && st->cloud_connected &&
                   st->node_seen && st->incubator_online && !stale;
 
-    bool inside = online && st->baby_present;
+    bool inside = online && st->baby == BABY_IN;
     s_bpm = inside ? st->heart_rate : 0; /* mirror the on-screen heart */
 
     if (inside && !s_prev_inside) {
