@@ -1,0 +1,4 @@
+# Build de simulacion (spec sim-server): sin MQTT ni OTA, servidor web de control.
+# Uso: idf.py -B build-sim -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.sim" build
+# NUNCA distribuir este binario.
+CONFIG_INCUTWIN_SIM=y

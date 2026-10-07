@@ -1,0 +1,8 @@
+# Build de DESARROLLO para probar la OTA sin hosting propio (spec ota-update):
+# acepta binarios desde cualquier host HTTPS (p. ej. un tunel trycloudflare.com) y acorta el
+# watchdog de validacion a 120 s para ver el rollback sin esperar 15 min.
+# Uso: idf.py -B build-dev -D SDKCONFIG=build-dev/sdkconfig \
+#        -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.dev" build
+# NUNCA distribuir este binario.
+CONFIG_INCUTWIN_OTA_ALLOW_ANY_HOST=y
+CONFIG_INCUTWIN_OTA_VALIDATE_TIMEOUT_S=120

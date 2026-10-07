@@ -1,0 +1,10 @@
+## Dependencias del registro de componentes (https://components.espressif.com)
+## En ESP-IDF 6.0 esp-mqtt y cJSON ya no vienen en el arbol del IDF: se traen de aqui.
+dependencies:
+  idf: ">=6.0.0"
+  espressif/mqtt: "^1.1.0"
+  espressif/cjson: "^1.7.19"
+  lvgl/lvgl: "^9.6.0"
+  espressif/esp_lvgl_port: "^2.9.0"
+  espressif/esp_lcd_touch_ft5x06: "^1.1.0"
+  espressif/esp_lcd_touch_gt911: "^1.2.0"

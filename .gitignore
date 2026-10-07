@@ -7,3 +7,17 @@ desktop.ini
 
 # Secretos locales (claves de provision de ThingsBoard)
 include/secrets.h
+
+# ESP-IDF (build/, build-bringup/, build-sim/...)
+build*/
+sdkconfig
+sdkconfig.old
+managed_components/
+dependencies.lock
+dist/
+
+# Secretos de fabricacion y broker (nunca en el repo)
+tools/factory/secrets/
+
+# clangd / IDE
+.cache/
