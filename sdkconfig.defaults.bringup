@@ -1,0 +1,7 @@
+# Build de bring-up de hardware (spec board-bringup): pantalla de dianas en vez de la UI.
+# Uso: idf.py -B build-bringup -D SDKCONFIG=build-bringup/sdkconfig \
+#        -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.bringup" build
+CONFIG_INCUTWIN_BRINGUP_SCREEN=y
+CONFIG_LV_USE_OBSERVER=y
+CONFIG_LV_USE_SYSMON=y
+CONFIG_LV_USE_PERF_MONITOR=y

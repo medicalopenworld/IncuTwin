@@ -1,0 +1,11 @@
+# IncuTwin — tabla de particiones para flash de 16 MB (spec ota-update).
+# Sin particion "factory": dos slots OTA de 4 MB + otadata con rollback del bootloader.
+# nvs se queda en 0x9000/0x5000 para seguir siendo compatible con la imagen que
+# genera tools/factory_provision.py. Esta tabla NO se puede cambiar por OTA.
+# Name,     Type, SubType,  Offset,   Size,     Flags
+nvs,        data, nvs,      0x9000,   0x5000,
+otadata,    data, ota,      0xE000,   0x2000,
+ota_0,      app,  ota_0,    0x10000,  0x400000,
+ota_1,      app,  ota_1,    0x410000, 0x400000,
+storage,    data, spiffs,   0x810000, 0x7D0000,
+coredump,   data, coredump, 0xFE0000, 0x20000,

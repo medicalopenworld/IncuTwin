@@ -1,0 +1,75 @@
+menu "IncuTwin"
+
+    config INCUTWIN_MQTT_URI
+        string "URI del broker MQTT"
+        default "mqtts://mqtt.medicalopenworld.org:8883"
+        help
+            Siempre por nombre de host (mbedTLS envia SNI con el). Nunca por IP.
+
+    config INCUTWIN_MQTT_KEEPALIVE_S
+        int "Keepalive MQTT (s)"
+        default 60
+        range 15 300
+
+    config INCUTWIN_BACKOFF_MAX_S
+        int "Tope del backoff exponencial de reconexion (s)"
+        default 60
+        range 5 600
+
+    config INCUTWIN_STATUS_PERIOD_S
+        int "Periodo de publicacion de status (s)"
+        default 3600
+        range 60 86400
+        help
+            Ademas de al conectar y al cambiar el emparejado. 50.000 unidades a 3600 s son
+            ~14 msg/s en el broker; no bajar sin hablar con infraestructura.
+
+    config INCUTWIN_BROKER_LOST_S
+        int "Segundos sin broker antes de avisar en pantalla"
+        default 600
+        range 30 3600
+
+    config INCUTWIN_OTA_HOST_SUFFIX
+        string "Sufijo de host permitido para URLs de OTA"
+        default ".medicalopenworld.org"
+
+    config INCUTWIN_OTA_ALLOW_ANY_HOST
+        bool "SOLO DESARROLLO: aceptar OTA desde cualquier host HTTPS"
+        default n
+        help
+            Permite probar la OTA desde un tunel (trycloudflare.com, etc.) sin hosting propio.
+            El log de arranque avisa en mayusculas. Jamas en una build de release.
+
+    config INCUTWIN_OTA_FLEET_DELAY_MAX_S
+        int "Retardo aleatorio maximo para OTA de flota (s)"
+        default 3600
+        range 0 86400
+
+    config INCUTWIN_OTA_VALIDATE_TIMEOUT_S
+        int "Segundos para conectar al broker antes de revertir una OTA"
+        default 900
+        range 60 86400
+
+    config INCUTWIN_DEFAULT_SKIN
+        int "Tono de piel por defecto del bebe (0..5)"
+        default 1
+        range 0 5
+
+    config INCUTWIN_SNTP_SERVER
+        string "Servidor SNTP"
+        default "pool.ntp.org"
+
+    config INCUTWIN_SIM
+        bool "Build de simulacion (servidor web de control, sin MQTT ni OTA)"
+        default n
+        help
+            Ver sdkconfig.defaults.sim. Nunca distribuir este binario.
+
+    config INCUTWIN_BRINGUP_SCREEN
+        bool "Pantalla de bring-up (dianas tactiles, orientacion, brillo, zumbador)"
+        default n
+        help
+            Sustituye la UI de producto por la pantalla de verificacion de hardware
+            (spec board-bringup). Solo para la mesa de desarrollo.
+
+endmenu

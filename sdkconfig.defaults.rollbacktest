@@ -1,0 +1,5 @@
+# Imagen "rota" para probar el rollback (spec ota-update): apunta a un broker inexistente, asi
+# que nunca conecta y el watchdog de validacion (120 s en dev) debe devolver el slot anterior.
+# Uso: idf.py -B build-rb -D PROJECT_VER=2.0.2 -D SDKCONFIG=build-rb/sdkconfig \
+#        -D SDKCONFIG_DEFAULTS="sdkconfig.defaults;sdkconfig.defaults.dev;sdkconfig.defaults.rollbacktest" build
+CONFIG_INCUTWIN_MQTT_URI="mqtts://no-existe.medicalopenworld.org:8883"

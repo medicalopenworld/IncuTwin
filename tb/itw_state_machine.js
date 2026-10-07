@@ -193,4 +193,29 @@ for (var e = 0; e < events.length; e++) {
   md.itw_event_type = events[e].event; md.ts = String(new Date(events[e].ts).getTime());
   out.push({ msg: events[e], metadata: md, msgType: 'ITW_EVENT' });
 }
+// ---- broker MQTT (docs/BROKER.md §3): estado completo, retenido, una vez por evento ----
+// Solo cuando hay evento (baby_in/out, treatment_changed, heartbeat <= 1/60 s, offline/online):
+// asi 353 incubadoras a 5 s no inundan el broker. event_seq = st.seq (monotono) para la dedup
+// del panel. Ademas de los campos del contrato van las extensiones que el firmware acepta
+// (thermo, baby, name, weight_g, age_d) para canguro, alta a casa, alarma y nombre consentido.
+if (events.length > 0) {
+  var inBaby = (st.baby_state === 'in' || st.baby_state === 'parents');
+  var tr = [];
+  if (st.heat !== 'off') tr.push('heat');
+  if (st.photo) tr.push('phototherapy');
+  if (st.spo2) tr.push('pulseox');
+  var babyExt = st.baby_state === 'in' ? 'in' : st.baby_state === 'parents' ? 'parents' : (went_home ? 'home' : 'none');
+  var bp = { incubator_id: incubator, ts: Math.floor(now / 1000),
+    state: !st.online ? 'offline' : (inBaby ? 'baby' : 'free'),
+    treatments: tr, bpm: st.hr === null ? null : st.hr,
+    last_seen: Math.floor((st.last_seen || now) / 1000), event_seq: st.seq,
+    last_event: events[events.length - 1].event,
+    thermo: st.heat, baby: babyExt };
+  if (name) bp.name = name;
+  if (weight_g > 0) bp.weight_g = weight_g;
+  if (age_d >= 0) bp.age_d = age_d;
+  var mb = mdWith('ITW_BROKER');
+  mb.itw_incubator_id = incubator; // topic incubators/${itw_incubator_id}/state en el nodo MQTT
+  out.push({ msg: bp, metadata: mb, msgType: 'POST_TELEMETRY_REQUEST' });
+}
 return out;
