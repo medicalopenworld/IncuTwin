@@ -1,0 +1,29 @@
+schema: spec-driven
+
+context: |
+  Proyecto: firmware IncuTwin, panel gemelo digital de la incubadora IncuNest (Medical Open World).
+  Hardware: Elecrow CrowPanel Advance 2.8" (ESP32-S3-WROOM-1-N16R8, ST7789 240x320 SPI, tactil
+  FT5x06 I2C, buzzer GPIO8, boton BOOT GPIO0), montado en vertical (USB arriba).
+  Stack objetivo (decidido 1-oct-2026): ESP-IDF 6.0.1 puro con idf.py nativo, esp_lcd +
+  esp_lcd_touch, LVGL 9 via esp_lvgl_port, esp-mqtt, esp_http_client + esp_ota_ops, cJSON,
+  nvs_flash, esp_event. Nada de Arduino ni shims tipo millis()/Serial.
+  Arquitectura: componentes IDF bajo components/, un loop esp_event propio desacopla
+  red -> modelo -> UI/sonido; opciones de producto en Kconfig; pines solo en components/board.
+  Conectividad: solo con el broker Mosquitto mqtt.medicalopenworld.org:8883 (TLS, SNI, usuario =
+  client id = incutwin-<serie>); nunca con ThingsBoard. Contrato de topics y payloads en
+  docs/BROKER-MQTT-CONTEXT.md (apartados 3, 6, 9, 10): implementar tal cual.
+  El codigo Arduino en src/ es solo referencia de COMPORTAMIENTO (timings, melodias, prioridad
+  de la barra de estado); su estructura no se porta.
+  Idioma de specs y docs: espanol. Commits: Conventional Commits, scope hmi/tools/docs,
+  autor unico Pablo Sanchez Bergasa, sin Co-Authored-By.
+
+rules:
+  specs:
+    - Escenarios Given/When/Then concretos, con valores numericos (tiempos, umbrales) cuando existan
+    - Marcar cada requisito como [test-unity] (verificable en test_apps on-target) o [manual] (verificacion visual/acustica en el panel)
+    - No describir estructura de codigo en las specs; solo comportamiento observable
+  design:
+    - Justificar cada decision con alternativas descartadas
+    - Incluir modelo de tareas FreeRTOS (prioridad, core, stack) y flujo de eventos
+  tasks:
+    - Cortes verticales verificables en el panel real (COM12) antes de pasar al siguiente
