@@ -21,3 +21,6 @@ tools/factory/secrets/
 
 # clangd / IDE
 .cache/
+
+# Contexto de handoff local (contiene claves revocadas en el script de purga)
+handoff/
