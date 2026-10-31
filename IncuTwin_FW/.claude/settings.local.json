@@ -28,7 +28,9 @@
       "Bash(curl -s -m 8 -o /dev/null -w \"npm registry: %{http_code}\\\\n\" https://registry.npmjs.org/lv_font_conv)",
       "Bash(curl -s -m 8 -o /dev/null -w \"google fonts: %{http_code}\\\\n\" https://fonts.google.com)",
       "Bash(npm install *)",
-      "Bash(lv_font_conv --version)"
+      "Bash(lv_font_conv --version)",
+      "Bash(mv components/console components/support_console)",
+      "Bash(sed -i 's/ net_wifi console mqtt_link/ net_wifi support_console mqtt_link/' main/CMakeLists.txt)"
     ]
   }
 }
