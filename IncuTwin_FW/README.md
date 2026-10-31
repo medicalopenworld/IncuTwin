@@ -2,168 +2,128 @@
 
 Gemelo digital de la incubadora **IncuNest** sobre el
 [Elecrow CrowPanel Advance 2.8"](https://github.com/Elecrow-RD/CrowPanel-Advance-2.8-HMI-ESP32-S3-AI-Powered-IPS-Touch-Screen-320x240)
-(ESP32-S3-WROOM-1-N16R8, pantalla IPS ST7789 320×240, táctil GT911),
+(ESP32-S3-WROOM-1-N16R8, pantalla IPS ST7789 320×240, táctil FT5x06 o GT911 según lote),
 montado **en vertical** (240×320, USB arriba).
 
-Un bebé animado (respira, bosteza, duerme con Zzz, late su corazón) refleja
-el estado real de la incubadora recibido de ThingsBoard a través de
-Firebase. La UI está pensada para niños y personas mayores: sin números,
-solo estados con colores e iconos grandes, en español e inglés.
+Un bebé animado (respira, bosteza, duerme, late su corazón) refleja el estado real de la
+incubadora. La UI está pensada para familias, niños y personas mayores: sin números, solo
+estados con colores e iconos grandes, en español e inglés.
+
+> **¿Empiezas en el proyecto?** Lee primero [docs/TRASPASO.md](docs/TRASPASO.md): qué está hecho,
+> qué falta, qué secretos pedir y cómo está montado el banco de pruebas.
+
+## Arquitectura
+
+```
+IncuNest ──telemetría──▶ ThingsBoard ──estado (retenido)──▶ Mosquitto ◀──MQTT/TLS── IncuTwin
+                         (rule chains, tb/)   incubators/<id>/state       (este firmware)
+```
+
+- El panel **solo habla con el broker MQTT** (`mqtts://mqtt.medicalopenworld.org:8883`), nunca
+  con ThingsBoard. Contrato completo de topics, payloads y roles:
+  [docs/BROKER-MQTT-CONTEXT.md](docs/BROKER-MQTT-CONTEXT.md).
+- Se suscribe al estado retenido de su incubadora (`incubators/<id>/state`), publica su
+  `status` en `incutwin/<client_id>/status` y atiende comandos en `incutwin/<client_id>/cmd/#`
+  (`pair`, `ota`, `reboot`, `test_melody`, `brightness`) y en el topic de flota
+  `incutwin/all/cmd/#`.
+- Firmware en **ESP-IDF 6.0.1** puro (sin Arduino), LVGL 9 sobre `esp_lcd` + `esp_lvgl_port`.
+- Requisitos de producto en [`openspec/specs/`](openspec/specs/) (una spec por capacidad) y
+  cambios en curso en [`openspec/changes/`](openspec/changes/).
 
 ## Características
 
-- **Bebé animado** a partir de `Images/Baby.png`: respiración continua,
-  bostezos aleatorios, dormido/despierto, corazón que late a la frecuencia
-  real (sin mostrar el número).
-- **Tono de piel configurable** (6 tonos) vía atributo de ThingsBoard
-  (campo `skin` en Firebase) o localmente desde Ajustes. Implementado como
-  intercambio de paleta en PSRAM: cambio instantáneo.
-- **Efectos de iluminación en pantalla**: halo que "respira" detrás del
-  bebé y cambia según el estado — azul calma, ámbar calentando, azul
-  fototerapia, rojo pulsante en alarma.
-- **Notificaciones retro por buzzer**: jingle 8-bit al arrancar, fanfarria
-  cuando la incubadora detecta al bebé (`baby`) con 10 s de latido
-  audible, y "lub-dub" al bpm real mientras tocas al bebé. Volumen de 4
-  niveles (Apagado/Bajo/Medio/Alto) desde Ajustes (persistente).
-- **Estados de uso** en 3 iconos circulares (Calor, Luz y Corazón): el
-  color del borde indica el estado, sin texto ni números.
-- **Barra superior**: icono WiFi con nivel de cobertura (4 niveles por
-  RSSI; gris tachado sin WiFi, ámbar si hay WiFi pero la nube no
-  responde) y engranaje de Ajustes.
-- **Vista sin conexión**: cuando la IncuNest está apagada, sin vincular
-  o sin bebé (`baby: false`), la pantalla muestra la imagen
-  `IncuNest_empty` en lugar del bebé.
-- **Barra de estado** inferior siempre visible: "Sin conexión WiFi",
-  "Conectando a la nube...", "Sin IncuNest vinculada", "IncuNest
-  apagada", "IncuNest sin bebé", "Bebé durmiendo/despierto" o
-  "¡Alarma!", con su color.
-- **Botón "Agarra mi mano"**: equivale a tocar al bebé (despierta al
-  bebé y cuenta como interacción en la telemetría de uso).
-- **ES/EN** conmutable en Ajustes (persistente, español por defecto).
-- Colores y tipografía de marca tomados del logo `IncuTwin_logo.png`
-  (wordmark renderizado como imagen).
-- **Onboarding en el primer arranque**: idioma → QR para conectar el
-  móvil (SoftAP + portal cautivo: WiFi, nombre, email, RGPD) → provisión
-  automática en ThingsBoard → QR de vinculación con la app. Sin teclear
-  nada en el panel. Ver [docs/PROVISIONING.md](docs/PROVISIONING.md).
-- **ThingsBoard**: provisión automática (Device Provisioning), telemetría
-  de uso (horas de encendido, de conexión y de "Agarra mi mano" — tocar
-  al bebé) y **OTA** gestionada desde ThingsBoard.
-- **Serialización en fabricación** con `tools/factory_provision.py`
-  (NVS de fábrica + etiqueta QR imprimible + manifiesto CSV).
-- **Modo demo con el botón BOOT**: ciclado de estados sin WiFi para
-  enseñar el panel en ferias (ver más abajo).
-- Factory reset: mantener pulsado el engranaje y confirmar.
+- **Bebé animado** con 6 tonos de piel (intercambio de paleta), halo de color según el estado
+  (calma, calentando, fototerapia, alarma) y corazón que late al ritmo real.
+- **Barra de estado** con prioridad: sin WiFi, conectando, sin conexión con el servidor
+  (≥ 10 min sin broker), sin IncuNest vinculada, IncuNest apagada, sin bebé, durmiendo,
+  despierto, padres, alarma…
+- **Sonido** por el buzzer (GPIO8): melodía de arranque, avisos y latido al tocar al bebé;
+  volumen en 4 niveles.
+- **Ajustes**: idioma ES/EN, volumen, brillo y reset de fábrica (con diálogo).
+- **Onboarding**: idioma → QR para conectar el móvil a un SoftAP con portal cautivo que
+  configura **solo el WiFi**. El emparejamiento con la incubadora es remoto (`cmd/pair`).
+- **OTA por HTTPS** con verificación sha256 antes de activar el slot y **rollback** del
+  bootloader si la imagen nueva no consigue conectar al broker.
+- **Modo demo con el botón BOOT** (sin red): 2 s entra/sale, pulsación corta pasa al siguiente
+  de los 10 escenarios (dormido, despierto, calentando, alarma, fototerapia, padres, en casa,
+  vacía, apagada, sin vincular). Muestra una insignia **DEMO**.
+- **Consola serie** (115200): `info`, `usage`, `wifi <ssid> <pass>`, `unpair`, `reboot`.
 
 ## Compilar y flashear
 
-1. Instala [PlatformIO](https://platformio.org/) (VS Code o CLI).
-2. Edita `include/config.h`: host de ThingsBoard (`TB_HOST`) y host/token
-   de Firebase. El WiFi y los datos del usuario NO van aquí: los recoge
-   el onboarding.
-3. Conecta el panel por USB y ejecuta:
+Requisitos: [ESP-IDF 6.0.1](https://docs.espressif.com/projects/esp-idf/en/v6.0.1/esp32s3/get-started/)
+y Python. Las dependencias (LVGL, esp-mqtt, cJSON, drivers táctiles) las descarga `idf.py` del
+registro de componentes la primera vez (`main/idf_component.yml`).
 
-```bash
-pio run -t upload -e crowpanel_advance_28
-pio device monitor
+```powershell
+. C:\esp\v6.0.1\esp-idf\export.ps1      # o export.sh en Linux/macOS
+cd IncuTwin_FW
+idf.py build
+idf.py -p COM12 flash monitor
 ```
 
-> Si el puerto no aparece, mantén pulsado **BOOT** y pulsa **RESET** para
-> entrar en modo descarga.
+> Si el puerto no aparece, mantén pulsado **BOOT** y pulsa **RESET** para entrar en modo
+> descarga. La tabla de particiones (`ota_0` + `ota_1`, 4 MB cada uno) no se cambia por OTA:
+> una placa que venga del firmware antiguo hay que flashearla por USB (mejor con `erase-flash`).
 
-### Modo demo con el botón BOOT (sin WiFi)
+### Variantes de build
 
-Va en el firmware normal, así que **cualquier panel ya provisionado
-sirve para enseñarlo**, sin red ni IncuNest:
+Cada variante combina `sdkconfig.defaults` con un fichero extra y usa su propio directorio:
 
-| Acción | Efecto |
+| Build | Para qué | Comando |
+|---|---|---|
+| Producto | Lo que se distribuye | `idf.py build` |
+| `dev` | Banco de pruebas: OTA desde cualquier host HTTPS, watchdog de validación 120 s. **No distribuir** | `idf.py -B build-dev -D SDKCONFIG=build-dev/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.dev" build` |
+| `sim` | Sin MQTT ni OTA; servidor web en el panel para controlar el estado desde el móvil. **No distribuir** | `idf.py -B build-sim -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.sim" build` |
+| `bringup` | Pantalla de dianas para comprobar pantalla y táctil | `idf.py -B build-bringup -D SDKCONFIG=build-bringup/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.bringup" build` |
+| `rollbacktest` | Imagen que nunca conecta, para probar el rollback | ver cabecera de `sdkconfig.defaults.rollbacktest` |
+
+### Tests
+
+Tests Unity on-target en `test_apps/` (lógica pura: modelo del gemelo, parser, status, OTA…):
+
+```powershell
+idf.py -C test_apps -p COM12 flash
+python tools/serial_capture.py --port COM12 --seconds 20 --reset
+```
+
+## Herramientas (`tools/`)
+
+Leen las credenciales de `tools/factory/secrets/` (fuera del repo; ver
+[docs/TRASPASO.md](docs/TRASPASO.md)) y nunca las imprimen.
+
+| Script | Qué hace |
 |---|---|
-| **BOOT pulsado 2 s** | entra o sale del modo demo (pitido de confirmación) |
-| **BOOT pulsación corta** (ya en demo) | siguiente escenario |
-| **BOOT pulsación corta** (fuera de demo) | nada — no molesta en campo |
-
-Los 8 escenarios se ciclan en bucle en este orden: bebé dormido →
-despierto → calentando → alarma → fototerapia → incubadora vacía →
-IncuNest apagada → sin vincular. Cada uno dispara el sonido que le
-toca, así que la demo también luce el buzzer.
-
-Mientras está activo, el panel se pinta a sí mismo como conectado
-(hace falta para que la UI muestre al bebé) y sustituye el icono de
-WiFi por una insignia **DEMO**, para que no se confunda con datos
-reales. Al salir se restaura el estado que había al entrar. El panel
-sin provisionar arranca en el onboarding y ahí el botón no hace nada.
-
-> Pulsar BOOT **durante el arranque** sigue metiendo la placa en modo
-> descarga; el modo demo solo lee el botón ya arrancado.
-
-Implementación: `src/app/demo_mode.cpp` (botón + estado) y
-`src/app/scenarios.cpp` (tabla de escenarios, compartida con el build
-de simulación).
-
-### Modo simulación (desarrollo/demos)
-
-Para probar la UI sin IncuNest ni Firebase, flashea el entorno `_sim`:
-
-```bash
-pio run -t upload -e crowpanel_advance_28_sim
-```
-
-El panel levanta un servidor web en su IP (visible por serie y en
-Ajustes). Abre `http://<ip>/` desde el móvil o PC en la misma WiFi:
-escenarios de un toque (alarma, fototerapia, incubadora vacía...),
-control campo a campo (thermo, hr, skin...) y una demo automática que
-rota los escenarios — pensada para ferias. En este build el panel NO
-se conecta a Firebase; no distribuir este binario.
+| `factory_provision.py` | Serializa un panel: serie `ITW-YYWW-NNNN`, alta en el broker, NVS de fábrica, etiqueta QR |
+| `pair.py` / `unpair.py` | Empareja o desempareja un panel con una incubadora (rol + `cmd/pair` retenido) |
+| `mqtt_cmd.py` | Manda comandos (`reboot`, `brightness`…), lee `status` o escucha un panel. **Ojo:** `--state` *publica* un estado, no lo lee |
+| `release.py` | Build de release, `dist/` con sha256 y JSON del comando `ota`, subida y publicación |
+| `broker_bootstrap.py` | Crea roles y clientes del contrato en el broker (idempotente) |
+| `serial_capture.py` | Captura el log serie sin monitor interactivo (`--reset`, `--send`) |
+| `gen_assets.py`, `gen_extra.py`, `gen_fonts.py` | Regeneran imágenes y fuentes de `components/assets` |
+| `tb_api.py`, `demo_viewer.py`, `../tb/` | ThingsBoard: rule chains del estado del gemelo y visor de demo |
 
 ## Estructura
 
 ```
-├── platformio.ini            # ESP32-S3 N16R8 + LVGL 8.3 + LovyanGFX
-├── include/
-│   ├── config.h              # WiFi / Firebase / ajustes de usuario
-│   ├── pins_config.h         # pines del CrowPanel Advance 2.8
-│   └── lv_conf.h             # configuración LVGL
-├── src/
-│   ├── main.cpp              # init pantalla/táctil/LVGL + servicios
-│   ├── display/              # driver LovyanGFX (ST7789)
-│   ├── net/                  # WiFi + cliente SSE de Firebase RTDB
-│   ├── app/                  # modelo de estado compartido
-│   ├── ui/                   # pantallas, tema, i18n, bebé animado
-│   └── assets/               # imágenes generadas (no editar a mano)
-├── tools/
-│   ├── gen_assets.py         # Baby.png -> frames + 6 paletas de piel
-│   ├── gen_extra.py          # wordmark + iconos de estado
-│   └── factory_provision.py  # serialización en fabricación + etiqueta QR
-└── docs/
-    ├── FIREBASE_SETUP.md     # crear y configurar el proyecto Firebase
-    ├── FIREBASE_SCHEMA.md    # esquema de datos y puente ThingsBoard
-    └── PROVISIONING.md       # fabricación, onboarding y vinculación app
+IncuTwin_FW/
+├── main/                  # app_main.c + idf_component.yml (dependencias)
+├── components/
+│   ├── board/             # ST7789, táctil autodetectado, backlight, buzzer, indev LVGL propio
+│   ├── ui/                # pantallas (home, ajustes, onboarding), bebé, i18n, tema
+│   ├── twin_model/        # estado del gemelo: parseo, deduplicación por event_seq, derivados
+│   ├── mqtt_link/         # cliente MQTT/TLS, backoff, suscripciones
+│   ├── commands/          # pair, ota, reboot, test_melody, brightness
+│   ├── cloud_status/      # publicación de status
+│   ├── ota_update/        # OTA HTTPS + sha256 + rollback
+│   ├── net_wifi/, captive_portal/, identity/, settings/, storage/
+│   ├── sound/, demo_mode/, scenarios/, usage_stats/, sim_server/
+│   └── app_config/        # Kconfig del producto (también lo ve test_apps)
+├── test_apps/             # tests Unity on-target
+├── tools/                 # fabricación, broker, release, assets
+├── tb/                    # rule chains de ThingsBoard (estado del gemelo)
+├── openspec/              # specs de producto y cambios en curso
+├── docs/                  # contrato del broker, provisión, demo, traspaso
+├── partitions.csv         # ota_0/ota_1 4 MB + otadata + coredump
+└── src/, include/, platformio.ini   # firmware Arduino ANTIGUO: solo referencia, pendiente de borrar
 ```
-
-## Datos
-
-El panel se suscribe por SSE a
-`/incutwin/{DEVICE_ID}/state` en Firebase RTDB. El esquema del nodo y cómo
-alimentarlo desde ThingsBoard están en
-[docs/FIREBASE_SCHEMA.md](docs/FIREBASE_SCHEMA.md), incluido un `curl` para
-probar sin incubadora.
-
-## Regenerar los assets
-
-Solo si cambias `Images/Baby.png` o el logo (requiere Python + Pillow):
-
-```bash
-python3 tools/gen_assets.py   # frames del bebé + paletas de piel
-python3 tools/gen_extra.py    # wordmark + iconos + WiFi + IncuNest_empty
-```
-
-`gen_extra.py` también regenera la imagen de la incubadora vacía
-(`Images/IncuNest_empty.png` → 240×320, derecha, con bandas blancas) y
-los iconos de cobertura WiFi. Si el panel se monta girado al revés,
-cambia `offset_rotation` (2 ↔ 0) en `src/display/LGFX_CrowPanel28.h`.
-
-## Calibración táctil
-
-Si el toque no coincide con la pantalla, ajusta `TOUCH_MAP_*` en
-`include/pins_config.h` y activa `#define TOUCH_DEBUG` en `src/main.cpp`
-para ver las coordenadas por serie.
