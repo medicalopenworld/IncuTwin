@@ -1,0 +1,47 @@
+menu "IncuTwin board (CrowPanel Advance 2.8)"
+
+    config INCUTWIN_LCD_PCLK_MHZ
+        int "Reloj SPI del ST7789 (MHz)"
+        default 80
+        range 10 80
+        help
+            La referencia Arduino (LovyanGFX) funcionaba a 80 MHz en estos mismos pines.
+            Bajar a 40 si aparecen artefactos.
+
+    config INCUTWIN_LCD_SWAP_XY
+        bool "Pantalla: intercambiar X e Y"
+        default n
+
+    config INCUTWIN_LCD_MIRROR_X
+        bool "Pantalla: espejo X"
+        default y
+
+    config INCUTWIN_LCD_MIRROR_Y
+        bool "Pantalla: espejo Y"
+        default y
+        help
+            Espejo X+Y = giro de 180 grados: equivale al offset_rotation=2 de la referencia
+            para el montaje vertical con el USB arriba.
+
+    config INCUTWIN_LCD_INVERT_COLOR
+        bool "Pantalla: invertir color (IPS)"
+        default y
+
+    config INCUTWIN_TOUCH_SWAP_XY
+        bool "Tactil: intercambiar X e Y"
+        default n
+
+    config INCUTWIN_TOUCH_MIRROR_X
+        bool "Tactil: espejo X"
+        default y
+
+    config INCUTWIN_TOUCH_MIRROR_Y
+        bool "Tactil: espejo Y"
+        default y
+        help
+            Verificado en hardware el 1-oct-2026 con la pantalla de bring-up
+            (CONFIG_INCUTWIN_BRINGUP_SCREEN, que permite ciclar las 8 combinaciones con el
+            boton BOOT): con la pantalla girada 180 grados (espejo X+Y) el tactil necesita
+            tambien espejo X+Y (combo 6).
+
+endmenu
