@@ -4,6 +4,6 @@ idf_component_register(
     PRIV_INCLUDE_DIRS "."
     REQUIRES lvgl__lvgl
     PRIV_REQUIRES espressif__esp_lvgl_port assets twin_types twin_model settings identity
-                  usage_stats sound app_events board storage captive_portal net_wifi
+                  usage_stats sound app_events board storage captive_portal net_wifi hand_hold
                   esp_app_format esp_system esp_timer heap
 )

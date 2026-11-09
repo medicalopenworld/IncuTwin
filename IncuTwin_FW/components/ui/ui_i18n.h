@@ -24,6 +24,16 @@ typedef enum {
     STR_DAYS,
     /* pantalla principal */
     STR_HAND,
+    /* gesto "Coge mi mano" (spec twin-display) */
+    STR_HH_READY,
+    STR_HH_HOLD1,
+    STR_HH_HOLD2,
+    STR_HH_GRACE,
+    STR_HH_THANKS,
+    STR_HH_ST_READY,
+    STR_HH_ST_HOLD,
+    STR_HH_ST_GRACE, /* formato: %u segundos */
+    STR_HH_ST_DONE,
     /* ajustes */
     STR_SETTINGS,
     STR_LANGUAGE,

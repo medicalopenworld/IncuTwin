@@ -43,6 +43,9 @@ typedef enum {
     /* mqtt_link -> pairing: el broker rechazo la suscripcion al estado de la incubadora
      * (ya no tenemos ese rol) -> desemparejar. data: app_evt_pairing_t con el id rechazado */
     TWIN_EVT_STATE_SUB_REJECTED,
+    /* ui -> cloud_status: gesto "Coge mi mano" completado y hay que avisar a la IncuNest.
+     * data: ninguno (el id emparejado lo pone la red) */
+    TWIN_EVT_HAND_HOLD,
 } app_event_id_t;
 
 typedef struct {

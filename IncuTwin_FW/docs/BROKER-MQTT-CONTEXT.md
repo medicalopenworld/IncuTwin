@@ -52,6 +52,7 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/status` | la IncuTwin (+ LWT) | monitorización (v1: nadie) | sí | 1 |
 | `incutwin/<client_id>/cmd/pair` | Pablo / Cloud Function | la IncuTwin | **sí** | 1 |
 | `incutwin/<client_id>/cmd/<otros>` | Pablo / Cloud Function | la IncuTwin | no | 1 |
+| `incutwin/<client_id>/hand` | la IncuTwin, al completar "Coge mi mano" (spec `hold-my-hand`) | gateway → ThingsBoard (`IncuTwin_hand_hold`) | no | 1 |
 
 `<incubator_id>` = número de serie de la IncuNest tal como se llama el dispositivo en ThingsBoard
 (ej. `353`). `<client_id>` = `incutwin-<serie>` (ej. `incutwin-0001`); usuario MQTT idéntico.
@@ -278,6 +279,21 @@ $CTRL addClientRole gateway gateway
     }]
   }
 }
+```
+
+"Coge mi mano" necesita una segunda entrada en `mapping` y que el rol `gateway` pueda leerla
+(`$CTRL addRoleACL gateway subscribePattern 'incutwin/+/hand' allow`). El panel publica
+`{"hand_hold":1,"incubator_id":"353","hold_s":60}`; la rule chain `IncuTwin` de los paneles ya
+espera la telemetría `hand_hold` y la lleva a `IncuTwin_hand_hold`:
+
+```json
+{ "topicFilter": "incutwin/+/hand",
+  "converter": { "type": "json",
+    "deviceInfo": { "deviceNameExpressionSource": "topic",
+                    "deviceNameExpression": "(?<=incutwin/)(.*?)(?=/hand)",
+                    "deviceProfileExpressionSource": "constant", "deviceProfileExpression": "incutwin" },
+    "timeseries": [ { "type": "int", "key": "hand_hold", "value": "${hand_hold}" },
+                    { "type": "int", "key": "hold_s", "value": "${hold_s}" } ] } }
 ```
 
 El gateway no toca `incubators/#`. Un RPC `ota` o `reboot` lanzado desde ThingsBoard sobre
