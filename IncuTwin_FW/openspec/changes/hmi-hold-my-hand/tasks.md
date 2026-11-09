@@ -1,0 +1,33 @@
+# hmi-hold-my-hand — Tareas
+
+Verificación en la IncuTwin de COM6, en modo demo (BOOT 2 s) y con `INCUTWIN_BUZZER_MUTE=y`
+mientras Pablo no pueda tener sonido.
+
+## 1. Silencio y configuración
+
+- [ ] 1.1 Kconfig: `INCUTWIN_BUZZER_MUTE` y los tiempos `INCUTWIN_HAND_*` (D5)
+- [ ] 1.2 `sound.c`: `tone()` siempre apagado con `INCUTWIN_BUZZER_MUTE` (D8)
+
+## 2. Lógica del gesto (TDD en `test_apps`)
+
+- [ ] 2.1 Tests Unity de `hand_hold`: escenarios de la spec `hold-my-hand` (estados, gracia,
+      listo sin tocar, seguir tras completar, tocar directo, demo/sin sesión, espera 0 y 1800)
+- [ ] 2.2 Componente `hand_hold` que los pasa
+- [ ] 2.3 Test y función pura `hand_payload_build` en `cloud_status`
+
+## 3. Red
+
+- [ ] 3.1 `TWIN_EVT_HAND_HOLD` en `app_events`; `cloud_status` publica `incutwin/<id>/hand`
+
+## 4. Pantalla
+
+- [ ] 4.1 Textos ES/EN nuevos y "Coge mi mano"
+- [ ] 4.2 `ui_home`: estados del gesto, anillo, diana, corazones, fondo, ojos, barra de estado
+- [ ] 4.3 Etiqueta con el nombre
+
+## 5. Verificación
+
+- [ ] 5.1 `idf.py build` (producto) y build de pruebas silenciosa; `test_apps` en verde en COM6
+- [ ] 5.2 Panel en COM6, modo demo: recorrer los escenarios de `twin-display` y `hold-my-hand`
+- [ ] 5.3 Con broker: `mosquitto_sub -t 'incutwin/+/hand'` ve un aviso por gesto (cuando haya red)
+- [ ] 5.4 Nota en `docs/BROKER-MQTT-CONTEXT.md` §9: mapear `incutwin/+/hand` en el gateway
