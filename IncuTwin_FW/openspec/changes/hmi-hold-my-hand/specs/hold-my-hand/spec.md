@@ -10,7 +10,7 @@ El gesto "Coge mi mano" SHALL seguir estos estados, con `T_min = 60 s`, `T_graci
 | listo | se pulsa el botón | sosteniendo (dedo en el bebé); reposo tras `T_listo` sin tocar |
 | sosteniendo | dedo en el bebé | gracia (se levanta antes de `T_min`); completado (acumula `T_min`) |
 | gracia | se levanta el dedo antes de `T_min` | sosteniendo (vuelve el dedo, conserva el progreso); reposo (pasan `T_gracia`, progreso a 0) |
-| completado | se acumulan `T_min` de dedo | sigue mientras haya dedo, sin límite; al levantarlo muestra el agradecimiento `T_gracias` y pasa a reposo |
+| completado | se acumulan `T_min` de dedo | sigue mientras haya dedo, sin límite, y sigue sumando dedo (vueltas extra del anillo); al levantarlo muestra el agradecimiento `T_gracias` y pasa a reposo; si vuelve el dedo durante el agradecimiento, vuelve a completado y sigue sumando desde donde estaba |
 
 El progreso SHALL contar solo el tiempo con el dedo puesto. Si la vista BEBÉ deja de mostrarse,
 el gesto SHALL volver a reposo sin enviar nada.
@@ -30,6 +30,12 @@ el gesto SHALL volver a reposo sin enviar nada.
 #### Scenario: Seguir después de completar
 - **WHEN** el gesto completa a los 60 s y el dedo sigue 3 min más
 - **THEN** el estado sigue en completado durante los 3 min y no se envía un segundo aviso
+
+#### Scenario: Vueltas extra
+- **WHEN** se mantiene el dedo 150 s seguidos
+- **THEN** el tiempo de dedo acumulado es 150 s (dos vueltas completas y media de la tercera),
+  se envía un solo aviso y, al levantar el dedo, el acumulado se queda quieto durante el
+  agradecimiento
 
 #### Scenario: Tocar directamente
 - **WHEN** en reposo se pone el dedo sobre el bebé sin pulsar el botón
