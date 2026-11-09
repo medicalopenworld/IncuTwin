@@ -40,8 +40,10 @@
 #define COL_RING_DIM  lv_color_hex(0xEBA8A0)
 #define COL_BG_THANKS lv_color_hex(0xFBEDEA)
 #define HOLD_H        40
-/* Vueltas del anillo: cada minuto extra pinta otra vuelta encima, en el color siguiente */
-static const uint32_t LAP_COLS[] = { 0xDE6F63, 0xD94E7A, 0xF5A93B, 0x8E6CC9 };
+/* Vueltas del anillo: cada minuto extra pinta otra vuelta encima, en el color siguiente.
+ * Colores muy distintos entre vueltas seguidas para que se vea el cambio:
+ * coral -> azul de la marca -> ambar -> verde -> coral... */
+static const uint32_t LAP_COLS[] = { 0xDE6F63, 0x054E92, 0xF5A93B, 0x3F9E63 };
 #define N_LAP_COLS (sizeof(LAP_COLS) / sizeof(LAP_COLS[0]))
 
 typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_ALARM } halo_mode_t;

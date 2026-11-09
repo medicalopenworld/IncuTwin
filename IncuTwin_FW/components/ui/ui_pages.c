@@ -22,10 +22,10 @@ static const char *TAG = "pages";
 #define DEMO_COUNTRY        "CM"
 #define DEMO_HOSPITAL       "Hospital de Yaundé"
 #define DEMO_UTC_OFFSET_MIN 60 /* Camerun: UTC+1, sin horario de verano */
-#define DEMO_HANDS_BASE     37
-#define DEMO_FAMILIES       12
-#define DEMO_DAYS           14
-#define DEMO_WEIGHT_G       420
+#define DEMO_MY_DAYS        22 /* dias que has acompañado (antes de hoy) */
+#define DEMO_STREAK         4  /* racha de dias seguidos (hasta ayer) */
+#define DEMO_FAMILIES       12 /* otras familias que tambien le acompañan */
+#define DEMO_BABY_DAYS      14 /* dias del bebe en esta IncuNest */
 
 static lv_obj_t *s_pg[UI_PAGES_COUNT]; /* s_pg[0] no existe: la pagina 0 es la pantalla */
 static lv_obj_t *s_dots[UI_PAGES_COUNT];
@@ -34,7 +34,7 @@ static lv_obj_t *s_lbl_ach_t, *s_lbl_ach_sub;
 static lv_obj_t *s_tile_num[4], *s_tile_cap[4];
 static int s_page;
 static bool s_enabled;
-static unsigned s_hands; /* gestos completados en esta demo */
+static unsigned s_hands; /* gestos completados en esta demo: hoy cuenta como dia acompañado */
 static char s_country[TWIN_COUNTRY_LEN] = DEMO_COUNTRY;
 
 /* ------------------------------------------------------------- helpers */
@@ -98,7 +98,13 @@ static void clock_timer_cb(lv_timer_t *t)
     if (s_enabled && s_page == 1) clock_refresh();
 }
 
-static void hands_refresh(void) { lv_label_set_text_fmt(s_tile_num[0], "%u", DEMO_HANDS_BASE + s_hands); }
+/* Completar un "Coge mi mano" hoy suma hoy a los dias acompañados y alarga la racha */
+static void hands_refresh(void)
+{
+    unsigned today = s_hands > 0 ? 1 : 0;
+    lv_label_set_text_fmt(s_tile_num[0], "%u", DEMO_MY_DAYS + today);
+    lv_label_set_text_fmt(s_tile_num[1], "%u", DEMO_STREAK + today);
+}
 
 static void dots_refresh(void)
 {
@@ -191,21 +197,20 @@ void ui_pages_create(lv_obj_t *scr)
     s_lbl_ach_sub = text(p, &lv_font_es_12, COL_OFFLINE, 0, 0);
     lv_obj_align(s_lbl_ach_sub, LV_ALIGN_TOP_MID, 0, 36);
     for (int i = 0; i < 4; i++) {
-        c = card(p, 60 + (i / 2) * 88, 80);
-        lv_obj_set_size(c, 104, 80);
+        c = card(p, 58 + (i / 2) * 92, 88); /* hasta 3 lineas de texto */
+        lv_obj_set_size(c, 104, 88);
         lv_obj_set_x(c, 12 + (i % 2) * 112);
         s_tile_num[i] = text(c, &lv_font_es_20, COL_CORAL, 0, 0);
-        lv_obj_align(s_tile_num[i], LV_ALIGN_TOP_MID, 0, 12);
+        lv_obj_align(s_tile_num[i], LV_ALIGN_TOP_MID, 0, 10);
         s_tile_cap[i] = text(c, &lv_font_es_12, COL_NAVY_DARK, 0, 0);
         lv_obj_set_width(s_tile_cap[i], 96);
         lv_obj_set_style_text_align(s_tile_cap[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(s_tile_cap[i], LV_LABEL_LONG_MODE_WRAP);
-        lv_obj_align(s_tile_cap[i], LV_ALIGN_TOP_MID, 0, 40);
+        lv_obj_align(s_tile_cap[i], LV_ALIGN_TOP_MID, 0, 36);
     }
     hands_refresh();
-    lv_label_set_text_fmt(s_tile_num[1], "%u", DEMO_FAMILIES);
-    lv_label_set_text_fmt(s_tile_num[2], "%u", DEMO_DAYS);
-    lv_label_set_text_fmt(s_tile_num[3], "+%u g", DEMO_WEIGHT_G);
+    lv_label_set_text_fmt(s_tile_num[2], "+%u", DEMO_FAMILIES);
+    lv_label_set_text_fmt(s_tile_num[3], "%u", DEMO_BABY_DAYS);
 
     /* puntos de pagina */
     for (int i = 0; i < UI_PAGES_COUNT; i++) {
@@ -228,7 +233,7 @@ void ui_pages_retranslate(void)
     lv_label_set_text(s_lbl_time_t, tr(STR_PG_LOCAL_TIME));
     lv_label_set_text(s_lbl_ach_t, tr(STR_PG_ACHIEVEMENTS));
     lv_label_set_text(s_lbl_ach_sub, tr(STR_PG_ACH_SUB));
-    static const ui_str_t CAP[4] = { STR_PG_HANDS, STR_PG_FAMILIES, STR_PG_DAYS, STR_PG_WEIGHT };
+    static const ui_str_t CAP[4] = { STR_PG_MY_DAYS, STR_PG_STREAK, STR_PG_FAMILIES, STR_PG_DAYS };
     for (int i = 0; i < 4; i++) lv_label_set_text(s_tile_cap[i], tr(CAP[i]));
     lv_obj_align(s_lbl_country, LV_ALIGN_TOP_MID, 0, 80);
     lv_obj_align(s_lbl_ach_t, LV_ALIGN_TOP_MID, 0, 8);

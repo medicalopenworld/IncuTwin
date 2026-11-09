@@ -10,7 +10,7 @@ vuelta (`tb/itw_hand_hold.js`, contrato v0.2 §3.5: telemetría `{"hand_hold":1}
 `hand_hold_until` en la IncuNest); falta que el panel lo emita y que el gesto se sienta como tal.
 
 Decisiones de producto de Pablo (9-nov-2026, mockups en `docs/mockups/coge-mi-mano-v2.png`):
-gesto de mínimo 60 s que se puede alargar sin límite; si se suelta, 10 s para volver sin perder
+gesto de mínimo 60 s que se puede alargar sin límite; si se suelta, 3 s para volver sin perder
 el progreso; al pulsar el botón el bebé abre los ojos y al tocarle los cierra; al completar,
 "Gracias por tu calorcito"; espera entre envíos de 30 min implementada pero a 0 por ahora; el
 nombre puesto en la IncuNest se ve en el panel y, si no hay, no se muestra nada.
@@ -18,7 +18,7 @@ nombre puesto en la IncuNest se ve en el panel y, si no hay, no se muestra nada.
 ## What Changes
 
 - **Gesto "Coge mi mano"** (capability nueva `hold-my-hand`): máquina de estados reposo → listo
-  (botón pulsado) → sosteniendo → gracia (dedo levantado, ≤ 10 s) → completado. Progreso
+  (botón pulsado) → sosteniendo → gracia (dedo levantado, ≤ 3 s) → completado. Progreso
   visible como un anillo coral alrededor del halo que se llena en 60 s; corazones que suben;
   texto por fases en la fila inferior y en la barra de estado. Tocar al bebé directamente desde
   reposo también empieza el gesto.

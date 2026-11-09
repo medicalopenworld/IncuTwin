@@ -74,7 +74,7 @@ menu "IncuTwin"
 
         config INCUTWIN_HAND_GRACE_S
             int "Segundos para volver a poner el dedo sin perder el progreso"
-            default 10
+            default 3
             range 1 60
 
         config INCUTWIN_HAND_READY_S

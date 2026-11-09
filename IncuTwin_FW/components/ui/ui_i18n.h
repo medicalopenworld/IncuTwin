@@ -39,10 +39,10 @@ typedef enum {
     STR_PG_LOCAL_TIME,
     STR_PG_ACHIEVEMENTS,
     STR_PG_ACH_SUB,
-    STR_PG_HANDS,
+    STR_PG_MY_DAYS,
+    STR_PG_STREAK,
     STR_PG_FAMILIES,
     STR_PG_DAYS,
-    STR_PG_WEIGHT,
     /* ajustes */
     STR_SETTINGS,
     STR_LANGUAGE,

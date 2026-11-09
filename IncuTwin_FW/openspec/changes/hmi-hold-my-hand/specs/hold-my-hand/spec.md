@@ -1,7 +1,7 @@
 ## ADDED Requirements
 
 ### Requirement: Estados del gesto [test-unity]
-El gesto "Coge mi mano" SHALL seguir estos estados, con `T_min = 60 s`, `T_gracia = 10 s`,
+El gesto "Coge mi mano" SHALL seguir estos estados, con `T_min = 60 s`, `T_gracia = 3 s`,
 `T_listo = 20 s` y `T_gracias = 4 s` (opciones de compilación):
 
 | Estado | Entra cuando | Sale a |
@@ -16,11 +16,11 @@ El progreso SHALL contar solo el tiempo con el dedo puesto. Si la vista BEBÉ de
 el gesto SHALL volver a reposo sin enviar nada.
 
 #### Scenario: Gesto completo con una pausa
-- **WHEN** se pulsa el botón, se pone el dedo 35 s, se levanta 6 s y se vuelve a poner 25 s
+- **WHEN** se pulsa el botón, se pone el dedo 35 s, se levanta 2 s y se vuelve a poner 25 s
 - **THEN** a los 35 + 25 = 60 s de dedo el gesto pasa a completado
 
 #### Scenario: Pausa demasiado larga
-- **WHEN** en sosteniendo con 40 s acumulados se levanta el dedo 10 s
+- **WHEN** en sosteniendo con 40 s acumulados se levanta el dedo 3 s
 - **THEN** el gesto vuelve a reposo con el progreso a 0 y no se envía nada
 
 #### Scenario: Listo sin tocar

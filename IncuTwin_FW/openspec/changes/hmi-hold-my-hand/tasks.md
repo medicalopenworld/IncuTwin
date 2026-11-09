@@ -48,3 +48,10 @@ mientras Pablo no pueda tener sonido.
 - [x] Quitar el tono de piel más oscuro (5 tonos; `skin: 5` del estado se pinta como 4)
 - [x] Páginas deslizables en demo (ui_pages.c): país/hospital/hora local y logros; bandera de Camerún en gen_extra.py
 - [ ] Verificación manual en el panel
+
+## Ronda 4
+
+- [x] Vueltas del anillo en colores muy distintos (coral → azul → ámbar → verde)
+- [x] Gracia de 3 s al levantar el dedo (Kconfig `INCUTWIN_HAND_GRACE_S`, tests a 3 s)
+- [x] Logros de la demo: días acompañados, racha, familias más y días del bebé en la IncuNest
+- [ ] Verificación manual en el panel

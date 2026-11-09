@@ -60,8 +60,8 @@ En la vista BEBÉ, el gesto (ver `hold-my-hand`) SHALL presentarse así:
 El anillo SHALL rodear el halo (diámetro ≈ 196 px, grosor 6 px, fondo `0xF5C4B3`, relleno
 `COL_CORAL`) y avanzar de forma continua (refresco ≤ 200 ms). Al completar una vuelta (`T_min` de
 dedo) y seguir con el dedo, SHALL empezar otra vuelta encima de la anterior, que queda completa
-como fondo, en el color siguiente de la serie coral `0xDE6F63` → rosa `0xD94E7A` → ámbar
-`0xF5A93B` → lila `0x8E6CC9` (y vuelta a empezar). Nunca se muestra un número de segundos salvo
+como fondo, en el color siguiente de la serie coral `0xDE6F63` → azul de la marca `0x054E92` →
+ámbar `0xF5A93B` → verde `0x3F9E63` (y vuelta a empezar), muy distintos entre vueltas seguidas. Nunca se muestra un número de segundos salvo
 en la barra de estado durante la gracia.
 
 Los textos SHALL caber: la fila admite dos líneas centradas en vertical; si un texto de la barra
@@ -74,13 +74,13 @@ de estado no cabe en una línea con la fuente de 14 px, SHALL usarse la de 12 px
   tu calorcito"
 
 #### Scenario: Soltar un momento
-- **WHEN** en sosteniendo se levanta el dedo 3 s
-- **THEN** el bebé abre los ojos, el anillo se queda quieto, la barra dice "Te espera 7 s más" y al
+- **WHEN** en sosteniendo se levanta el dedo 1 s
+- **THEN** el bebé abre los ojos, el anillo se queda quieto, la barra dice "Te espera 2 s más" y al
   volver el dedo el anillo sigue desde donde estaba
 
 #### Scenario: Más de una vuelta
 - **WHEN** tras completar se mantiene el dedo 30 s más
-- **THEN** el anillo coral queda completo y encima avanza una segunda vuelta rosa hasta la mitad
+- **THEN** el anillo coral queda completo y encima avanza una segunda vuelta azul hasta la mitad
 
 #### Scenario: Fin del gesto
 - **WHEN** en completado se levanta el dedo
@@ -128,7 +128,7 @@ tres puntos de página sobre la barra de estado (el actual, una píldora coral):
 |---|---|
 | 1 | la de siempre (bebé o la vista que toque) |
 | 2 | bandera y nombre del país (Camerún); tarjeta "Hospital" con "Hospital de Yaundé"; tarjeta "Hora local" con la hora de Camerún (UTC+1, de la hora SNTP; "--:--" sin hora) |
-| 3 | "Logros" / "Achievements", "Lo que hemos logrado juntos", y cuatro tarjetas: manos dadas (37 + los gestos completados en esta demo), 12 familias le acompañan, 14 días en la IncuNest, +420 g de peso ganado |
+| 3 | "Logros" / "Achievements", "Lo que hemos logrado juntos", y cuatro tarjetas: 22 "días que le has acompañado", 4 "días seguidos de racha", +12 "familias más le acompañan" y 14 "días del bebé en esta IncuNest"; completar un "Coge mi mano" en la demo cuenta hoy: 23 días y racha de 5 |
 
 Las barras superior y de estado SHALL seguir visibles en las tres páginas. Fuera de la página 1 el
 gesto "Coge mi mano" vuelve a reposo y los toques no llegan al bebé. Con un gesto completado (o
@@ -141,7 +141,7 @@ nada.
 
 #### Scenario: Logros que suben
 - **WHEN** en demo se completa un "Coge mi mano" y se desliza dos veces a la izquierda
-- **THEN** la tarjeta de manos dadas dice 38
+- **THEN** los días acompañados pasan a 23 y la racha a 5
 
 #### Scenario: Fuera de demo
 - **WHEN** sin demo se desliza el dedo

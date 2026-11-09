@@ -65,7 +65,7 @@ twin snapshot ──────┘ (show_baby, demo, broker, paired)           
 
 ## Riesgos
 
-- Un dedo quieto 60 s sobre el FT5x06 puede dar PRESS_LOST espurios: la gracia de 10 s los
+- Un dedo quieto 60 s sobre el FT5x06 puede dar PRESS_LOST espurios: la gracia de 3 s los
   absorbe sin perder progreso.
 - Sin el mapeo del gateway el aviso no llega a la IncuNest: se documenta en la propuesta y en
   `docs/BROKER-MQTT-CONTEXT.md` §9.
