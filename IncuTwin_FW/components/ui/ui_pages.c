@@ -1,12 +1,16 @@
 #include "ui_pages.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 
 #include "assets.h"
+#include "esp_log.h"
 #include "net_wifi.h"
 #include "ui_internal.h"
+
+static const char *TAG = "pages";
 
 /* Zona que tapan las paginas: entre la barra superior y la barra de estado */
 #define PG_Y      38
@@ -112,10 +116,14 @@ static void dots_refresh(void)
 
 static void anim_x_cb(void *var, int32_t v) { lv_obj_set_x((lv_obj_t *)var, v); }
 
+/* Al acabar el deslizamiento se esconde el panel que ha quedado fuera de pantalla. Se decide
+ * por la pagina actual y no por lv_obj_get_x(): las coordenadas solo se actualizan en el
+ * siguiente refresco de layout y aqui aun valdrian lo del fotograma anterior (nunca 0). */
 static void anim_done_cb(lv_anim_t *a)
 {
     lv_obj_t *p = a->var;
-    if (lv_obj_get_x(p) != 0) lv_obj_set_hidden(p, true); /* fuera de pantalla */
+    int idx = (int)(intptr_t)lv_obj_get_user_data(p);
+    if (idx != s_page) lv_obj_set_hidden(p, true);
 }
 
 /* Cada panel i se coloca en (i - pagina) * 240: el actual en 0, los demas a los lados */
@@ -130,7 +138,7 @@ static void slide_to(int page, bool animate)
             lv_obj_set_hidden(s_pg[i], to != 0);
             continue;
         }
-        int32_t from = lv_obj_get_x(s_pg[i]);
+        int32_t from = lv_obj_get_style_x(s_pg[i], LV_PART_MAIN); /* la x pedida, no la pintada */
         if (from == to) continue;
         lv_obj_set_hidden(s_pg[i], false);
         lv_anim_t a;
@@ -153,6 +161,7 @@ void ui_pages_create(lv_obj_t *scr)
 {
     /* pagina 1: pais, hospital y hora local */
     lv_obj_t *p = s_pg[1] = panel(scr);
+    lv_obj_set_user_data(p, (void *)(intptr_t)1);
     s_flag = lv_image_create(p);
     lv_image_set_src(s_flag, &img_flag_cm);
     lv_obj_align(s_flag, LV_ALIGN_TOP_MID, 0, 10);
@@ -176,6 +185,7 @@ void ui_pages_create(lv_obj_t *scr)
 
     /* pagina 2: logros acumulados */
     p = s_pg[2] = panel(scr);
+    lv_obj_set_user_data(p, (void *)(intptr_t)2);
     s_lbl_ach_t = text(p, &lv_font_es_20, COL_NAVY_DARK, 0, 0);
     lv_obj_align(s_lbl_ach_t, LV_ALIGN_TOP_MID, 0, 8);
     s_lbl_ach_sub = text(p, &lv_font_es_12, COL_OFFLINE, 0, 0);
@@ -249,6 +259,7 @@ bool ui_pages_swipe(int dir)
     if (!s_enabled) return false;
     int to = s_page + (dir < 0 ? 1 : -1);
     if (to < 0 || to >= UI_PAGES_COUNT) return false;
+    ESP_LOGI(TAG, "pagina %d -> %d", s_page + 1, to + 1);
     slide_to(to, true);
     return true;
 }
