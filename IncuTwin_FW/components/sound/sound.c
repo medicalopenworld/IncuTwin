@@ -7,6 +7,7 @@
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
+#include "sdkconfig.h"
 #include "settings.h"
 #include "twin_types.h"
 
@@ -61,6 +62,9 @@ static bool s_hb_idle = true;
 static void tone(uint16_t freq)
 {
     unsigned vol = atomic_load(&s_volume);
+#if CONFIG_INCUTWIN_BUZZER_MUTE
+    vol = 0; /* build de pruebas en silencio (spec sound) */
+#endif
     if (freq == 0 || vol == 0) {
         board_buzzer_tone(0, 0);
         return;

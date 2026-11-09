@@ -1,0 +1,3 @@
+# Build de pruebas en silencio (bibliotecas, oficinas). Nunca distribuir.
+# idf.py -B build-mute -D SDKCONFIG=build-mute/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.mute" build
+CONFIG_INCUTWIN_BUZZER_MUTE=y
