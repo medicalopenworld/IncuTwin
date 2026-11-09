@@ -32,14 +32,24 @@ Camerún (`country = "CM"`).
 ## ADDED Requirements
 
 ### Requirement: Probar el tono de piel en demo [manual]
-Con la demo activa, los círculos de tono de piel de ajustes SHALL ser pulsables: tocar uno SHALL
+Con la demo activa, los 5 círculos de tono de piel de ajustes SHALL ser pulsables: tocar uno SHALL
 aplicar ese tono al bebé y a la imagen con sus papás de la demo al momento. El tono probado se
 mantiene al cambiar de escenario, no se guarda y al salir de la demo vuelve el tono real.
 
 #### Scenario: Probar piel oscura
-- **WHEN** en demo se toca el quinto círculo y se pasa al escenario "parents"
-- **THEN** el bebé se ve con el tono 4 y la imagen con sus papás es la de la familia de piel oscura
+- **WHEN** en demo se toca el cuarto círculo y se pasa al escenario "parents"
+- **THEN** el bebé se ve con el tono 3 y la imagen con sus papás es la de la familia de piel oscura
 
 #### Scenario: Salir de la demo
 - **WHEN** tras probar un tono se sale de la demo
 - **THEN** vuelve el tono que dice la incubadora
+
+### Requirement: Páginas deslizables en demo [manual]
+Con la demo activa, la pantalla principal SHALL permitir deslizar entre tres páginas (bebé; país,
+hospital y hora local; logros), con los datos simulados de Camerún que fija `twin-display`
+("Páginas de la demo"). Al salir de la demo SHALL volver a la página 1 y los logros de la demo se
+ponen a cero.
+
+#### Scenario: Salir de la demo en la página 3
+- **WHEN** en la página 3 se mantiene BOOT 2 s
+- **THEN** sale de la demo y se ve la página 1, sin puntos de página

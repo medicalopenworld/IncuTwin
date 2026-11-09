@@ -34,6 +34,15 @@ typedef enum {
     STR_HH_ST_HOLD,
     STR_HH_ST_GRACE, /* formato: %u segundos */
     STR_HH_ST_DONE,
+    /* paginas de la demo (spec twin-display) */
+    STR_PG_HOSPITAL,
+    STR_PG_LOCAL_TIME,
+    STR_PG_ACHIEVEMENTS,
+    STR_PG_ACH_SUB,
+    STR_PG_HANDS,
+    STR_PG_FAMILIES,
+    STR_PG_DAYS,
+    STR_PG_WEIGHT,
     /* ajustes */
     STR_SETTINGS,
     STR_LANGUAGE,

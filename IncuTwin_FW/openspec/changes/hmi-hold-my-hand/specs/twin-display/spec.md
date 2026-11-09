@@ -14,7 +14,7 @@ La zona central SHALL mostrar exactamente una de tres vistas:
 - **BEBÉ** cuando `show_baby`: bebé animado con halo, fila de tres iconos de estado y botón
   "Coge mi mano".
 - **CON SUS PAPÁS** cuando `parents_view`: imagen a pantalla completa del bebé con sus padres.
-  Con un tono de piel de la mitad oscura (`skin` 3..5) SHALL usarse la familia de piel oscura
+  Con un tono de piel oscuro (`skin` 3..4) SHALL usarse la familia de piel oscura
   (`Baby_with_parents_black`); con 0..2, la de siempre (`Baby_with_parents`).
 - **VACÍA** en cualquier otro caso: imagen a pantalla completa de la incubadora vacía.
 
@@ -118,3 +118,40 @@ mostrarse tal cual. Sin `country`, o durante el agradecimiento del gesto, NO SHA
 #### Scenario: Código desconocido
 - **WHEN** `show_baby` con `country = "XK"`
 - **THEN** la etiqueta dice "XK"
+
+### Requirement: Páginas de la demo [manual]
+Con la demo activa, la pantalla principal SHALL tener tres páginas que se cambian deslizando el
+dedo a izquierda (siguiente) o derecha (anterior), con una animación de deslizamiento (≈ 260 ms) y
+tres puntos de página sobre la barra de estado (el actual, una píldora coral):
+
+| Página | Contenido (datos simulados) |
+|---|---|
+| 1 | la de siempre (bebé o la vista que toque) |
+| 2 | bandera y nombre del país (Camerún); tarjeta "Hospital" con "Hospital de Yaundé"; tarjeta "Hora local" con la hora de Camerún (UTC+1, de la hora SNTP; "--:--" sin hora) |
+| 3 | "Logros" / "Achievements", "Lo que hemos logrado juntos", y cuatro tarjetas: manos dadas (37 + los gestos completados en esta demo), 12 familias le acompañan, 14 días en la IncuNest, +420 g de peso ganado |
+
+Las barras superior y de estado SHALL seguir visibles en las tres páginas. Fuera de la página 1 el
+gesto "Coge mi mano" vuelve a reposo y los toques no llegan al bebé. Con un gesto completado (o
+agradeciendo) no se cambia de página. Fuera de demo no hay páginas ni puntos y deslizar no hace
+nada.
+
+#### Scenario: Ver el país
+- **WHEN** en demo se desliza el dedo hacia la izquierda sobre la pantalla principal
+- **THEN** entra la página 2 con la bandera de Camerún, el hospital y la hora local
+
+#### Scenario: Logros que suben
+- **WHEN** en demo se completa un "Coge mi mano" y se desliza dos veces a la izquierda
+- **THEN** la tarjeta de manos dadas dice 38
+
+#### Scenario: Fuera de demo
+- **WHEN** sin demo se desliza el dedo
+- **THEN** no cambia nada
+
+### Requirement: Latido al tocar el corazón [manual]
+El icono del corazón de la fila de estado SHALL ser pulsable: con `bpm > 0` pone a sonar el latido
+al ritmo real del bebé (ver `sound`, "Latido audible") y se rellena de coral suave mientras suena;
+otro toque lo para. Con `bpm = 0` no hace nada.
+
+#### Scenario: Oír al bebé
+- **WHEN** se toca el corazón con `bpm = 140`
+- **THEN** suena el latido a 140 lpm durante 10 s y el icono se ve iluminado

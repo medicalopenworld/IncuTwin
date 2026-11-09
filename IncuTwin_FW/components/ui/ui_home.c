@@ -4,6 +4,8 @@
  *   esquina        : pais de la incubadora, si se comparte
  *   fila           : 3 iconos de estado + boton "Coge mi mano" (o el texto del gesto)
  *   abajo          : barra de estado siempre visible
+ * En demo se desliza a izquierda/derecha entre tres paginas (ui_pages.c).
+ * El latido solo suena al tocar el icono del corazon (ritmo real del bebe).
  * El gesto "Coge mi mano" (spec hold-my-hand) lo lleva hand_hold; aqui solo se pinta. */
 #include <stdint.h>
 #include <stdio.h>
@@ -18,6 +20,7 @@
 #include "twin_logic.h"
 #include "ui_internal.h"
 #include "ui_onboarding.h"
+#include "ui_pages.h"
 #include "usage_stats.h"
 
 #define BABY_X 63   /* sprite de 114x185 */
@@ -57,6 +60,10 @@ static lv_obj_t *s_ring, *s_target, *s_lbl_hold, *s_name, *s_hearts[N_HEARTS];
 static lv_obj_t *s_thanks_img, *s_country;
 static int32_t s_ring_lap = -1; /* vuelta pintada; -1 = forzar colores */
 static bool s_parents_dark;
+static lv_timer_t *s_hb_timer; /* latido sonando tras tocar el icono del corazon */
+
+#define HB_TAP_MS 10000
+#define COL_HEART_ON lv_color_hex(0xFBE3DF)
 static int s_hh_shown = -1;     /* estado pintado; -1 = forzar repintado */
 static twin_snapshot_t s_last;  /* para restaurar la barra de estado */
 static bool s_have_last;
@@ -173,6 +180,52 @@ static void baby_touched(lv_event_t *e)
         usage_hand_set(false);
         hh_touch(&s_hh, false, lv_tick_get());
         hold_refresh(false);
+    }
+}
+
+static void heart_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    s_hb_timer = NULL; /* el timer de una vez se borra solo */
+    sound_heartbeat(false);
+    lv_obj_set_style_bg_color(s_icon_heart, COL_CARD, 0);
+}
+
+/* Icono del corazon: suena el latido al ritmo real del bebe 10 s; otro toque lo para */
+static void heart_sound_set(bool on)
+{
+    if (s_hb_timer) {
+        lv_timer_delete(s_hb_timer);
+        s_hb_timer = NULL;
+    }
+    sound_heartbeat(on);
+    lv_obj_set_style_bg_color(s_icon_heart, on ? COL_HEART_ON : COL_CARD, 0);
+    if (on) {
+        s_hb_timer = lv_timer_create(heart_timer_cb, HB_TAP_MS, NULL);
+        lv_timer_set_repeat_count(s_hb_timer, 1);
+    }
+}
+
+static void heart_icon_clicked(lv_event_t *e)
+{
+    (void)e;
+    bool pulse = s_have_last && s_last.show_baby && s_last.inc.bpm > 0;
+    heart_sound_set(pulse && !s_hb_timer);
+}
+
+/* Deslizar entre paginas (solo en demo). No a mitad de un gesto ya completado. */
+static void scr_gesture(lv_event_t *e)
+{
+    (void)e;
+    lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
+    if (dir != LV_DIR_LEFT && dir != LV_DIR_RIGHT) return;
+    hh_state_t st = hh_state(&s_hh);
+    if (st == HH_DONE || st == HH_THANKS) return;
+    if (!ui_pages_swipe(dir == LV_DIR_LEFT ? -1 : 1)) return;
+    if (s_hb_timer) heart_sound_set(false);
+    if (s_have_last) {
+        twin_snapshot_t s = s_last;
+        ui_home_apply(&s); /* el bebe deja de estar (o vuelve a estar) a la vista */
     }
 }
 
@@ -401,6 +454,9 @@ lv_obj_t *ui_home_create(void)
     s_icon_thermo = state_icon_create(s_scr, 8, &img_icon_thermo);
     s_icon_photo = state_icon_create(s_scr, 58, &img_icon_lamp);
     s_icon_heart = state_icon_create(s_scr, 108, &img_heart);
+    lv_obj_set_clickable(s_icon_heart, true); /* tocar: oir su latido */
+    lv_obj_set_ext_click_area(s_icon_heart, 4);
+    lv_obj_add_event_cb(s_icon_heart, heart_icon_clicked, LV_EVENT_CLICKED, NULL);
 
     s_btn_hand = lv_button_create(s_scr);
     lv_obj_set_size(s_btn_hand, 74, ICON_D);
@@ -427,6 +483,9 @@ lv_obj_t *ui_home_create(void)
     };
     hh_init(&s_hh, &hh_cfg);
     lv_timer_create(hold_timer_cb, HH_TICK_MS, NULL);
+
+    ui_pages_create(s_scr); /* encima del bebe, debajo de las barras */
+    lv_obj_add_event_cb(s_scr, scr_gesture, LV_EVENT_GESTURE, NULL);
 
     /* barra de estado */
     s_status = lv_obj_create(s_scr);
@@ -491,6 +550,7 @@ lv_obj_t *ui_home_create(void)
 void ui_home_retranslate(void)
 {
     lv_label_set_text(s_lbl_hand, tr(STR_HAND));
+    ui_pages_retranslate();
     hold_refresh(true);
 }
 
@@ -560,10 +620,10 @@ static void home_set_view(home_view_t view)
     lv_obj_set_hidden(s_parents_img, view != VIEW_PARENTS);
 }
 
-/* Con sus papas: la familia de piel oscura para los tonos de la mitad oscura (3..5) */
+/* Con sus papas: la familia de piel oscura para los tonos oscuros (3..4) */
 static void parents_img_apply(uint8_t skin)
 {
-    bool dark = skin >= TWIN_SKIN_COUNT / 2;
+    bool dark = skin >= TWIN_SKIN_DARK_MIN;
     if (dark == s_parents_dark) return;
     s_parents_dark = dark;
     lv_image_set_src(s_parents_img, dark ? &img_baby_parents_black : &img_baby_parents);
@@ -682,11 +742,11 @@ static void hold_refresh(bool force)
     uint32_t now = lv_tick_get();
     hh_state_t st = hh_state(&s_hh);
     bool idle = st == HH_IDLE;
-    bool baby_view = s_have_last && s_last.show_baby;
+    bool baby_view = s_have_last && s_last.show_baby && ui_pages_current() == 0;
 
     if (hh_take_send(&s_hh)) app_events_post(TWIN_EVT_HAND_HOLD, NULL, 0);
-    sound_hand_hold(st == HH_HOLDING || st == HH_DONE);
 
+    if (st == HH_DONE && s_hh_shown == HH_HOLDING) ui_pages_note_hand(); /* +1 en los logros */
     if (force || (int)st != s_hh_shown || baby_view != shown_view) {
         s_hh_shown = (int)st;
         shown_view = baby_view;
@@ -751,8 +811,10 @@ void ui_home_apply(const twin_snapshot_t *s)
     s_awake_real = inc->awake;
     s_last = *s;
     s_have_last = true;
-    hh_set_available(&s_hh, s->show_baby, !s->demo && s->link.broker_connected && s->link.paired,
-                     lv_tick_get());
+    ui_pages_apply(s);
+    hh_set_available(&s_hh, s->show_baby && ui_pages_current() == 0,
+                     !s->demo && s->link.broker_connected && s->link.paired, lv_tick_get());
+    if (s_hb_timer && !(s->show_baby && inc->bpm > 0)) heart_sound_set(false);
     bool hh_idle = hh_state(&s_hh) == HH_IDLE;
 
     wifi_icon_apply(s);

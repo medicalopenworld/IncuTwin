@@ -33,14 +33,13 @@ NAVY = (21, 38, 82)
 MOUTH_FILL = (156, 88, 96)
 TONGUE = (232, 150, 150)
 
-# 6 tonos de piel configurables (piel, rubor)
+# 5 tonos de piel configurables (piel, rubor); el mas oscuro (92,58,40) se quito por excesivo
 SKIN_TONES = [
     ((244, 193, 166), (239, 148, 146)),  # 0 claro (original)
     ((233, 175, 140), (226, 136, 130)),  # 1 medio claro
     ((208, 148, 108), (198, 116, 104)),  # 2 medio
     ((172, 112, 78),  (168, 92, 84)),    # 3 bronceado
     ((134, 84, 56),   (140, 74, 68)),    # 4 moreno
-    ((92, 58, 40),    (104, 56, 52)),    # 5 oscuro
 ]
 
 

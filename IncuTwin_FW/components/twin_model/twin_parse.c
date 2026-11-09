@@ -49,7 +49,11 @@ static void parse_extensions(const cJSON *root, twin_msg_t *m)
     if (cJSON_IsBool(it)) { m->has_awake = true; m->awake = cJSON_IsTrue(it); }
 
     it = cJSON_GetObjectItemCaseSensitive(root, "skin");
-    if (get_int(it, 0, TWIN_SKIN_COUNT - 1, &v)) { m->has_skin = true; m->skin = (uint8_t)v; }
+    /* 5 era el tono mas oscuro, ya retirado: se pinta con el 4 */
+    if (get_int(it, 0, TWIN_SKIN_COUNT, &v)) {
+        m->has_skin = true;
+        m->skin = (uint8_t)(v >= TWIN_SKIN_COUNT ? TWIN_SKIN_COUNT - 1 : v);
+    }
 
     it = cJSON_GetObjectItemCaseSensitive(root, "name");
     if (cJSON_IsString(it) && it->valuestring && strlen(it->valuestring) < TWIN_NAME_LEN) {

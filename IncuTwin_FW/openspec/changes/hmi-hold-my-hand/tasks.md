@@ -41,3 +41,10 @@ mientras Pablo no pueda tener sonido.
 - [x] Clave `country` (ISO alfa-2) en el estado, etiqueta del país y Camerún en los escenarios de demo
 - [x] Tonos de piel pulsables en ajustes durante la demo (`twin_model_demo_set_skin`)
 - [ ] Verificación manual en el panel
+
+## Ronda 3
+
+- [x] Latido solo al tocar el icono del corazón (10 s o hasta otro toque); fuera la ventana tras "Bebé detectado" y el latido del gesto
+- [x] Quitar el tono de piel más oscuro (5 tonos; `skin: 5` del estado se pinta como 4)
+- [x] Páginas deslizables en demo (ui_pages.c): país/hospital/hora local y logros; bandera de Camerún en gen_extra.py
+- [ ] Verificación manual en el panel

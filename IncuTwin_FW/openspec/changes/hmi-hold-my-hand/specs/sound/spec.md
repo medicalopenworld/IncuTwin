@@ -3,20 +3,25 @@
 ### Requirement: Latido audible [manual]
 El latido "lub-dub" SHALL sonar al ritmo `bpm` del gemelo: 330 Hz 50 ms · silencio 110 ms ·
 262 Hz 40 ms · silencio hasta completar 60000/`bpm` ms (mínimo 50 ms de silencio). Suena solo
-(a) durante la ventana de 3000 ms tras "Bebé detectado" y (b) mientras el dedo está sobre el bebé
-en el gesto "Coge mi mano" (estados sosteniendo y completado; no en listo ni en gracia). Con
-`bpm = 0` o volumen Apagado no suena. El latido en pantalla es independiente (siempre late).
+al tocar el icono del corazón de la vista BEBÉ: durante 10 s, o hasta volver a tocarlo, salir de
+la vista o cambiar de página. No suena tras "Bebé detectado" ni durante el gesto "Coge mi mano".
+Con `bpm = 0` o volumen Apagado no suena. El latido en pantalla es independiente (siempre late).
 
-#### Scenario: Ventana tras detección
-- **WHEN** termina la melodía "Bebé detectado" con `bpm = 120`
-- **THEN** se oyen ~6 latidos (uno cada 500 ms) y después silencio
+#### Scenario: Tocar el corazón
+- **WHEN** se toca el icono del corazón con `bpm = 120`
+- **THEN** el icono se ilumina y se oyen ~20 latidos (uno cada 500 ms) durante 10 s; después
+  silencio
 
-#### Scenario: Toque con pulso
-- **WHEN** se toca al bebé 2 s con `bpm = 150`
-- **THEN** se oyen ~5 latidos (uno cada 400 ms) y cesan al soltar
+#### Scenario: Parar antes
+- **WHEN** suena el latido y se vuelve a tocar el icono
+- **THEN** el latido cesa
 
-#### Scenario: Toque sin pulso
-- **WHEN** se toca al bebé con `bpm = 0`
+#### Scenario: Sin latido en la detección ni en el gesto
+- **WHEN** suena "Bebé detectado" o se mantiene el dedo sobre el bebé en "Coge mi mano"
+- **THEN** no se oye el latido
+
+#### Scenario: Sin pulso
+- **WHEN** se toca el icono del corazón con `bpm = 0`
 - **THEN** no suena nada
 
 ## ADDED Requirements

@@ -36,17 +36,16 @@ static const note_t CLICK_MELODY[] = { {1760, 25} }; /* A6, feedback tactil */
 #define HB_DUB_HZ    262
 #define HB_DUB_MS    40
 #define HB_REST_MIN  50
-#define HB_WINDOW_MS 3000
+#define HB_TAP_MS    10000 /* latido al tocar el icono del corazon */
 
 /* duty (10 bits) por nivel; a calibrar en hardware */
 static const uint16_t VOLUME_DUTY[] = { 0, 8, 20, 512 };
 
 /* peticiones desde otras tareas */
 static atomic_int s_req = SOUND_NONE;
-static atomic_bool s_hb_window_req = false;
+static atomic_int s_hb_req = 0; /* 1 = abrir ventana de latido, 2 = cerrarla */
 static atomic_uint s_bpm = 0;
 static atomic_uint s_volume = 3;
-static atomic_bool s_holding = false;
 
 /* estado de la tarea LVGL */
 static const note_t *s_seq;
@@ -106,7 +105,6 @@ static void play(sound_melody_t m, uint32_t now)
 static bool hb_active(uint32_t now)
 {
     if (atomic_load(&s_volume) == 0 || atomic_load(&s_bpm) == 0) return false;
-    if (atomic_load(&s_holding)) return true;
     return s_hb_until != 0 && (int32_t)(now - s_hb_until) < 0;
 }
 
@@ -142,9 +140,12 @@ static void sound_tick(lv_timer_t *t)
         s_hb_idle = true;
         s_hb_phase = 0;
     }
-    if (atomic_exchange(&s_hb_window_req, false)) {
-        s_hb_until = now + HB_WINDOW_MS;
+    int hb = atomic_exchange(&s_hb_req, 0);
+    if (hb == 1) {
+        s_hb_until = now + HB_TAP_MS;
         if (s_hb_until == 0) s_hb_until = 1;
+    } else if (hb == 2) {
+        s_hb_until = 0;
     }
     if (atomic_load(&s_volume) == 0 && (s_seq || !s_hb_idle)) {
         seq_stop(); /* apagado: cortar lo que suene */
@@ -187,8 +188,7 @@ static void on_transition(void *arg, esp_event_base_t base, int32_t id, void *da
     (void)arg; (void)base; (void)id;
     twin_transition_t tr = *(twin_transition_t *)data;
     if (tr == TWIN_TR_BABY_IN) {
-        sound_request(SOUND_BABY);
-        atomic_store(&s_hb_window_req, true);
+        sound_request(SOUND_BABY); /* el latido solo suena al tocar el icono del corazon */
     } else if (tr == TWIN_TR_BABY_PARENTS) {
         sound_request(SOUND_PARENTS);
     }
@@ -227,4 +227,4 @@ void sound_init(void)
 
 void sound_request(sound_melody_t m) { atomic_store(&s_req, (int)m); }
 
-void sound_hand_hold(bool holding) { atomic_store(&s_holding, holding); }
+void sound_heartbeat(bool on) { atomic_store(&s_hb_req, on ? 1 : 2); }

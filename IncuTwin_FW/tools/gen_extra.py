@@ -101,6 +101,34 @@ def make_wifi_off():
     return im.resize((W, H), Image.LANCZOS)
 
 
+def make_flag_cm():
+    """Bandera de Camerun (verde | rojo con estrella amarilla | amarillo), 96x64, esquinas
+    redondeadas y borde fino, para la pagina del pais de la demo."""
+    import math
+    s = 4
+    W, H = 96, 64
+    im = Image.new("RGBA", (W * s, H * s), (0, 0, 0, 0))
+    mask = Image.new("L", im.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, W * s - 1, H * s - 1), radius=6 * s, fill=255)
+    d = ImageDraw.Draw(im)
+    w3 = W * s / 3
+    d.rectangle((0, 0, w3, H * s), fill=(0, 122, 94))
+    d.rectangle((w3, 0, 2 * w3, H * s), fill=(206, 17, 38))
+    d.rectangle((2 * w3, 0, W * s, H * s), fill=(252, 209, 22))
+    cx, cy, ro, ri = W * s / 2, H * s / 2, 11 * s, 4.4 * s
+    pts = []
+    for k in range(10):
+        r = ro if k % 2 == 0 else ri
+        a = -math.pi / 2 + k * math.pi / 5
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    d.polygon(pts, fill=(252, 209, 22))
+    out = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    out.paste(im, mask=mask)
+    ImageDraw.Draw(out).rounded_rectangle((0, 0, W * s - 1, H * s - 1), radius=6 * s,
+                                          outline=(200, 200, 200, 255), width=s)
+    return out.resize((W, H), Image.LANCZOS)
+
+
 def fullscreen_from(png):
     """Imagen derecha en la pantalla vertical: recorta margenes blancos y rellena a 240x320."""
     im = Image.open(os.path.join(IMAGES, png)).convert("RGB")
@@ -123,6 +151,7 @@ def main():
     parents = fullscreen_from("Baby_with_parents.png")
     parents_black = fullscreen_from("Baby_with_parents_black.jpg")  # tonos de piel 3..5
     thanks = fullscreen_from("Corazon_IncuNest.png")  # fin de "Coge mi mano"
+    flag_cm = make_flag_cm()  # pagina del pais en la demo
 
     wm.save(os.path.join(PREVIEW, "wordmark.png"))
     th.save(os.path.join(PREVIEW, "icon_thermo.png"))
@@ -134,6 +163,7 @@ def main():
     parents.save(os.path.join(PREVIEW, "baby_parents.png"))
     parents_black.save(os.path.join(PREVIEW, "baby_parents_black.png"))
     thanks.save(os.path.join(PREVIEW, "hand_thanks.png"))
+    flag_cm.save(os.path.join(PREVIEW, "flag_cm.png"))
     print("wordmark:", wm.size, " empty:", empty.size)
 
     with open(os.path.join(ASSETS, "img_extra.c"), "w", encoding="utf-8", newline="\n") as f:
@@ -148,13 +178,15 @@ def main():
         emit_rgb565(f, "img_baby_parents", parents)
         emit_rgb565(f, "img_baby_parents_black", parents_black)
         emit_rgb565(f, "img_hand_thanks", thanks)
+        emit_argb8888(f, "img_flag_cm", flag_cm)
 
     write_header(
         os.path.join(ASSETS, "include", "assets_extra.h"),
         "Assets adicionales (gen_extra.py)",
         ["img_wordmark", "img_icon_thermo", "img_icon_lamp", "img_wifi_off",
          "img_wifi_0", "img_wifi_1", "img_wifi_2", "img_wifi_3",
-         "img_incunest_empty", "img_baby_parents", "img_baby_parents_black", "img_hand_thanks"],
+         "img_incunest_empty", "img_baby_parents", "img_baby_parents_black", "img_hand_thanks",
+         "img_flag_cm"],
     )
     print("img_extra.c escrito")
 

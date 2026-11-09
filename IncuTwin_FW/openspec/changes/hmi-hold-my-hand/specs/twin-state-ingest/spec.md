@@ -10,7 +10,7 @@ anterior:
 | `thermo` | `off`, `heating`, `stable`, `alarm` | sustituye el `thermo` derivado de `heat` |
 | `baby` | `none`, `in`, `parents`, `home` | sustituye el `baby` derivado de `state` |
 | `awake` | bool | `awake` (por defecto false) |
-| `skin` | entero 0..5 | tono de piel (por defecto el de Kconfig, 1) |
+| `skin` | entero 0..4 (un 5, el antiguo tono más oscuro ya retirado, se trata como 4) | tono de piel (por defecto el de Kconfig, 1) |
 | `name` | string ≤ 23 bytes UTF-8 | nombre en la barra ("" = ninguno) |
 | `country` | string ISO 3166-1 alfa-2 (`"CM"`; se aceptan minúsculas) | país de la incubadora (ausente = no mostrar) |
 | `weight_g` | entero 0..9999 | peso (0 = no mostrar) |

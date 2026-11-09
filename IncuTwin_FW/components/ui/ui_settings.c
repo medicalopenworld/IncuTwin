@@ -23,7 +23,7 @@ static bool s_demo; /* en demo los tonos se pueden tocar para probarlos */
 
 static const ui_str_t VOL_STR[4] = { STR_VOL_OFF, STR_VOL_LOW, STR_VOL_MID, STR_VOL_HIGH };
 static const uint32_t SWATCH_COLORS[TWIN_SKIN_COUNT] = { 0xF4C1A6, 0xE9AF8C, 0xD0946C,
-                                                         0xAC704E, 0x865438, 0x5C3A28 };
+                                                         0xAC704E, 0x865438 };
 
 /* ------------------------------------------------------------- handlers */
 
@@ -141,7 +141,7 @@ lv_obj_t *ui_settings_create(void)
     for (int i = 0; i < TWIN_SKIN_COUNT; i++) {
         s_swatches[i] = lv_obj_create(s_scr);
         lv_obj_set_size(s_swatches[i], 30, 30);
-        lv_obj_set_pos(s_swatches[i], 12 + i * 37, 128);
+        lv_obj_set_pos(s_swatches[i], 12 + i * 44, 128);
         lv_obj_set_style_radius(s_swatches[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_color(s_swatches[i], lv_color_hex(SWATCH_COLORS[i]), 0);
         lv_obj_set_style_shadow_width(s_swatches[i], 0, 0);

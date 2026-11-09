@@ -1,5 +1,6 @@
 idf_component_register(
     SRCS "ui.c" "ui_i18n.c" "ui_home.c" "ui_settings.c" "ui_onboarding.c" "baby_widget.c"
+         "ui_pages.c"
     INCLUDE_DIRS "include"
     PRIV_INCLUDE_DIRS "."
     REQUIRES lvgl__lvgl
