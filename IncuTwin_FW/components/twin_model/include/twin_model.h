@@ -40,6 +40,8 @@ void twin_model_demo_enter(void);
 void twin_model_demo_exit(void);
 bool twin_model_demo_active(void);
 void twin_model_demo_apply(const twin_incubator_t *inc, bool linked);
+/* Solo en demo: prueba otro tono de piel (no toca el real ni se guarda). */
+void twin_model_demo_set_skin(uint8_t skin);
 
 twin_snapshot_t twin_model_get(void);
 

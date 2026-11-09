@@ -99,6 +99,40 @@ TEST_CASE("hand_hold: seguir tras completar no reenvia", "[hand_hold]")
     TEST_ASSERT_FALSE(hh_take_send(&h));
 }
 
+TEST_CASE("hand_hold: tras completar el anillo sigue dando vueltas", "[hand_hold]")
+{
+    setup(0);
+    hh_touch(&h, true, 0);
+    idle_until(0, S(30));
+    TEST_ASSERT_EQUAL_UINT32(S(30), hh_held_ms(&h, S(30)));
+    idle_until(S(30), S(150)); /* 2,5 vueltas */
+    TEST_ASSERT_EQUAL(HH_DONE, hh_state(&h));
+    TEST_ASSERT_EQUAL_UINT32(2, hh_held_ms(&h, S(150)) / S(60));
+    TEST_ASSERT_UINT32_WITHIN(150, S(30), hh_held_ms(&h, S(150)) % S(60));
+    TEST_ASSERT_TRUE(hh_take_send(&h));
+    hh_touch(&h, false, S(150));
+    TEST_ASSERT_EQUAL(HH_THANKS, hh_state(&h));
+    /* al agradecer el anillo se queda quieto */
+    uint32_t frozen = hh_held_ms(&h, S(151));
+    TEST_ASSERT_EQUAL_UINT32(frozen, hh_held_ms(&h, S(153)));
+    /* vuelve el dedo: sigue sumando desde ahi, sin segundo aviso */
+    hh_touch(&h, true, S(153));
+    idle_until(S(153), S(163));
+    TEST_ASSERT_UINT32_WITHIN(150, frozen + S(10), hh_held_ms(&h, S(163)));
+    TEST_ASSERT_FALSE(hh_take_send(&h));
+}
+
+TEST_CASE("hand_hold: en reposo no hay tiempo acumulado", "[hand_hold]")
+{
+    setup(0);
+    TEST_ASSERT_EQUAL_UINT32(0, hh_held_ms(&h, S(5)));
+    hold(0, S(20));
+    TEST_ASSERT_EQUAL_UINT32(S(20), hh_held_ms(&h, S(25))); /* gracia: congelado */
+    idle_until(S(20), S(31));
+    TEST_ASSERT_EQUAL(HH_IDLE, hh_state(&h));
+    TEST_ASSERT_EQUAL_UINT32(0, hh_held_ms(&h, S(31)));
+}
+
 TEST_CASE("hand_hold: tocar directamente desde reposo", "[hand_hold]")
 {
     setup(0);

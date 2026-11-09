@@ -51,6 +51,11 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
     } else {
         inc->name[0] = '\0';
     }
+    if (m->has_country) {
+        memcpy(inc->country, m->country, TWIN_COUNTRY_LEN);
+    } else {
+        inc->country[0] = '\0';
+    }
     inc->weight_g = m->has_weight ? m->weight_g : 0;
     inc->age_d = m->has_age ? m->age_d : -1;
 

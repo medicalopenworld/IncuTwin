@@ -7,6 +7,7 @@
 #include "identity.h"
 #include "settings.h"
 #include "sound.h"
+#include "twin_model.h"
 #include "ui_internal.h"
 
 static lv_obj_t *s_scr;
@@ -18,6 +19,7 @@ static lv_obj_t *s_btn_vol[4];
 static lv_obj_t *s_slider;
 static lv_obj_t *s_lbl_net, *s_lbl_inc, *s_lbl_ver;
 static uint8_t s_skin;
+static bool s_demo; /* en demo los tonos se pueden tocar para probarlos */
 
 static const ui_str_t VOL_STR[4] = { STR_VOL_OFF, STR_VOL_LOW, STR_VOL_MID, STR_VOL_HIGH };
 static const uint32_t SWATCH_COLORS[TWIN_SKIN_COUNT] = { 0xF4C1A6, 0xE9AF8C, 0xD0946C,
@@ -44,6 +46,12 @@ static void slider_changed(lv_event_t *e)
 {
     lv_obj_t *sl = lv_event_get_target(e);
     settings_set_brightness((uint8_t)lv_slider_get_value(sl));
+}
+
+/* Solo en demo: probar otro tono (no se guarda; al salir de la demo vuelve el real) */
+static void swatch_clicked(lv_event_t *e)
+{
+    twin_model_demo_set_skin((uint8_t)(intptr_t)lv_event_get_user_data(e));
 }
 
 /* ----------------------------------------------------------- helpers */
@@ -137,8 +145,10 @@ lv_obj_t *ui_settings_create(void)
         lv_obj_set_style_radius(s_swatches[i], LV_RADIUS_CIRCLE, 0);
         lv_obj_set_style_bg_color(s_swatches[i], lv_color_hex(SWATCH_COLORS[i]), 0);
         lv_obj_set_style_shadow_width(s_swatches[i], 0, 0);
-        lv_obj_set_clickable(s_swatches[i], false);
+        lv_obj_set_clickable(s_swatches[i], false); /* informativo; pulsable solo en demo */
         lv_obj_set_scrollable(s_swatches[i], false);
+        lv_obj_set_ext_click_area(s_swatches[i], 3);
+        lv_obj_add_event_cb(s_swatches[i], swatch_clicked, LV_EVENT_CLICKED, (void *)(intptr_t)i);
     }
     s_lbl_hint = small_label(s_scr, 12, 162, COL_OFFLINE);
     lv_obj_set_size(s_lbl_hint, 216, 28); /* dos lineas */
@@ -188,7 +198,7 @@ void ui_settings_retranslate(void)
     lv_label_set_text(s_lbl_title, tr(STR_SETTINGS));
     lv_label_set_text(s_lbl_lang, tr(STR_LANGUAGE));
     lv_label_set_text(s_lbl_tone, tr(STR_SKIN_TONE));
-    lv_label_set_text(s_lbl_hint, tr(STR_SKIN_HINT));
+    lv_label_set_text(s_lbl_hint, tr(s_demo ? STR_SKIN_HINT_DEMO : STR_SKIN_HINT));
     lv_label_set_text(s_lbl_sound, tr(STR_SOUND));
     lv_label_set_text(s_lbl_bright, tr(STR_BRIGHTNESS));
     for (int i = 0; i < 4; i++) lv_label_set_text(lv_obj_get_child(s_btn_vol[i], 0), tr(VOL_STR[i]));
@@ -208,6 +218,12 @@ void ui_settings_apply(const twin_snapshot_t *s)
 {
     s_skin = s->inc.skin;
     swatch_refresh();
+    if (s->demo != s_demo) {
+        s_demo = s->demo;
+        for (int i = 0; i < TWIN_SKIN_COUNT; i++) lv_obj_set_clickable(s_swatches[i], s_demo);
+        lv_label_set_text(s_lbl_hint, tr(s_demo ? STR_SKIN_HINT_DEMO : STR_SKIN_HINT));
+        lv_obj_set_style_text_color(s_lbl_hint, s_demo ? COL_CORAL : COL_OFFLINE, 0);
+    }
     if (s->link.wifi) {
         lv_label_set_text_fmt(s_lbl_net, "%s: %s · %s: %s", tr(STR_WIFI), s->link.ip, tr(STR_SERVER),
                               tr(s->link.broker_connected ? STR_CONNECTED : STR_NO_CONNECTION));

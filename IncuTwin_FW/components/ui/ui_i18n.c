@@ -1,5 +1,7 @@
 #include "ui_i18n.h"
 
+#include <stddef.h>
+
 #include "settings.h"
 
 static const char *const STRINGS[STR_COUNT][2] = {
@@ -22,11 +24,12 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_HAND           */ { "Coge mi mano",                      "Hold my hand" },
     /* STR_HH_READY       */ { "Pon tu dedo sobre el bebé",         "Put your finger on the baby" },
     /* STR_HH_HOLD1       */ { "Le estás dando la mano...",         "You're holding their hand..." },
-    /* STR_HH_HOLD2       */ { "Ya casi... siente tu calor",        "Almost there... feel your warmth" },
+    /* STR_HH_HOLD2       */ { "El bebé está recibiendo calorcito", "The baby is getting your warmth" },
     /* STR_HH_GRACE       */ { "¿Sigues ahí? Vuelve a ponerlo",     "Still there? Put it back" },
     /* STR_HH_THANKS      */ { "Gracias por tu calorcito",          "Thank you for your warmth" },
     /* STR_HH_ST_READY    */ { "Te está esperando",                 "Waiting for you" },
-    /* STR_HH_ST_HOLD     */ { "No sueltes, se está calmando",      "Don't let go, they're calming down" },
+    /* STR_HH_ST_HOLD     */ { "Mantén pulsado para estar mano a mano",
+                               "Keep pressing to stay hand in hand" },
     /* STR_HH_ST_GRACE    */ { "Te espera %u s más",                "Waiting %u s more" },
     /* STR_HH_ST_DONE     */ { "Quédate todo lo que quieras",       "Stay as long as you like" },
     /* STR_SETTINGS       */ { "Ajustes",                           "Settings" },
@@ -34,6 +37,7 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_SKIN_TONE      */ { "Tono de piel",                      "Skin tone" },
     /* STR_SKIN_HINT      */ { "Según el país de la IncuNest asignada",
                                "Based on the assigned IncuNest's country" },
+    /* STR_SKIN_HINT_DEMO */ { "Demo: toca un tono para probarlo",  "Demo: tap a tone to try it" },
     /* STR_SOUND          */ { "Sonido",                            "Sound" },
     /* STR_VOL_OFF        */ { "Apagado",                           "Off" },
     /* STR_VOL_LOW        */ { "Bajo",                              "Low" },
@@ -66,6 +70,74 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_WIFI_CHANGE_Q  */ { "¿Cambiar la red WiFi?",             "Change the WiFi network?" },
     /* STR_WIFI_CHANGE    */ { "Cambiar",                           "Change" },
 };
+
+/* Paises de la barra del pais (ISO 3166-1 alfa-2). Solo caracteres de las fuentes
+ * (ASCII + vocales acentuadas + ñ). Uno que no este aqui se muestra con su codigo. */
+static const struct {
+    char iso[3];
+    const char *name[2];
+} COUNTRIES[] = {
+    { "CM", { "Camerún", "Cameroon" } },
+    { "ES", { "España", "Spain" } },
+    { "GH", { "Ghana", "Ghana" } },
+    { "KE", { "Kenia", "Kenya" } },
+    { "SN", { "Senegal", "Senegal" } },
+    { "NG", { "Nigeria", "Nigeria" } },
+    { "CI", { "Costa de Marfil", "Ivory Coast" } },
+    { "MA", { "Marruecos", "Morocco" } },
+    { "ET", { "Etiopía", "Ethiopia" } },
+    { "TZ", { "Tanzania", "Tanzania" } },
+    { "UG", { "Uganda", "Uganda" } },
+    { "MZ", { "Mozambique", "Mozambique" } },
+    { "CD", { "R. D. del Congo", "DR Congo" } },
+    { "CG", { "Congo", "Congo" } },
+    { "GA", { "Gabón", "Gabon" } },
+    { "GQ", { "Guinea Ecuatorial", "Equatorial Guinea" } },
+    { "GN", { "Guinea", "Guinea" } },
+    { "SL", { "Sierra Leona", "Sierra Leone" } },
+    { "LR", { "Liberia", "Liberia" } },
+    { "ML", { "Malí", "Mali" } },
+    { "BF", { "Burkina Faso", "Burkina Faso" } },
+    { "NE", { "Níger", "Niger" } },
+    { "TD", { "Chad", "Chad" } },
+    { "CF", { "R. Centroafricana", "Central African Rep." } },
+    { "AO", { "Angola", "Angola" } },
+    { "MW", { "Malaui", "Malawi" } },
+    { "ZM", { "Zambia", "Zambia" } },
+    { "RW", { "Ruanda", "Rwanda" } },
+    { "SS", { "Sudán del Sur", "South Sudan" } },
+    { "SD", { "Sudán", "Sudan" } },
+    { "SO", { "Somalia", "Somalia" } },
+    { "MG", { "Madagascar", "Madagascar" } },
+    { "MX", { "México", "Mexico" } },
+    { "GT", { "Guatemala", "Guatemala" } },
+    { "HN", { "Honduras", "Honduras" } },
+    { "NI", { "Nicaragua", "Nicaragua" } },
+    { "HT", { "Haití", "Haiti" } },
+    { "CO", { "Colombia", "Colombia" } },
+    { "EC", { "Ecuador", "Ecuador" } },
+    { "PE", { "Perú", "Peru" } },
+    { "BO", { "Bolivia", "Bolivia" } },
+    { "VE", { "Venezuela", "Venezuela" } },
+    { "UA", { "Ucrania", "Ukraine" } },
+    { "PS", { "Palestina", "Palestine" } },
+    { "YE", { "Yemen", "Yemen" } },
+    { "AF", { "Afganistán", "Afghanistan" } },
+    { "IN", { "India", "India" } },
+    { "BD", { "Bangladés", "Bangladesh" } },
+    { "PK", { "Pakistán", "Pakistan" } },
+    { "PH", { "Filipinas", "Philippines" } },
+};
+
+const char *tr_country(const char *iso)
+{
+    if (!iso || !iso[0]) return "";
+    int lang = settings_lang() == SETTINGS_LANG_EN ? 1 : 0;
+    for (size_t i = 0; i < sizeof(COUNTRIES) / sizeof(COUNTRIES[0]); i++) {
+        if (COUNTRIES[i].iso[0] == iso[0] && COUNTRIES[i].iso[1] == iso[1]) return COUNTRIES[i].name[lang];
+    }
+    return iso;
+}
 
 const char *tr(ui_str_t id)
 {

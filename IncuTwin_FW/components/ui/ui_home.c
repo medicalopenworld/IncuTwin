@@ -1,6 +1,7 @@
 /* Pantalla principal (spec twin-display). Layout vertical 240x320:
  *   barra superior : WiFi | marca | engranaje
- *   centro         : bebe + halo | incubadora vacia | con sus papas
+ *   centro         : bebe + halo | incubadora vacia | con sus papas (dos tonos de piel)
+ *   esquina        : pais de la incubadora, si se comparte
  *   fila           : 3 iconos de estado + boton "Coge mi mano" (o el texto del gesto)
  *   abajo          : barra de estado siempre visible
  * El gesto "Coge mi mano" (spec hold-my-hand) lo lleva hand_hold; aqui solo se pinta. */
@@ -35,6 +36,10 @@
 #define COL_RING_BG   lv_color_hex(0xF5C4B3)
 #define COL_RING_DIM  lv_color_hex(0xEBA8A0)
 #define COL_BG_THANKS lv_color_hex(0xFBEDEA)
+#define HOLD_H        40
+/* Vueltas del anillo: cada minuto extra pinta otra vuelta encima, en el color siguiente */
+static const uint32_t LAP_COLS[] = { 0xDE6F63, 0xD94E7A, 0xF5A93B, 0x8E6CC9 };
+#define N_LAP_COLS (sizeof(LAP_COLS) / sizeof(LAP_COLS[0]))
 
 typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_ALARM } halo_mode_t;
 typedef enum { VIEW_EMPTY = 0, VIEW_BABY, VIEW_PARENTS } home_view_t;
@@ -49,11 +54,15 @@ static bool s_awake_real; /* para restaurar al terminar el gesto */
 
 static hand_hold_t s_hh;
 static lv_obj_t *s_ring, *s_target, *s_lbl_hold, *s_name, *s_hearts[N_HEARTS];
+static lv_obj_t *s_thanks_img, *s_country;
+static int32_t s_ring_lap = -1; /* vuelta pintada; -1 = forzar colores */
+static bool s_parents_dark;
 static int s_hh_shown = -1;     /* estado pintado; -1 = forzar repintado */
 static twin_snapshot_t s_last;  /* para restaurar la barra de estado */
 static bool s_have_last;
 
 static void hold_refresh(bool force);
+static void overlay_refresh(void);
 
 /* ------------------------------------------------------------------ halo */
 
@@ -288,6 +297,15 @@ static void hold_create_above_baby(void)
         s_hearts[i] = h;
     }
 
+    /* al terminar el gesto: los papas con la IncuNest y el corazon, a pantalla completa.
+     * Pulsable como el bebe: volver a poner el dedo sigue acompanando. */
+    s_thanks_img = lv_image_create(s_scr);
+    lv_image_set_src(s_thanks_img, &img_hand_thanks);
+    lv_obj_set_pos(s_thanks_img, 0, 0);
+    lv_obj_set_clickable(s_thanks_img, true);
+    lv_obj_add_event_cb(s_thanks_img, baby_touched, LV_EVENT_ALL, NULL);
+    lv_obj_set_hidden(s_thanks_img, true);
+
     s_name = lv_label_create(s_scr);
     lv_label_set_text(s_name, "");
     lv_obj_set_style_text_font(s_name, &lv_font_es_16, 0);
@@ -304,17 +322,35 @@ static void hold_create_above_baby(void)
     lv_obj_align(s_name, LV_ALIGN_TOP_MID, 0, NAME_Y);
     lv_obj_set_hidden(s_name, true);
 
+    /* pais de la incubadora: etiqueta pequena arriba a la izquierda */
+    s_country = lv_label_create(s_scr);
+    lv_label_set_text(s_country, "");
+    lv_obj_set_style_text_font(s_country, &lv_font_es_12, 0);
+    lv_obj_set_style_text_color(s_country, COL_NAVY_DARK, 0);
+    lv_obj_set_style_bg_color(s_country, COL_CARD, 0);
+    lv_obj_set_style_bg_opa(s_country, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(s_country, COL_NAVY, 0);
+    lv_obj_set_style_border_width(s_country, 1, 0);
+    lv_obj_set_style_radius(s_country, 10, 0);
+    lv_obj_set_style_pad_hor(s_country, 7, 0);
+    lv_obj_set_style_pad_ver(s_country, 2, 0);
+    lv_obj_set_style_max_width(s_country, 120, 0);
+    lv_label_set_long_mode(s_country, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_pos(s_country, 6, 40);
+    lv_obj_set_hidden(s_country, true);
+
     s_lbl_hold = lv_label_create(s_scr);
     lv_label_set_text(s_lbl_hold, "");
-    lv_obj_set_size(s_lbl_hold, 224, 40);
+    lv_obj_set_size(s_lbl_hold, 224, HOLD_H);
     lv_obj_set_pos(s_lbl_hold, 8, ICON_Y + 2);
     lv_obj_set_style_text_font(s_lbl_hold, &lv_font_es_14, 0);
     lv_obj_set_style_text_align(s_lbl_hold, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_pad_hor(s_lbl_hold, 6, 0);
     lv_obj_set_style_pad_top(s_lbl_hold, 11, 0);
     lv_obj_set_style_radius(s_lbl_hold, 14, 0);
     lv_obj_set_style_border_color(s_lbl_hold, COL_CORAL, 0);
     lv_obj_set_style_bg_color(s_lbl_hold, COL_CARD, 0);
-    lv_label_set_long_mode(s_lbl_hold, LV_LABEL_LONG_MODE_DOTS);
+    lv_label_set_long_mode(s_lbl_hold, LV_LABEL_LONG_MODE_WRAP); /* hasta dos lineas */
     lv_obj_set_hidden(s_lbl_hold, true);
 }
 
@@ -460,9 +496,20 @@ void ui_home_retranslate(void)
 
 /* ------------------------------------------------------------ state -> UI */
 
+/* Fuente de 14 si cabe en una linea de `w`; si no, la de 12 */
+static const lv_font_t *fit_font(const char *txt, int32_t w)
+{
+    lv_point_t sz;
+    lv_text_get_size(&sz, txt, &lv_font_es_14, 0, 0, LV_COORD_MAX, LV_TEXT_FLAG_NONE);
+    return sz.x <= w ? &lv_font_es_14 : &lv_font_es_12;
+}
+
 static void status_bar_text(const char *txt, lv_color_t col)
 {
-    if (strcmp(lv_label_get_text(s_lbl_status), txt) != 0) lv_label_set_text(s_lbl_status, txt);
+    if (strcmp(lv_label_get_text(s_lbl_status), txt) != 0) {
+        lv_label_set_text(s_lbl_status, txt);
+        lv_obj_set_style_text_font(s_lbl_status, fit_font(txt, 216), 0);
+    }
     lv_obj_set_style_text_color(s_lbl_status, col, 0);
     lv_obj_set_style_border_color(s_status, col, 0);
 }
@@ -513,6 +560,15 @@ static void home_set_view(home_view_t view)
     lv_obj_set_hidden(s_parents_img, view != VIEW_PARENTS);
 }
 
+/* Con sus papas: la familia de piel oscura para los tonos de la mitad oscura (3..5) */
+static void parents_img_apply(uint8_t skin)
+{
+    bool dark = skin >= TWIN_SKIN_COUNT / 2;
+    if (dark == s_parents_dark) return;
+    s_parents_dark = dark;
+    lv_image_set_src(s_parents_img, dark ? &img_baby_parents_black : &img_baby_parents);
+}
+
 static void wifi_icon_apply(const twin_snapshot_t *s)
 {
     if (s->demo) {
@@ -544,6 +600,75 @@ static void label_set(lv_obj_t *l, const char *t)
     if (strcmp(lv_label_get_text(l), t) != 0) lv_label_set_text(l, t);
 }
 
+/* Texto del gesto: una o dos lineas, centrado en vertical en la caja */
+static void hold_text(const char *t)
+{
+    if (strcmp(lv_label_get_text(s_lbl_hold), t) == 0) return;
+    lv_label_set_text(s_lbl_hold, t);
+    lv_point_t sz;
+    lv_text_get_size(&sz, t, &lv_font_es_14, 0, 0, 224 - 12, LV_TEXT_FLAG_NONE);
+    int32_t pad = (HOLD_H - sz.y) / 2 - 2;
+    lv_obj_set_style_pad_top(s_lbl_hold, pad < 0 ? 0 : pad, 0);
+}
+
+static void thanks_opa_cb(void *var, int32_t v) { lv_obj_set_style_opa((lv_obj_t *)var, (lv_opa_t)v, 0); }
+
+/* Imagen final del gesto: aparece fundiendose */
+static void thanks_show(bool on)
+{
+    if (on != lv_obj_has_flag(s_thanks_img, LV_OBJ_FLAG_HIDDEN)) return;
+    lv_anim_delete(s_thanks_img, thanks_opa_cb);
+    lv_obj_set_hidden(s_thanks_img, !on);
+    if (!on) return;
+    lv_obj_set_style_opa(s_thanks_img, LV_OPA_TRANSP, 0);
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_thanks_img);
+    lv_anim_set_exec_cb(&a, thanks_opa_cb);
+    lv_anim_set_values(&a, LV_OPA_TRANSP, LV_OPA_COVER);
+    lv_anim_set_duration(&a, 450);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_start(&a);
+}
+
+/* Anillo por vueltas: la vuelta 0 se llena sobre el fondo rosa; cada vuelta siguiente se
+ * pinta encima de la anterior, ya completa, en el color siguiente. */
+static void ring_apply(uint32_t held_ms, bool grace)
+{
+    uint32_t min = (uint32_t)CONFIG_INCUTWIN_HAND_MIN_S * 1000u;
+    if (min == 0) min = 1;
+    int32_t lap = (int32_t)(held_ms / min);
+    uint32_t in = held_ms % min;
+    if (lap != s_ring_lap) {
+        s_ring_lap = lap;
+        lv_obj_set_style_arc_color(s_ring,
+                                   lap == 0 ? COL_RING_BG : lv_color_hex(LAP_COLS[(lap - 1) % N_LAP_COLS]),
+                                   LV_PART_MAIN);
+    }
+    lv_obj_set_style_arc_color(s_ring, grace ? COL_RING_DIM : lv_color_hex(LAP_COLS[lap % N_LAP_COLS]),
+                               LV_PART_INDICATOR);
+    lv_arc_set_value(s_ring, (int32_t)((uint64_t)in * 1000u / min));
+}
+
+/* Nombre y pais: con el bebe a la vista, salvo mientras se agradece (imagen final) */
+static void overlay_refresh(void)
+{
+    if (!s_have_last) return;
+    const twin_snapshot_t *s = &s_last;
+    bool thanks = hh_state(&s_hh) == HH_THANKS;
+    bool show_name = s->show_baby && s->inc.name[0] != '\0' && !thanks;
+    if (show_name) label_set(s_name, s->inc.name);
+    lv_obj_set_hidden(s_name, !show_name);
+
+    bool show_country = (s->show_baby || s->parents_view) && s->inc.country[0] != '\0' && !thanks;
+    if (show_country) {
+        char buf[48];
+        snprintf(buf, sizeof(buf), LV_SYMBOL_GPS " %s", tr_country(s->inc.country));
+        label_set(s_country, buf);
+    }
+    lv_obj_set_hidden(s_country, !show_country);
+}
+
 static void scr_bg_restore(void)
 {
     lv_obj_set_style_bg_color(s_scr, s_halo_mode == HALO_PHOTO ? COL_BG_PHOTO : COL_BG, 0);
@@ -572,14 +697,16 @@ static void hold_refresh(bool force)
         lv_obj_set_hidden(s_lbl_hold, !baby_view || idle);
         lv_obj_set_hidden(s_ring, !baby_view || idle || st == HH_READY);
         target_run(baby_view && st == HH_READY);
-        hearts_run(baby_view && (st == HH_HOLDING || st == HH_DONE || st == HH_THANKS));
+        hearts_run(baby_view && (st == HH_HOLDING || st == HH_DONE));
+        thanks_show(baby_view && st == HH_THANKS);
+        overlay_refresh();
+        if (idle) s_ring_lap = -1;
 
-        bool boxed = st == HH_READY;
+        bool boxed = st == HH_READY || st == HH_THANKS;
         lv_obj_set_style_bg_opa(s_lbl_hold, boxed ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
         lv_obj_set_style_border_width(s_lbl_hold, boxed ? 2 : 0, 0);
         lv_obj_set_style_text_color(s_lbl_hold,
                                     (st == HH_READY || st == HH_GRACE) ? COL_CORAL : COL_NAVY_DARK, 0);
-        lv_obj_set_style_arc_color(s_ring, st == HH_GRACE ? COL_RING_DIM : COL_CORAL, LV_PART_INDICATOR);
         if (baby_view && (st == HH_DONE || st == HH_THANKS)) {
             lv_obj_set_style_bg_color(s_scr, COL_BG_THANKS, 0);
         } else {
@@ -595,24 +722,24 @@ static void hold_refresh(bool force)
     if (idle || !baby_view) return;
 
     uint16_t p = hh_progress_permille(&s_hh, now);
-    lv_arc_set_value(s_ring, p);
+    ring_apply(hh_held_ms(&s_hh, now), st == HH_GRACE);
     char buf[48];
     switch (st) {
     case HH_READY:
-        label_set(s_lbl_hold, tr(STR_HH_READY));
+        hold_text(tr(STR_HH_READY));
         status_bar_text(tr(STR_HH_ST_READY), COL_CORAL);
         break;
     case HH_HOLDING:
-        label_set(s_lbl_hold, tr(p < 500 ? STR_HH_HOLD1 : STR_HH_HOLD2));
+        hold_text(tr(p < 500 ? STR_HH_HOLD1 : STR_HH_HOLD2));
         status_bar_text(tr(STR_HH_ST_HOLD), COL_CORAL);
         break;
     case HH_GRACE:
-        label_set(s_lbl_hold, tr(STR_HH_GRACE));
+        hold_text(tr(STR_HH_GRACE));
         snprintf(buf, sizeof(buf), tr(STR_HH_ST_GRACE), (unsigned)hh_grace_left_s(&s_hh, now));
         status_bar_text(buf, COL_CORAL);
         break;
     default: /* completado, con o sin dedo */
-        label_set(s_lbl_hold, tr(STR_HH_THANKS));
+        hold_text(tr(STR_HH_THANKS));
         status_bar_text(tr(STR_HH_ST_DONE), COL_OK);
         break;
     }
@@ -632,9 +759,8 @@ void ui_home_apply(const twin_snapshot_t *s)
     home_set_view(s->parents_view ? VIEW_PARENTS : s->show_baby ? VIEW_BABY : VIEW_EMPTY);
     if (hh_idle) status_bar_apply(s);
 
-    bool show_name = s->show_baby && inc->name[0] != '\0';
-    if (show_name) label_set(s_name, inc->name);
-    lv_obj_set_hidden(s_name, !show_name);
+    overlay_refresh();
+    parents_img_apply(inc->skin);
 
     if (!s->show_baby) {
         state_icon_set(s_icon_thermo, COL_OFFLINE);

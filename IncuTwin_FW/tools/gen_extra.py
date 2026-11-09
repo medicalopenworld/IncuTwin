@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Assets adicionales (LVGL 9): marca IncuTwin (del logo), iconos de estado (termometro,
 lampara), iconos de cobertura WiFi (0..3 barras + sin WiFi) y las dos imagenes a pantalla
-completa (incubadora vacia, bebe con sus padres) en vertical 240x320.
+completa (incubadora vacia, bebe con sus padres en dos tonos de piel, corazon de IncuNest
+al terminar "Coge mi mano") en vertical 240x320.
 Uso: python tools/gen_extra.py"""
 import os
 import sys
@@ -120,6 +121,8 @@ def main():
     wifi_off = make_wifi_off()
     empty = fullscreen_from("IncuNest_empty.png")
     parents = fullscreen_from("Baby_with_parents.png")
+    parents_black = fullscreen_from("Baby_with_parents_black.jpg")  # tonos de piel 3..5
+    thanks = fullscreen_from("Corazon_IncuNest.png")  # fin de "Coge mi mano"
 
     wm.save(os.path.join(PREVIEW, "wordmark.png"))
     th.save(os.path.join(PREVIEW, "icon_thermo.png"))
@@ -129,6 +132,8 @@ def main():
         w.save(os.path.join(PREVIEW, f"wifi_{i}.png"))
     empty.save(os.path.join(PREVIEW, "incunest_empty.png"))
     parents.save(os.path.join(PREVIEW, "baby_parents.png"))
+    parents_black.save(os.path.join(PREVIEW, "baby_parents_black.png"))
+    thanks.save(os.path.join(PREVIEW, "hand_thanks.png"))
     print("wordmark:", wm.size, " empty:", empty.size)
 
     with open(os.path.join(ASSETS, "img_extra.c"), "w", encoding="utf-8", newline="\n") as f:
@@ -141,13 +146,15 @@ def main():
             emit_argb8888(f, f"img_wifi_{i}", w)
         emit_rgb565(f, "img_incunest_empty", empty)
         emit_rgb565(f, "img_baby_parents", parents)
+        emit_rgb565(f, "img_baby_parents_black", parents_black)
+        emit_rgb565(f, "img_hand_thanks", thanks)
 
     write_header(
         os.path.join(ASSETS, "include", "assets_extra.h"),
         "Assets adicionales (gen_extra.py)",
         ["img_wordmark", "img_icon_thermo", "img_icon_lamp", "img_wifi_off",
          "img_wifi_0", "img_wifi_1", "img_wifi_2", "img_wifi_3",
-         "img_incunest_empty", "img_baby_parents"],
+         "img_incunest_empty", "img_baby_parents", "img_baby_parents_black", "img_hand_thanks"],
     )
     print("img_extra.c escrito")
 

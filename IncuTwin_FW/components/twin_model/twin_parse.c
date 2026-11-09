@@ -57,6 +57,20 @@ static void parse_extensions(const cJSON *root, twin_msg_t *m)
         strncpy(m->name, it->valuestring, TWIN_NAME_LEN - 1);
     }
 
+    /* pais: ISO 3166-1 alfa-2 ("CM"); se acepta en minusculas y se guarda en mayusculas */
+    it = cJSON_GetObjectItemCaseSensitive(root, "country");
+    if (cJSON_IsString(it) && it->valuestring && strlen(it->valuestring) == 2) {
+        char c0 = it->valuestring[0], c1 = it->valuestring[1];
+        if (c0 >= 'a' && c0 <= 'z') c0 = (char)(c0 - 'a' + 'A');
+        if (c1 >= 'a' && c1 <= 'z') c1 = (char)(c1 - 'a' + 'A');
+        if (c0 >= 'A' && c0 <= 'Z' && c1 >= 'A' && c1 <= 'Z') {
+            m->has_country = true;
+            m->country[0] = c0;
+            m->country[1] = c1;
+            m->country[2] = '\0';
+        }
+    }
+
     it = cJSON_GetObjectItemCaseSensitive(root, "weight_g");
     if (get_int(it, 0, 9999, &v)) { m->has_weight = v > 0; m->weight_g = (uint16_t)v; }
 

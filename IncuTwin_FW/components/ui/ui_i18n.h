@@ -39,6 +39,7 @@ typedef enum {
     STR_LANGUAGE,
     STR_SKIN_TONE,
     STR_SKIN_HINT,
+    STR_SKIN_HINT_DEMO,
     STR_SOUND,
     STR_VOL_OFF,
     STR_VOL_LOW,
@@ -71,6 +72,8 @@ typedef enum {
 
 /* Texto en el idioma actual (settings_lang()). */
 const char *tr(ui_str_t id);
+/* Nombre del pais en el idioma actual; el propio codigo si no esta en la tabla. */
+const char *tr_country(const char *iso);
 
 #ifdef __cplusplus
 }

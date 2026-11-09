@@ -23,6 +23,7 @@ static uint8_t s_default_skin;
 static bool s_demo;
 static twin_incubator_t s_demo_inc;
 static bool s_demo_linked;
+static uint8_t s_demo_skin; /* tono que se esta probando en la demo */
 
 #define LOCK()   xSemaphoreTake(s_mutex, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_mutex)
@@ -256,7 +257,8 @@ void twin_model_demo_enter(void)
     LOCK();
     s_demo = true;
     s_demo_linked = false;
-    twin_incubator_reset(&s_demo_inc, s_inc.skin);
+    s_demo_skin = s_inc.skin; /* arranca con el tono real; se puede probar otro en ajustes */
+    twin_incubator_reset(&s_demo_inc, s_demo_skin);
     publish_locked();
     UNLOCK();
 }
@@ -280,13 +282,27 @@ void twin_model_demo_apply(const twin_incubator_t *inc, bool linked)
     }
     twin_baby_t before = presented_baby_locked();
     s_demo_inc = *inc;
-    s_demo_inc.skin = s_inc.skin; /* el tono real no cambia en la demo */
+    s_demo_inc.skin = s_demo_skin; /* el escenario no cambia el tono que se esta probando */
     s_demo_linked = linked;
     twin_baby_t after = presented_baby_locked();
     uint32_t tr = twin_transitions_between(before, after);
     publish_locked();
     UNLOCK();
     post_transitions(tr);
+}
+
+void twin_model_demo_set_skin(uint8_t skin)
+{
+    if (skin >= TWIN_SKIN_COUNT) return;
+    LOCK();
+    if (!s_demo || s_demo_skin == skin) {
+        UNLOCK();
+        return;
+    }
+    s_demo_skin = skin;
+    s_demo_inc.skin = skin;
+    publish_locked();
+    UNLOCK();
 }
 
 twin_snapshot_t twin_model_get(void)

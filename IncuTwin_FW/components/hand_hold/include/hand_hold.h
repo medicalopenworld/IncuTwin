@@ -51,7 +51,10 @@ void hh_tick(hand_hold_t *h, uint32_t now);
 
 /* Salidas */
 static inline hh_state_t hh_state(const hand_hold_t *h) { return h->state; }
-uint16_t hh_progress_permille(const hand_hold_t *h, uint32_t now);
+uint16_t hh_progress_permille(const hand_hold_t *h, uint32_t now); /* 0..1000 hasta completar */
+/* Dedo acumulado en el gesto, tambien despues de completar (0 en reposo). Con min_ms da
+ * las vueltas del anillo: vuelta = held / min_ms. */
+uint32_t hh_held_ms(const hand_hold_t *h, uint32_t now);
 uint8_t hh_grace_left_s(const hand_hold_t *h, uint32_t now); /* 0 fuera de HH_GRACE */
 /* true una sola vez por aviso que hay que publicar */
 bool hh_take_send(hand_hold_t *h);

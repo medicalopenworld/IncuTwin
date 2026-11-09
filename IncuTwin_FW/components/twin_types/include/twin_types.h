@@ -13,6 +13,7 @@ extern "C" {
 #define TWIN_NAME_LEN 24         /* nombre del bebe: <= 23 bytes UTF-8 + 0 */
 #define TWIN_BPM_MAX 300
 #define TWIN_SKIN_COUNT 6
+#define TWIN_COUNTRY_LEN 3      /* ISO 3166-1 alfa-2 en mayusculas + 0 */
 
 typedef enum {
     TWIN_BABY_NONE = 0, /* incubadora libre */
@@ -39,6 +40,7 @@ typedef struct {
     bool awake;           /* extension; false por defecto */
     uint8_t skin;         /* 0..5; extension, por defecto Kconfig */
     char name[TWIN_NAME_LEN]; /* "" = no compartido */
+    char country[TWIN_COUNTRY_LEN]; /* pais de la incubadora ("CM"); "" = no compartido */
     uint16_t weight_g;    /* 0 = no compartido */
     int16_t age_d;        /* -1 = no compartido */
 } twin_incubator_t;

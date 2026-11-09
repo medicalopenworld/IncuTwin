@@ -100,6 +100,21 @@ TEST_CASE("parse: nombre demasiado largo se ignora, vacio no cuenta", "[twin][pa
     TEST_ASSERT_FALSE(m.has_name);
 }
 
+TEST_CASE("parse: pais ISO alfa-2", "[twin][parse]")
+{
+    twin_msg_t m;
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"country\":\"cm\"}", "353", &m));
+    TEST_ASSERT_TRUE(m.has_country);
+    TEST_ASSERT_EQUAL_STRING("CM", m.country);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"country\":\"Camerun\"}", "353", &m));
+    TEST_ASSERT_FALSE(m.has_country);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"country\":\"C1\"}", "353", &m));
+    TEST_ASSERT_FALSE(m.has_country);
+}
+
 TEST_CASE("parse: tratamientos desconocidos se ignoran", "[twin][parse]")
 {
     twin_msg_t m;

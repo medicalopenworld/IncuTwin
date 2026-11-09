@@ -6,7 +6,7 @@
     {                                                                                         \
         .online = _online, .baby = _baby, .thermo = _thermo, .photo = _photo,                 \
         .pulseox = (_bpm) > 0, .bpm = _bpm, .awake = _awake, .skin = 1, .name = "",           \
-        .weight_g = 0, .age_d = -1                                                            \
+        .country = "CM", .weight_g = 0, .age_d = -1 /* demo: Camerun */                       \
     }
 
 /* Orden = ciclado con BOOT: se abre con el bebe tranquilo y se cierra con los
