@@ -1,4 +1,5 @@
-// ThingsBoard rule node: Transformation script (JS, ES5)
+// ThingsBoard rule node: Transformation script (JS, ES5). El sandbox Nashorn de ThingsBoard exige
+// llaves en todo for/while (BracesException): nada de bucles de una linea sin { }.
 // Historial de estancias por panel — spec tb-stay-history (openspec/changes/tb-stay-history)
 // Originator: el panel IncuTwin (device del IoT Gateway, nombre = client id).
 // metadata.ss_itw_history        -> server attribute del panel (JSON; ausente o roto = vacio)
@@ -41,7 +42,7 @@ function clientIdFor(n) {
 }
 var panelName = String(msg.panel || metadata.deviceName || '');
 function mdWith(out) {
-  var m = {}; for (var k in metadata) m[k] = metadata[k];
+  var m = {}; for (var k in metadata) { m[k] = metadata[k]; }
   m.itw_out = out; m.itw_panel = panelName; m.itw_client = clientIdFor(panelName);
   return m;
 }
@@ -60,7 +61,7 @@ var name = truthy(msg.show_name) ? String(msg.name || '').trim().substring(0, 20
 var today = dayNum(now);
 
 function find(id) {
-  for (var i = 0; i < h.stays.length; i++) if (h.stays[i].id === id) return h.stays[i];
+  for (var i = 0; i < h.stays.length; i++) { if (h.stays[i].id === id) { return h.stays[i]; } }
   return null;
 }
 
@@ -68,7 +69,7 @@ function create(id, fromMs) {
   var s = { id: id, c: country, n: name, from: dayStr(dayNum(fromMs || now)), to: null, end: null,
             days: 0, holds: 0, my_days: 0, ld: null, since: fromMs || now };
   h.stays.unshift(s);
-  while (h.stays.length > MAX_STAYS) h.stays.pop();
+  while (h.stays.length > MAX_STAYS) { h.stays.pop(); }
   return s;
 }
 
@@ -111,7 +112,7 @@ if (kind === 'stay_open' && stayId) {
   if (h.hold_days.indexOf(today) < 0) {
     h.hold_days.push(today);
     h.hold_days.sort(function (a, b) { return a - b; });
-    while (h.hold_days.length > MAX_HOLD_DAYS) h.hold_days.shift();
+    while (h.hold_days.length > MAX_HOLD_DAYS) { h.hold_days.shift(); }
     h.days_total++;
   }
 } else if (kind === 'sync') {
@@ -124,7 +125,7 @@ if (kind === 'stay_open' && stayId) {
 
 // ---- logros ----
 var hasOpen = false;
-for (var o = 0; o < h.stays.length; o++) if (h.stays[o].to === null) hasOpen = true;
+for (var o = 0; o < h.stays.length; o++) { if (h.stays[o].to === null) { hasOpen = true; } }
 var pc = parseInt(msg.panel_count);
 var families = (hasOpen && !isNaN(pc)) ? Math.max(0, pc - 1) : 0;
 
@@ -132,7 +133,7 @@ var last = h.hold_days.length ? h.hold_days[h.hold_days.length - 1] : null;
 var streak = 0;
 if (last !== null && today - last <= 1) {
   streak = 1;
-  for (var d = h.hold_days.length - 2; d >= 0 && h.hold_days[d] === h.hold_days[d + 1] - 1; d--) streak++;
+  for (var d = h.hold_days.length - 2; d >= 0 && h.hold_days[d] === h.hold_days[d + 1] - 1; d--) { streak++; }
 }
 h.upd = Math.floor(now / 1000);
 
@@ -146,7 +147,7 @@ for (var p = 0; p < h.stays.length; p++) {
 var pub = { v: 1, upd: h.upd, tz: tz,
             stats: { days: h.days_total, streak: streak, last: last === null ? null : dayStr(last), families: families },
             stays: stays };
-while (stays.length > 1 && utf8Len(JSON.stringify(pub)) > MAX_BYTES) stays.pop();
+while (stays.length > 1 && utf8Len(JSON.stringify(pub)) > MAX_BYTES) { stays.pop(); }
 
 return [
   { msg: { itw_history: JSON.stringify(h) }, metadata: mdWith('SAVE'), msgType: 'POST_ATTRIBUTES_REQUEST' },

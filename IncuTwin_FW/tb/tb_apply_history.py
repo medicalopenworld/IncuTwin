@@ -95,7 +95,7 @@ def history_chain_metadata(rc_id, mqtt_user, mqtt_pass):
              {"scope": "SERVER_SCOPE", "notifyDevice": False, "sendAttributesUpdatedNotification": False,
               "updateAttributesOnlyOnValueChange": False, "processingSettings": {"type": "ON_EVERY_MESSAGE"}},
              3, 950, 100, "Sin notificación de 'Attributes Updated': no reentra en la cadena del panel."),
-        node("mqtt.TbMqttNode", "→ broker: incutwin/<id>/cmd/history",
+        node("mqtt.TbMqttNode", "→ broker: incutwin/ID/cmd/history",
              {"topicPattern": "incutwin/${itw_client}/cmd/history", "host": BROKER_HOST, "port": BROKER_PORT,
               "connectTimeoutSec": 10, "clientId": MQTT_CLIENT_ID, "appendClientIdSuffix": False,
               "retainedMessage": True, "cleanSession": True, "ssl": False, "parseToPlainText": False,
@@ -114,7 +114,7 @@ def history_chain_metadata(rc_id, mqtt_user, mqtt_pass):
 
 SYNC_PARSE = """var r = {};
 try { r = JSON.parse(msg.itw_history_sync); } catch (e) { r = {}; }
-var m = {}; for (var k in metadata) m[k] = metadata[k];
+var m = {}; for (var k in metadata) { m[k] = metadata[k]; }
 m.itw_panel = String(r.panel || '');
 return { msg: { kind: r.kind === 'unpaired' ? 'unpaired' : 'sync', panel: m.itw_panel }, metadata: m, msgType: 'ITW_HISTORY' };"""
 

@@ -7,22 +7,22 @@
 
 ## 2. Despliegue en ThingsBoard (cada paso con OK de Pablo: es el servidor real)
 
-- [x] 2.1 (preparado, sin desplegar; `--dry-run` en verde) `tb/tb_apply_history.py` (idempotente, solo cadenas `IncuTwin*`): cadena
+- [x] 2.1 (desplegado 10-nov-2026) `tb/tb_apply_history.py` (idempotente, solo cadenas `IncuTwin*`): cadena
       `IncuTwin_history` (atributos del panel + IncuNest → script → guardar `itw_history` → nodo
       MQTT `incutwin/${deviceName}/cmd/history` retenido)
-- [x] 2.2 (preparado en `tb_apply_incutwin_state.py` y `tb_apply_hand_hold.py`, sin desplegar) Ramas: eventos `baby_in`/`baby_back`/`baby_out` de la IncuNest → panel(es) `MirroredBy`
+- [x] 2.2 (desplegado 10-nov-2026) Ramas: eventos `baby_in`/`baby_back`/`baby_out` de la IncuNest → panel(es) `MirroredBy`
       → `IncuTwin_history`; aceptado en `IncuTwin_hand_hold` → panel → `IncuTwin_history`;
       telemetría `itw_history_sync` del panel → `IncuTwin_history`
 - [ ] 2.3 Comprobar la cola (`SEQUENTIAL_BY_ORIGINATOR`) tras el cambio de originador (design,
       riesgo de concurrencia)
-- [ ] 2.4 (preparado en `tools/broker_bootstrap.py`, sin ejecutar) ACL en el broker: `addRoleACL thingsboard publishClientSend 'incutwin/+/cmd/history' allow`
+- [ ] 2.4 (pedido al proyecto del VPS; también en `tools/broker_bootstrap.py`) ACL en el broker: `addRoleACL thingsboard publishClientSend 'incutwin/+/cmd/history' allow`
       (infra o `tools/broker_bootstrap.py`)
 
 ## 3. Emparejamiento
 
 - [x] 3.1 (`tools/tb_pairing.py`, probado con un ThingsBoard falso) `tools/pair.py` / `tools/unpair.py`: relación `MirroredBy`, `itw_panel_count`,
       `itw_history_sync` vía `tools/tb_api.py`; sin credenciales de TB, aviso y solo broker
-- [ ] 3.2 Emparejar `incutwin-DEEF3C` con la 353 también en ThingsBoard
+- [x] 3.2 Emparejar `incutwin-DEEF3C` con la 353 también en ThingsBoard (`--tb-device IncuNest-353_1`; antes estaba vinculado a `IncuNest-1_2`). Sync verificado: `itw_history` con la estancia `353:2`
 
 ## 4. Documentación
 
