@@ -6,7 +6,7 @@ estancias que ha acompañado, de la más reciente a la más antigua, con como mu
 acompaña una estancia si estaba emparejado (`MirroredBy`) con la IncuNest en algún momento de
 ella. Cada entrada SHALL tener: `id` (`stay_id`), `c` (país ISO alfa-2 o `""`), `n` (nombre o
 `""`), `from` y `to` (fecha local `YYYY-MM-DD`; `to = null` si sigue), `end` (`null`, `"home"` o
-`"left"`), `days` (días de la estancia), `holds` ("Coge mi mano" de este panel en la estancia) y
+`"left"`; `to` con `end = null` = el panel la acompañó hasta que se desemparejó), `days` (días de la estancia), `holds` ("Coge mi mano" de este panel en la estancia) y
 `my_days` (días distintos con al menos uno). La lógica SHALL estar en `tb/itw_history.js`, sin
 E/S, y probarse con Node en `tb/test_history.js`.
 
@@ -52,10 +52,11 @@ está en el historial (panel emparejado antes del despliegue), SHALL crearse con
 |---|---|
 | `days` | días locales distintos en que el panel completó un "Coge mi mano" aceptado, en todas sus estancias |
 | `streak` | días seguidos con al menos uno, terminando hoy o ayer; 0 si el último fue antes de ayer |
+| `last` | día local del último "Coge mi mano" (`YYYY-MM-DD`) o `null`; el panel muestra la racha a 0 si `last` es anterior a ayer, aunque no haya llegado un mensaje nuevo |
 | `families` | otras familias que acompañan ahora a la IncuNest de la estancia en curso: `itw_panel_count − 1`, mínimo 0; 0 sin estancia en curso |
 
 El día local SHALL calcularse con el server attribute `itw_utc_offset_min` del panel (60 por
-defecto).
+defecto), que viaja en el mensaje como `tz`.
 
 #### Scenario: Racha
 - **WHEN** el panel completó "Coge mi mano" el lunes, el martes y el miércoles, y hoy es miércoles
@@ -69,8 +70,8 @@ defecto).
 Cada vez que `itw_history` cambie, ThingsBoard SHALL publicarlo en
 `incutwin/<client_id>/cmd/history`, retenido, QoS 1, con un JSON de como mucho 1000 bytes (si no
 cabe, se quitan del mensaje las estancias más antiguas; el atributo las conserva). El mensaje
-SHALL llevar `v = 1`, `upd` (segundos Unix), `stats` y `stays`, y nunca `hold_days` ni datos
-clínicos.
+SHALL llevar `v = 1`, `upd` (segundos Unix), `tz` (minutos), `stats` y `stays`, y nunca
+`hold_days` ni otros datos internos ni clínicos.
 
 #### Scenario: Panel apagado
 - **WHEN** un bebé se va a casa con el panel apagado y el panel se enciende al día siguiente
@@ -100,12 +101,17 @@ de gestación, causa ni tipo de alta distinto de "a casa", temperaturas, SpO2, a
 `IncuNest —MirroredBy→ panel` en ThingsBoard (borrando la de otra IncuNest si la había),
 recalcular `itw_panel_count` en las IncuNest afectadas y disparar una sincronización del
 historial del panel. `tools/unpair.py` SHALL borrar la relación, recalcular el contador y
-sincronizar. Sin credenciales de ThingsBoard SHALL avisar y hacer solo la parte del broker.
+sincronizar: la estancia en curso queda con `to` = hoy y `end = null` (acompañada hasta hoy) y
+ya no cambia aunque luego llegue su alta. Sin credenciales de ThingsBoard SHALL avisar y hacer solo la parte del broker.
 
 #### Scenario: Emparejar con un bebé dentro
 - **WHEN** se empareja un panel nuevo con una IncuNest que tiene un bebé desde hace 5 días
 - **THEN** el panel recibe un historial con esa estancia abierta (`days = 5`, `holds = 0`) y la
   otra familia ve `families` subir en 1
+
+#### Scenario: Desemparejar con un bebé dentro
+- **WHEN** se desempareja el panel con un bebé dentro y días después el bebé se va a casa
+- **THEN** la estancia queda con `to` = día del desemparejamiento y `end = null`
 
 ### Requirement: País de la IncuNest [manual]
 El server attribute `country` (ISO 3166-1 alfa-2) de la IncuNest SHALL viajar en las entradas del

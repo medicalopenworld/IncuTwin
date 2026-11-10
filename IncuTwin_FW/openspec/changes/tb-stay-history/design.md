@@ -32,7 +32,8 @@ Entradas:
 | `stay_open` | `baby_in` / `baby_back` de la IncuNest | abre la entrada de esa estancia o la reabre |
 | `stay_close` | `baby_out` | la cierra con `to`, `end` (`home` o `left`) y `days` |
 | `hold` | `IncuTwin_hand_hold` aceptado | `holds++` en la estancia y apunta el día local |
-| `sync` | emparejar, desemparejar, cambio de `itw_panel_count` o `country` | refresca familias, país y estancia en curso |
+| `sync` | emparejar, cambio de `itw_panel_count` o `country` | refresca familias, país y estancia en curso (la crea o reabre si la IncuNest dice que sigue) |
+| `unpaired` | desemparejar | la estancia en curso queda "acompañada hasta hoy" (`to` = hoy, `end = null`) |
 
 Se prueba con `tb/test_history.js` igual que `test_sm.js`: los mismos escenarios de la spec. En
 esta spec, `[test-unity]` significa "test automático": aquí corre en Node, no en `test_apps`
@@ -41,8 +42,8 @@ esta spec, `[test-unity]` significa "test automático": aquí corre en Node, no 
 ### D3. Formato del atributo y del mensaje (≤ 1000 bytes)
 
 ```json
-{ "v": 1, "upd": 1794260594,
-  "stats": { "days": 23, "streak": 5, "families": 12 },
+{ "v": 1, "upd": 1794260594, "tz": 60,
+  "stats": { "days": 23, "streak": 5, "last": "2026-11-10", "families": 12 },
   "stays": [
     { "id": "353:17", "c": "CM", "n": "Lucía", "from": "2026-10-28", "to": null, "end": null,
       "days": 13, "holds": 9, "my_days": 6 },

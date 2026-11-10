@@ -60,7 +60,7 @@ def chain_metadata(rc_id):
            {"tellFailureIfAbsent": False,
             "clientAttributeNames": ["baby_seq", "baby_admission_epoch", "baby_kangaroo_count", "baby_thermo_min", "baby_phototherapy_min", "baby_name", "baby_weight_g"],
             "sharedAttributeNames": [],
-            "serverAttributeNames": ["itw_state", "itw_t_parents_min", "itw_t_idle_min", "itw_show_name"], "latestTsKeyNames": ["SN"], "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 650, 200),
+            "serverAttributeNames": ["itw_state", "itw_t_parents_min", "itw_t_idle_min", "itw_show_name", "country"], "latestTsKeyNames": ["SN"], "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 650, 200),
       node("transform.TbTransformMsgNode", "máquina de estados IncuTwin",
            {"scriptLang": "JS", "jsScript": sm, "tbelScript": "return msg;"}, 0, 900, 200,
            "Contrato v0.2 §3.4 + broker §3. Emite ITW_STATE (server attrs), ITW_PANEL (shared attrs a paneles legados), ITW_EVENT (telemetría/webhook) e ITW_BROKER (MQTT retenido)."),

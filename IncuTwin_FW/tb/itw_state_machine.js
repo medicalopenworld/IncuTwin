@@ -8,6 +8,7 @@
 //                                y días desde el ingreso del bebé
 //                                (excepción consentida al "nada de nombres sale de TB";
 //                                nunca va en los eventos del webhook)
+// metadata.ss_country         -> país ISO alfa-2 de la incubadora (lo pone MOW); va al broker
 // metadata.cs_baby_*          -> client attributes del bebé ya guardados (sincroniza el
 //                                estado aunque la chain se despliegue con la incubadora ya en marcha)
 // Salida: [ITW_STATE, ITW_PANEL, ITW_EVENT*]
@@ -214,6 +215,8 @@ if (events.length > 0) {
   if (name) bp.name = name;
   if (weight_g > 0) bp.weight_g = weight_g;
   if (age_d >= 0) bp.age_d = age_d;
+  var cc = String(metadata.ss_country || '').toUpperCase(); // spec tb-stay-history
+  if (/^[A-Z]{2}$/.test(cc)) bp.country = cc;
   var mb = mdWith('ITW_BROKER');
   mb.itw_incubator_id = incubator; // topic incubators/${itw_incubator_id}/state en el nodo MQTT
   out.push({ msg: bp, metadata: mb, msgType: 'POST_TELEMETRY_REQUEST' });

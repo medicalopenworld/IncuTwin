@@ -1,9 +1,9 @@
 ## 1. Lógica pura (sin tocar el servidor)
 
-- [ ] 1.1 `tb/test_history.js` con los escenarios de `specs/stay-history` (rojo)
-- [ ] 1.2 `tb/itw_history.js`: `stay_open`, `stay_close`, `hold`, `sync`, recorte a 10, stats,
+- [x] 1.1 `tb/test_history.js` con los escenarios de `specs/stay-history` (rojo)
+- [x] 1.2 `tb/itw_history.js`: `stay_open`, `stay_close`, `hold`, `sync`, recorte a 10, stats,
       privacidad, tamaño del mensaje ≤ 1000 bytes (verde)
-- [ ] 1.3 `country` en `itw_state_machine.js` (estado del broker) y caso en `test_sm.js`
+- [x] 1.3 `country` en `itw_state_machine.js` (estado del broker) y caso en `test_sm.js`
 
 ## 2. Despliegue en ThingsBoard (cada paso con OK de Pablo: es el servidor real)
 
