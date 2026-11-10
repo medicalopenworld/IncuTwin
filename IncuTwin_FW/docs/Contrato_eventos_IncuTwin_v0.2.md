@@ -265,3 +265,28 @@ Hito de integración: **una alta con `baby_outcome = 1` en `TEST-incubadora` lle
 5. Micrófono: si §5.4 basta, se cierra.
 6. Titularidad del proyecto Firebase `incutwinapp`; purga del historial de IncuTwin (parche listo, `push --force` pendiente); tenant `Demo`.
 7. Apple/Google: donaciones vs IAP (igual que v0.1).
+
+### 3.8 Historial del panel *(v0.3, spec `tb-stay-history`, 10-nov-2026)*
+
+ThingsBoard guarda en cada panel (server attribute `itw_history`) las estancias que ha acompañado y
+sus "Coge mi mano", y se lo manda retenido en `incutwin/<client_id>/cmd/history`:
+
+```json
+{ "v": 1, "upd": 1794260594, "tz": 60,
+  "stats": { "days": 23, "streak": 5, "last": "2026-11-10", "families": 12 },
+  "stays": [ { "id": "353:17", "c": "CM", "n": "Lucía", "from": "2026-10-28", "to": null, "end": null,
+               "days": 13, "holds": 9, "my_days": 6 } ] }
+```
+
+- Disparadores: `baby_in` / `baby_back` / `baby_out` (a cada panel de `itw_panels` de la IncuNest),
+  "Coge mi mano" aceptado desde un panel, y `tools/pair.py` / `unpair.py` (server attribute
+  `itw_history_sync` en el panel).
+- `end`: `null`, `"home"` o `"left"`. Igual que la opción B de §3.4: nunca se distingue un
+  fallecimiento de un traslado o de un alta sin dato. El nombre solo con `itw_show_name` y, tras
+  el alta, solo si `end = "home"`.
+- Atributos nuevos en la IncuNest: `country` (ISO alfa-2, lo pone MOW; también viaja en
+  `incubators/<id>/state`), `itw_panels` e `itw_panel_count` (los mantiene `pair.py`). En el panel:
+  `itw_history`, `itw_utc_offset_min` (día local, 60 por defecto), `itw_history_sync`.
+- El emparejamiento ya no es solo del broker: `pair.py` crea también la relación
+  `IncuNest —MirroredBy→ panel`. El panel en ThingsBoard puede llamarse `ITW-<serie>` o
+  `incutwin-<serie>`; el topic usa siempre el client id del broker.

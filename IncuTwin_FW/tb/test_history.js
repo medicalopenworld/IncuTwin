@@ -14,15 +14,16 @@ let attr = null; // server attribute itw_history del panel
 let offset = null; // itw_utc_offset_min del panel (null = por defecto)
 
 function step(m, now) {
-  const md = { deviceName: 'incutwin-DEEF3C', ts: String(now) };
+  const md = { deviceName: 'IncuNest-353', ts: String(now) }; // deviceName del mensaje original
   if (attr !== null) md.ss_itw_history = attr;
   if (offset !== null) md.ss_itw_utc_offset_min = String(offset);
-  const input = Object.assign({ country: 'CM', show_name: true, name: '  Lucía  ', panel_count: 13 }, m);
+  const input = Object.assign({ panel: 'ITW-DEEF3C', country: 'CM', show_name: true, name: '  Lucía  ', panel_count: 13 }, m);
   const out = fn(input, md, 'ITW_HISTORY');
   const save = out.find(o => o.metadata.itw_out === 'SAVE');
   const pub = out.find(o => o.metadata.itw_out === 'PUBLISH');
   assert.ok(save && pub, 'SAVE y PUBLISH');
   assert.strictEqual(save.msgType, 'POST_ATTRIBUTES_REQUEST');
+  assert.strictEqual(pub.metadata.itw_client, 'incutwin-DEEF3C'); // topic del broker
   attr = save.msg.itw_history;
   return { stored: JSON.parse(attr), pub: pub.msg, raw: JSON.stringify(pub.msg) };
 }

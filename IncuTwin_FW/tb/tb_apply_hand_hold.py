@@ -17,6 +17,8 @@ Hace:
      "IncuNest-<SN>" por defecto) -> IncuTwin_hand_hold.
   4. --map SN=DEVICE añade entradas a itw_sn_map (p. ej. --map 1=IncuNest-1_2: el nombre
      lleva sufijo de colisión y no se deduce del SN).
+  5. Si existe la cadena IncuTwin_history (tb/tb_apply_history.py), cada "Coge mi mano"
+     aceptado desde un panel suma en el historial de ese panel (spec tb-stay-history).
 Solo toca las rule chains IncuTwin*, y el device IncuTwin_cloud_bridge.
 """
 import json, os, sys, pathlib, requests
@@ -27,6 +29,7 @@ HH_CHAIN = "IncuTwin_hand_hold"
 PANEL_CHAIN = "IncuTwin"
 BRIDGE_CHAIN = "IncuTwin_bridge"
 BRIDGE_DEVICE = "IncuTwin_cloud_bridge"
+HISTORY_CHAIN = "IncuTwin_history"
 
 s = requests.Session()
 if os.environ.get("TB_API_KEY"):
@@ -74,8 +77,9 @@ if not rc:
 hh_id = rc["id"]["id"]
 nodes = [
     node("metadata.TbGetAttributesNode", "incutwin_enabled + itw_baby_state",
-         {"tellFailureIfAbsent": False, "clientAttributeNames": [], "sharedAttributeNames": [],
-          "serverAttributeNames": ["incutwin_enabled", "itw_baby_state"], "latestTsKeyNames": [],
+         {"tellFailureIfAbsent": False, "clientAttributeNames": ["baby_name"], "sharedAttributeNames": [],
+          "serverAttributeNames": ["incutwin_enabled", "itw_baby_state", "itw_state", "country",
+                                   "itw_show_name", "itw_panel_count", "itw_panels"], "latestTsKeyNames": [],
           "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 150, 200),
     js_transform("validar + hand_hold_until", (HERE / "itw_hand_hold.js").read_text(encoding="utf-8"), 400, 200,
                  "Solo con bebé in/parents. Minutos 1..30 (5 por defecto)."),
@@ -96,6 +100,27 @@ conns = [
     {"fromIndex": 2, "toIndex": 6, "type": "LOG"},
     {"fromIndex": 2, "toIndex": 6, "type": "REJECT"},
 ]
+hist = chain_by_name(HISTORY_CHAIN)
+if hist:  # spec tb-stay-history: aceptado desde un panel -> historial de ese panel
+    hist_input = (HERE / "itw_history_input.js").read_text(encoding="utf-8").replace("'__MODE__'", '"hold"')
+    nodes += [
+        js_filter("¿desde panel? (historial)",
+                  "var j = {}; try { j = JSON.parse(msg.itw_hand_hold); } catch (e) {} return j.source === 'panel' && !!j.panel;",
+                  950, 550),
+        js_transform("entrada historial (hold)", hist_input, 1250, 550),
+        node("transform.TbChangeOriginatorNode", "→ panel (historial)",
+             {"originatorSource": "ENTITY", "entityType": "DEVICE", "entityNamePattern": "$[panel]", "relationsQuery": None},
+             1, 1550, 550, "Panel desconocido → Failure (no conectado)."),
+        chain_input("→ IncuTwin_history", hist["id"]["id"], 1850, 550),
+    ]
+    conns += [
+        {"fromIndex": 2, "toIndex": 7, "type": "LOG"},
+        {"fromIndex": 7, "toIndex": 8, "type": "True"},
+        {"fromIndex": 8, "toIndex": 9, "type": "Success"},
+        {"fromIndex": 9, "toIndex": 10, "type": "Success"},
+    ]
+else:
+    print("aviso: no existe", HISTORY_CHAIN, "(tb/tb_apply_history.py): sin rama de historial")
 post("/api/ruleChain/metadata", {"ruleChainId": rc["id"], "firstNodeIndex": 0, "nodes": nodes, "connections": conns, "ruleChainConnections": None})
 print("metadata actualizada:", HH_CHAIN, hh_id)
 

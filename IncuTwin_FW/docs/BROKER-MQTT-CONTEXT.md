@@ -53,6 +53,7 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/cmd/pair` | Pablo / Cloud Function | la IncuTwin | **sí** | 1 |
 | `incutwin/<client_id>/cmd/<otros>` | Pablo / Cloud Function | la IncuTwin | no | 1 |
 | `incutwin/<client_id>/hand` | la IncuTwin, al completar "Coge mi mano" (spec `hold-my-hand`) | gateway → ThingsBoard (`IncuTwin_hand_hold`) | no | 1 |
+| `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`) | la IncuTwin | **sí** | 1 |
 
 `<incubator_id>` = número de serie de la IncuNest tal como se llama el dispositivo en ThingsBoard
 (ej. `353`). `<client_id>` = `incutwin-<serie>` (ej. `incutwin-0001`); usuario MQTT idéntico.
@@ -101,7 +102,10 @@ $CTRL addRoleACL incutwin subscribePattern 'incutwin/%c/cmd/#' allow
 
 $CTRL createRole thingsboard
 $CTRL addRoleACL thingsboard publishClientSend 'incubators/#' allow
+$CTRL addRoleACL thingsboard publishClientSend 'incutwin/+/cmd/history' allow   # historial (tb-stay-history)
 $CTRL createClient thingsboard          # contraseña → variable de entorno de la rule chain
+# Sin client id fijo: ThingsBoard abre dos conexiones con este usuario, `thingsboard` (estado) y
+# `thingsboard-history` (historial). Con el mismo client id se echarían una a otra.
 $CTRL addClientRole thingsboard thingsboard
 
 $CTRL createRole publisher              # Pablo / Cloud Function: emparejar y mandar comandos

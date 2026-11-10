@@ -63,11 +63,18 @@ esta spec, `[test-unity]` significa "test automático": aquí corre en Node, no 
 - El día de cada "Coge mi mano" se guarda aparte en el atributo (`hold_days`, los últimos 60
   días distintos) para calcular `stats.days` y `stats.streak`; no va en el mensaje.
 
-### D4. Familias que acompañan
+### D4. Familias que acompañan, y a qué paneles avisar
 
 `stats.families` = `itw_panel_count − 1` de la IncuNest de la estancia en curso (0 si no hay).
 ThingsBoard no cuenta relaciones desde un script, así que el contador lo mantienen
-`pair.py`/`unpair.py` (D6). No incluye padrinos de la app (Firestore): queda para cuando la app
+`pair.py`/`unpair.py` (D6), junto con `itw_panels` (JSON con los nombres de sus paneles).
+
+`itw_panels` resuelve además el reparto: en ThingsBoard Community "change originator" a
+relacionados se queda con el **primero**, y "duplicate to related" es de la edición PE. Así que el
+evento de estancia se convierte en un array (una entrada por panel de `itw_panels`), un nodo
+"split array msg" lo parte y cada copia cambia el originador al panel por nombre (`$[panel]`).
+(La rama ITW_PANEL de la cadena de estado y `hand_hold_until → panel` siguen llegando solo al
+primer panel: limitación previa, fuera de este cambio.) No incluye padrinos de la app (Firestore): queda para cuando la app
 exista.
 
 ### D5. Qué es "un día"
@@ -80,16 +87,21 @@ se acepta. La racha cuenta días seguidos hasta hoy o hasta ayer (hoy aún puede
 ### D6. Emparejar también en ThingsBoard
 
 `pair.py <panel> <incubadora>` además de lo que hace hoy: crea la relación `MirroredBy`
-(IncuNest → panel) si no existe, borra la de otra IncuNest si la había, recalcula
-`itw_panel_count` de las IncuNest afectadas y envía `{"itw_history_sync":1}` como telemetría del
-panel para disparar un `sync`. `unpair.py` hace lo inverso. Se usa `tools/tb_api.py` (lee el
+(IncuNest → panel) si no existe, borra la de otra IncuNest si la había (antes manda `unpaired`),
+recalcula `itw_panels`/`itw_panel_count` de las IncuNest afectadas y pide un `sync` a todos los
+paneles de la IncuNest. La petición es el server attribute `itw_history_sync`
+(`{"kind":"sync"|"unpaired","panel":"ITW-…","t":ms}`) en el panel: llega a la cadena `IncuTwin`
+como *Attributes Updated* (la API REST no puede mandar telemetría en nombre del panel). El
+nombre del panel va dentro porque esos mensajes no traen `deviceName`. `unpair.py` hace lo inverso. Se usa `tools/tb_api.py` (lee el
 `.env` de secretos; sin credenciales de ThingsBoard avisa y solo hace la parte del broker).
 
 ### D7. Publicación al broker
 
 Nodo MQTT nuevo en `IncuTwin_history`, igual que el de estado pero con topic
-`incutwin/${deviceName}/cmd/history`, retenido, QoS 1. Originador = el panel, cuyo nombre es el
-client id. ACL: `addRoleACL thingsboard publishClientSend 'incutwin/+/cmd/history' allow`.
+`incutwin/${itw_client}/cmd/history`, retenido, QoS 1, y client id `thingsboard-history` (con el
+mismo id que el nodo del estado se echarían del broker una a otra). `itw_client` lo calcula el
+script a partir del nombre del panel como `tools/broker_mqtt.client_id_for`: los paneles de
+fábrica están en ThingsBoard como `ITW-DEEF3C` y su client id es `incutwin-DEEF3C`. ACL: `addRoleACL thingsboard publishClientSend 'incutwin/+/cmd/history' allow`.
 Retenido porque el panel puede estar apagado cuando cambia y debe recibirlo al conectar.
 
 ## Riesgos

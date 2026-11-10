@@ -14,8 +14,10 @@
 //   country     ISO alfa-2 de la IncuNest ("" si no hay)
 //   show_name   itw_show_name de la IncuNest; name = baby_name
 //   panel_count itw_panel_count de la IncuNest
-// Salida: SAVE (itw_history -> server attribute del panel) y PUBLISH (mensaje al panel,
-// topic incutwin/${deviceName}/cmd/history, retenido). El mensaje nunca lleva hold_days, ld,
+//   panel       nombre del device del panel en ThingsBoard (ITW-DEEF3C o incutwin-DEEF3C)
+// Salida: SAVE (itw_history -> server attribute del panel) y PUBLISH (mensaje al panel, topic
+// incutwin/${itw_client}/cmd/history, retenido; itw_client = client id del broker, como
+// tools/broker_mqtt.client_id_for: ITW-DEEF3C -> incutwin-DEEF3C). El mensaje nunca lleva hold_days, ld,
 // desenlaces distintos de "home" ni datos clinicos.
 
 var DAY = 86400000;
@@ -31,7 +33,18 @@ function dayNum(ms) { return Math.floor((ms + tz * 60000) / DAY); }
 function dayStr(n) { return new Date(n * DAY).toISOString().substring(0, 10); }
 function truthy(v) { return v === true || v === 'true' || v === 1 || v === '1'; }
 function utf8Len(s) { return encodeURIComponent(s).replace(/%[0-9A-F]{2}/g, 'x').length; }
-function mdWith(out) { var m = {}; for (var k in metadata) m[k] = metadata[k]; m.itw_out = out; return m; }
+function clientIdFor(n) {
+  n = String(n || '').replace(/^\s+|\s+$/g, '');
+  if (n.indexOf('incutwin-') === 0) return n;
+  if (n.toUpperCase().indexOf('ITW-') === 0) n = n.substring(4);
+  return 'incutwin-' + n;
+}
+var panelName = String(msg.panel || metadata.deviceName || '');
+function mdWith(out) {
+  var m = {}; for (var k in metadata) m[k] = metadata[k];
+  m.itw_out = out; m.itw_panel = panelName; m.itw_client = clientIdFor(panelName);
+  return m;
+}
 
 var h = null;
 try { if (metadata.ss_itw_history) h = JSON.parse(metadata.ss_itw_history); } catch (e) { h = null; }
@@ -63,7 +76,7 @@ function create(id, fromMs) {
 function refresh(s) {
   s.c = country || s.c;
   s.n = name;
-  if (inSince) s.since = inSince;
+  if (inSince && !s.since) s.since = inSince; // una reapertura no cambia la fecha de entrada
   s.days = Math.max(0, Math.floor((now - (s.since || now)) / DAY));
 }
 

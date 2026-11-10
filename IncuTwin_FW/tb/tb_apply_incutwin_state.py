@@ -15,6 +15,8 @@ Hace:
   2. Anade a la rule chain raiz un nodo "rule chain" hacia ella, conectado desde el Message Type
      Switch en: Post telemetry, Post attributes, Activity Event, Inactivity Event.
   3. Pone incutwin_enabled=true e inactivityTimeout=180000 en las incubadoras de --enable.
+  4. Si existe la cadena IncuTwin_history (tb/tb_apply_history.py), conecta los eventos
+     baby_in/baby_back/baby_out a ella: una copia por panel de itw_panels (spec tb-stay-history).
 No toca ningun otro nodo ni dispositivo.
 """
 import os
@@ -27,6 +29,7 @@ from broker_mqtt import load_env as load_broker_env  # noqa: E402
 from tb_api import TB  # noqa: E402
 
 CHAIN_NAME = "IncuNest_IncuTwin_state"
+HISTORY_CHAIN = "IncuTwin_history"
 INPUT_NODE_NAME = "→ IncuTwin state"
 BROKER_HOST = "mosquitto"   # red Docker interna del VPS (no es 127.0.0.1 ni el 1883 publico)
 BROKER_PORT = 1883
@@ -41,7 +44,12 @@ def node(t, name, cfg, ver, x, y, desc=""):
             "debugSettings": None}
 
 
-def chain_metadata(rc_id):
+def history_input(mode):
+    src = (HERE / "itw_history_input.js").read_text(encoding="utf-8")
+    return src.replace("'__MODE__'", '"%s"' % mode)
+
+
+def chain_metadata(rc_id, hist_id=None):
     sm = (HERE / "itw_state_machine.js").read_text(encoding="utf-8")
     ev2ts = (HERE / "itw_event_to_ts.js").read_text(encoding="utf-8")
     benv = load_broker_env()
@@ -60,7 +68,8 @@ def chain_metadata(rc_id):
            {"tellFailureIfAbsent": False,
             "clientAttributeNames": ["baby_seq", "baby_admission_epoch", "baby_kangaroo_count", "baby_thermo_min", "baby_phototherapy_min", "baby_name", "baby_weight_g"],
             "sharedAttributeNames": [],
-            "serverAttributeNames": ["itw_state", "itw_t_parents_min", "itw_t_idle_min", "itw_show_name", "country"], "latestTsKeyNames": ["SN"], "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 650, 200),
+            "serverAttributeNames": ["itw_state", "itw_t_parents_min", "itw_t_idle_min", "itw_show_name", "country",
+                                     "itw_panel_count", "itw_panels"], "latestTsKeyNames": ["SN"], "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 650, 200),
       node("transform.TbTransformMsgNode", "máquina de estados IncuTwin",
            {"scriptLang": "JS", "jsScript": sm, "tbelScript": "return msg;"}, 0, 900, 200,
            "Contrato v0.2 §3.4 + broker §3. Emite ITW_STATE (server attrs), ITW_PANEL (shared attrs a paneles legados), ITW_EVENT (telemetría/webhook) e ITW_BROKER (MQTT retenido)."),
@@ -108,6 +117,28 @@ def chain_metadata(rc_id):
       {"fromIndex": 8, "toIndex": 9, "type": "Success"},
       {"fromIndex": 4, "toIndex": 11, "type": "ITW_BROKER"},
     ]
+    if hist_id:  # spec tb-stay-history: estancias -> historial de cada panel
+        nodes += [
+          node("filter.TbJsFilterNode", "¿estancia? (historial)",
+               {"scriptLang": "JS", "jsScript": "return ['baby_in','baby_back','baby_out'].indexOf(msg.event) >= 0;",
+                "tbelScript": "return false;"}, 0, 1450, 800),
+          node("transform.TbTransformMsgNode", "entrada historial (evento)",
+               {"scriptLang": "JS", "jsScript": history_input("event"), "tbelScript": "return msg;"}, 0, 1750, 800,
+               "Un elemento por panel de itw_panels (lo mantiene tools/pair.py)."),
+          node("transform.TbSplitArrayMsgNode", "una copia por panel", {}, 0, 2050, 800),
+          node("transform.TbChangeOriginatorNode", "→ panel",
+               {"originatorSource": "ENTITY", "entityType": "DEVICE", "entityNamePattern": "$[panel]",
+                "relationsQuery": None}, 1, 2350, 800, "Panel desconocido → Failure (no conectado)."),
+          node("flow.TbRuleChainInputNode", "→ IncuTwin_history",
+               {"ruleChainId": hist_id, "forwardMsgToDefaultRuleChain": False}, 0, 2650, 800),
+        ]
+        conns += [
+          {"fromIndex": 4, "toIndex": 12, "type": "ITW_EVENT"},
+          {"fromIndex": 12, "toIndex": 13, "type": "True"},
+          {"fromIndex": 13, "toIndex": 14, "type": "Success"},
+          {"fromIndex": 14, "toIndex": 15, "type": "Success"},
+          {"fromIndex": 15, "toIndex": 16, "type": "Success"},
+        ]
     return {"ruleChainId": rc_id, "firstNodeIndex": 0, "nodes": nodes, "connections": conns, "ruleChainConnections": None}
 
 
@@ -119,8 +150,11 @@ def main():
         rc = post("/api/ruleChain", {"name": CHAIN_NAME, "type": "CORE", "root": False, "debugMode": False,
                   "additionalInfo": {"description": "Rama 'estado del gemelo' del Contrato de eventos IncuTwin v0.2 + salida al broker MQTT. Entrada desde la raíz de IncuNest (telemetría, atributos, actividad). Filtra por server attribute incutwin_enabled."}})
         print("creada rule chain", CHAIN_NAME)
-    post("/api/ruleChain/metadata", chain_metadata(rc["id"]))
-    print("metadata actualizada:", CHAIN_NAME, rc["id"]["id"])
+    hist = next((c for c in chains if c["name"] == HISTORY_CHAIN), None)
+    if not hist:
+        print("aviso: no existe", HISTORY_CHAIN, "(tb/tb_apply_history.py): sin rama de historial")
+    post("/api/ruleChain/metadata", chain_metadata(rc["id"], hist["id"]["id"] if hist else None))
+    print("metadata actualizada:", CHAIN_NAME, rc["id"]["id"], "(con historial)" if hist else "")
 
     # 2. enganche en la raíz (solo la raíz que es root=true)
     root = next(c for c in chains if c.get("root"))
