@@ -266,7 +266,7 @@ $CTRL addClientRole gateway gateway
         "deviceNameExpressionSource": "topic",
         "deviceNameExpression": "(?<=incutwin/)(.*?)(?=/status)",
         "deviceProfileExpressionSource": "constant",
-        "deviceProfileExpression": "incutwin"
+        "deviceProfileExpression": "IncuTwin"
       },
       "attributes": [ { "type": "string", "key": "fw", "value": "${fw}" },
                       { "type": "string", "key": "incubator_id", "value": "${incubator_id}" } ],
@@ -295,7 +295,7 @@ espera la telemetría `hand_hold` y la lleva a `IncuTwin_hand_hold`:
   "converter": { "type": "json",
     "deviceInfo": { "deviceNameExpressionSource": "topic",
                     "deviceNameExpression": "(?<=incutwin/)(.*?)(?=/hand)",
-                    "deviceProfileExpressionSource": "constant", "deviceProfileExpression": "incutwin" },
+                    "deviceProfileExpressionSource": "constant", "deviceProfileExpression": "IncuTwin" },
     "timeseries": [ { "type": "int", "key": "hand_hold", "value": "${hand_hold}" },
                     { "type": "int", "key": "hold_s", "value": "${hold_s}" } ] } }
 ```
