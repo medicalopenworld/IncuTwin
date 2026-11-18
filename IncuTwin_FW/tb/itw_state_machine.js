@@ -1,6 +1,9 @@
 // ThingsBoard rule node: Transformation script (JS)
 // Rama "estado del gemelo" — Contrato de eventos IncuTwin v0.2 §3.4
 // Entrada: telemetría/atributos/actividad de una IncuNest con incutwin_enabled=true.
+// Regla: termorregulación y/o fototerapia => hay bebé. Sin bebé registrado (baby_seq=0) se abre
+// una estancia anónima (stay_seq 0, stay_id SN:0-<epoch>) sin nombre/peso/días; si después se
+// registra, la estancia adopta ese baby_seq sin cerrarse.
 // metadata.ss_itw_state       -> estado previo (JSON) fetched by "Originator attributes"
 // metadata.ss_itw_t_parents_min, ss_itw_t_idle_min -> timeouts opcionales por incubadora
 // metadata.SN                 -> último valor de telemetría SN (fallback: deviceName)
@@ -54,7 +57,7 @@ function closeStay(reason, outcome, ts) {
   emit('baby_out', { reason: reason, duration_days: dur,
     summary: { thermo_h: Math.round(st.thermo_min / 6) / 10, photo_h: Math.round(st.photo_min / 6) / 10, kangaroo: st.kangaroo_count },
     outcome: (reason === 'discharged' && outcome === 1) ? 'home' : null }, t);
-  st.baby_state = 'out'; st.out_since = t; st.out_seq = st.stay_seq;
+  st.baby_state = 'out'; st.out_since = t; st.out_seq = st.stay_seq; st.out_stay_id = st.stay_id;
   st.out_home = (reason === 'discharged' && outcome === 1);
   st.stay_id = null; st.in_since = null; st.idle_since = null; st.parents_since = null;
 }
@@ -62,11 +65,13 @@ function openStay(seq, ts) {
   var t = ts || now;
   var reopen = (st.out_seq === seq && st.out_since && (t - st.out_since) < cfg.reopen_ms);
   if (!reopen) { st.thermo_min = 0; st.photo_min = 0; st.kangaroo_count = 0; }
-  st.stay_seq = seq; st.stay_id = incubator + ':' + seq; st.baby_state = 'in'; st.out_home = false;
+  st.stay_seq = seq; st.baby_state = 'in'; st.out_home = false;
+  if (seq > 0) st.stay_id = incubator + ':' + seq;
+  else st.stay_id = (reopen && st.out_stay_id) ? st.out_stay_id : incubator + ':0-' + Math.floor(t / 1000);
   st.in_since = reopen && st.in_since ? st.in_since : t; st.idle_since = null; st.parents_since = null;
   var p = tx();
   if (reopen) { p.away_min = Math.round((t - st.out_since) / 60000); emit('baby_back', p, t); }
-  else { p.admitted_at = st.admission_epoch ? iso(st.admission_epoch * 1000) : null; emit('baby_in', p, t); }
+  else { p.admitted_at = (seq > 0 && st.admission_epoch) ? iso(st.admission_epoch * 1000) : null; emit('baby_in', p, t); }
   st.last_tx = JSON.stringify(tx()); st.last_tx_change = t;
 }
 
@@ -144,9 +149,11 @@ if (msgType === 'INACTIVITY_EVENT') {
 var care = st.control_active || st.photo;
 st.care = care;
 if (st.baby_state === 'none' || st.baby_state === 'out') {
-  if (care && st.baby_seq > 0) openStay(st.baby_seq);
+  if (care) openStay(st.baby_seq > 0 ? st.baby_seq : 0);
 } else {
-  if (care && st.baby_seq > 0 && st.baby_seq !== st.stay_seq) { closeStay('replaced', null); openStay(st.baby_seq); }
+  // estancia anónima y ahora registran al bebé: es el mismo, se adopta el seq (mismo stay_id)
+  if (care && st.baby_seq > 0 && st.stay_seq === 0) { st.stay_seq = st.baby_seq; }
+  else if (care && st.baby_seq > 0 && st.baby_seq !== st.stay_seq) { closeStay('replaced', null); openStay(st.baby_seq); }
   else if (st.baby_state === 'in') {
     if (!care) { if (!st.idle_since) st.idle_since = now; else if (now - st.idle_since >= cfg.t_idle_ms) closeStay('session_ended', null); }
     else st.idle_since = null;
@@ -180,7 +187,8 @@ out.push({ msg: { itw_state: JSON.stringify(st), itw_baby_state: st.baby_state, 
   metadata: mdWith('ITW_STATE'), msgType: 'POST_ATTRIBUTES_REQUEST' });
 var went_home = st.baby_state === 'out' && st.out_home === true;
 var name = '', weight_g = 0, age_d = -1;
-if (metadata.ss_itw_show_name === 'true' && (st.baby_state === 'in' || st.baby_state === 'parents' || went_home)) {
+// solo con bebé registrado: en una estancia anónima los cs_baby_* pueden ser de un bebé anterior
+if (metadata.ss_itw_show_name === 'true' && st.stay_seq > 0 && (st.baby_state === 'in' || st.baby_state === 'parents' || went_home)) {
   name = String(metadata.cs_baby_name || '').trim().substring(0, 20);
   weight_g = parseInt(metadata.cs_baby_weight_g) || 0;
   // sin fecha de nacimiento en TB: "edad" = días desde el ingreso
