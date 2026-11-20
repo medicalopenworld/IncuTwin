@@ -11,8 +11,8 @@ sin dependencias.
   python tools/incunest_sim.py SIM01 shell           # consola: escribe escenarios o "set k=v"
   python tools/incunest_sim.py --list                # escenarios disponibles
 
-Token: --token <token>, o el fichero de tokens (SIM_TOKENS_FILE, por defecto
-tools/factory/secrets/sim-devices.env con líneas SIM01=<token>). URL: --url o TB_URL.
+Token: --token <token>, o un fichero sim-devices.env con líneas SIM01=<token> (SIM_TOKENS_FILE, o
+en la carpeta actual, o junto al script, o tools/factory/secrets/). URL: --url o TB_URL.
 
 Tiempos que pone la rule chain (no el simulador): un cambio de tratamiento se publica si han
 pasado 30 s desde el anterior; "calor estable" llega tras 5 min a ±0,5 °C del objetivo; la
@@ -32,7 +32,9 @@ import urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_URL = "https://mon.medicalopenworld.org"
 MIN_GAP = 2.5  # segundos mínimos entre dos envíos
-TOKENS_FILE = os.environ.get("SIM_TOKENS_FILE") or os.path.join(HERE, "factory", "secrets", "sim-devices.env")
+TOKENS_FILE = os.environ.get("SIM_TOKENS_FILE") or next(
+    (p for p in (os.path.join(os.getcwd(), "sim-devices.env"), os.path.join(HERE, "sim-devices.env"))
+     if os.path.exists(p)), os.path.join(HERE, "factory", "secrets", "sim-devices.env"))
 
 
 def log(*a):
