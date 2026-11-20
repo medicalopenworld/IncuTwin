@@ -49,14 +49,22 @@ def history_input(mode):
     return src.replace("'__MODE__'", '"%s"' % mode)
 
 
-def chain_metadata(rc_id, hist_id=None):
+def chain_metadata(rc_id, hist_id=None, mqtt=None):
+    """mqtt: None = cliente `thingsboard` de broker.env (producción); (usuario, contraseña) = otro
+    cliente del broker (p. ej. el del tenant de pruebas); False = sin salida al broker (el nodo 11
+    queda como un log, para no mover los índices)."""
     sm = (HERE / "itw_state_machine.js").read_text(encoding="utf-8")
     ev2ts = (HERE / "itw_event_to_ts.js").read_text(encoding="utf-8")
-    benv = load_broker_env()
-    tb_user = benv.get("MQTT_TB_USER", "thingsboard")
-    tb_pass = benv.get("MQTT_TB_PASS", "")
-    if not tb_pass:
-        sys.exit("MQTT_TB_PASS vacio en broker.env: ejecuta tools/broker_bootstrap.py")
+    if mqtt is None:
+        benv = load_broker_env()
+        tb_user = benv.get("MQTT_TB_USER", "thingsboard")
+        tb_pass = benv.get("MQTT_TB_PASS", "")
+        if not tb_pass:
+            sys.exit("MQTT_TB_PASS vacio en broker.env: ejecuta tools/broker_bootstrap.py")
+    elif mqtt:
+        tb_user, tb_pass = mqtt
+    else:
+        tb_user = tb_pass = None
     nodes = [
       node("metadata.TbGetAttributesNode", "¿incutwin_enabled?",
            {"tellFailureIfAbsent": False, "clientAttributeNames": [], "sharedAttributeNames": [],
@@ -103,7 +111,11 @@ def chain_metadata(rc_id, hist_id=None):
             "cleanSession": True, "ssl": False, "parseToPlainText": False, "protocolVersion": "MQTT_3_1_1",
             "credentials": {"type": "basic", "username": tb_user, "password": tb_pass}}, 2, 1450, 650,
            "docs/BROKER.md §3/§5: estado completo retenido en incubators/SN/state, una vez por evento. "
-           "Red Docker interna, sin TLS. Credenciales del cliente 'thingsboard' del broker."),
+           "Red Docker interna, sin TLS. Credenciales del cliente 'thingsboard' del broker.")
+      if tb_user else
+      node("action.TbLogNode", "broker (sin desplegar)",
+           {"scriptLang": "JS", "jsScript": "return 'ITW_BROKER ' + JSON.stringify(msg);", "tbelScript": "return 'ITW_BROKER';"}, 0, 1450, 650,
+           "Sin salida al broker en este tenant: el payload que se publicaría sale en el log."),
     ]
     conns = [
       {"fromIndex": 0, "toIndex": 1, "type": "Success"},
