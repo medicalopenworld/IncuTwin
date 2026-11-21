@@ -32,6 +32,7 @@ MQTT_CLIENT_ID = "thingsboard-history"
 
 INCUNEST_SERVER_ATTRS = ["itw_state", "country", "itw_show_name", "itw_panel_count", "itw_panels"]
 INCUNEST_CLIENT_ATTRS = ["baby_name"]
+INCUNEST_TS = ["countryCode"]  # país por telemetría si no hay atributo country
 
 
 def node(t, name, cfg, ver, x, y, desc=""):
@@ -52,10 +53,10 @@ def js_switch(name, script, x, y):
     return node("filter.TbJsSwitchNode", name, {"scriptLang": "JS", "jsScript": script, "tbelScript": script}, 0, x, y)
 
 
-def get_attrs(name, server, client, x, y, desc=""):
+def get_attrs(name, server, client, x, y, desc="", ts=()):
     return node("metadata.TbGetAttributesNode", name,
                 {"tellFailureIfAbsent": False, "clientAttributeNames": client, "sharedAttributeNames": [],
-                 "serverAttributeNames": server, "latestTsKeyNames": [], "getLatestValueWithTs": False,
+                 "serverAttributeNames": server, "latestTsKeyNames": list(ts), "getLatestValueWithTs": False,
                  "fetchTo": "METADATA"}, 1, x, y, desc)
 
 
@@ -127,7 +128,8 @@ def panel_sync_branch(hist_id):
         js_transform("sync: leer petición", SYNC_PARSE, 650, 650),
         js_switch("sync o desemparejado", "return [msg.kind];", 900, 650),
         to_incunest("→ IncuNest emparejada (sync)", 1150, 600),
-        get_attrs("estado de la IncuNest", INCUNEST_SERVER_ATTRS, INCUNEST_CLIENT_ATTRS, 1400, 600),
+        get_attrs("estado de la IncuNest", INCUNEST_SERVER_ATTRS, INCUNEST_CLIENT_ATTRS, 1400, 600,
+                  ts=INCUNEST_TS),
         js_transform("entrada historial (sync)", input_script("sync"), 1650, 600),
         to_panel_by_name("→ panel (sync)", 1900, 600),
         chain_input("→ IncuTwin_history", hist_id, 2150, 700),

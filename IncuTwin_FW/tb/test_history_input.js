@@ -74,6 +74,15 @@ test('sync con bebe dentro / sin bebe', () => {
 });
 
 let fail = 0;
+test('pais: sin atributo usa el countryCode de telemetria; XX no vale', () => {
+  const ev = { event: 'baby_in', stay_id: '353:18', ts: new Date(T).toISOString(), payload: {} };
+  const st = JSON.stringify({ v: 2, baby_state: 'none' });
+  const c = md => adapter('event')(ev, incMd(Object.assign({ ss_itw_state: st }, md)), 'ITW_EVENT').msg[0].country;
+  assert.strictEqual(c({ ss_country: '', countryCode: 'tg' }), 'TG');
+  assert.strictEqual(c({ ss_country: 'cm', countryCode: 'TG' }), 'CM');
+  assert.strictEqual(c({ ss_country: '', countryCode: 'XX' }), '');
+});
+
 for (const [n, f] of tests) {
   try { f(); console.log('PASS', n); } catch (e) { fail++; console.log('FAIL', n, '\n    ', e.message); }
 }

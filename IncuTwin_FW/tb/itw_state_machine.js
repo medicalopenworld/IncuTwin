@@ -7,11 +7,15 @@
 // metadata.ss_itw_state       -> estado previo (JSON) fetched by "Originator attributes"
 // metadata.ss_itw_t_parents_min, ss_itw_t_idle_min -> timeouts opcionales por incubadora
 // metadata.SN                 -> último valor de telemetría SN (fallback: deviceName)
+// metadata.Control_active, Phototherapy_active, Control_mode, Temp_desired -> últimos valores
+//                                guardados; se usan si el mensaje no los trae (llegan al cambiar)
 // metadata.ss_itw_show_name   -> 'true': el panel emparejado muestra nombre, peso de ingreso
 //                                y días desde el ingreso del bebé
 //                                (excepción consentida al "nada de nombres sale de TB";
 //                                nunca va en los eventos del webhook)
 // metadata.ss_country         -> país ISO alfa-2 de la incubadora (lo pone MOW); va al broker
+// metadata.countryCode / msg.countryCode -> el que manda la IncuNest por telemetría
+//                                (geolocalización); se usa si no hay ss_country. "XX" = desconocido
 // metadata.cs_baby_*          -> client attributes del bebé ya guardados (sincroniza el
 //                                estado aunque la chain se despliegue con la incubadora ya en marcha)
 // Salida: [ITW_STATE, ITW_PANEL, ITW_EVENT*]
@@ -37,6 +41,17 @@ var cfg = {
 };
 
 var events = [];
+function isoCountry(v) {
+  var c = String(v || '').toUpperCase();
+  return (/^[A-Z]{2}$/.test(c) && c !== 'XX') ? c : '';
+}
+function lastOf(k) {
+  if (msg[k] !== undefined) return msg[k];
+  return (metadata[k] !== undefined && metadata[k] !== '') ? metadata[k] : undefined;
+}
+function countryOf() {
+  return isoCountry(metadata.ss_country) || isoCountry(msg && msg.countryCode) || isoCountry(metadata.countryCode);
+}
 function iso(ms) { return new Date(ms).toISOString(); }
 function uuid() {
   var s = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';
@@ -105,10 +120,14 @@ if (msgType === 'INACTIVITY_EVENT') {
   st.last_seen = now;
   if (!st.online) { st.online = true; var p1 = tx(); p1.offline_min = null; p1.baby_state = st.baby_state; emit('incubator_online', p1); }
   for (var k in msg) { if (k.length > 6 && k.substring(k.length - 6) === '_alarm') st.alarms[k] = truthy(msg[k]); }
-  if (msg.Control_active !== undefined) st.control_active = truthy(msg.Control_active);
-  if (msg.Phototherapy_active !== undefined) st.photo = truthy(msg.Phototherapy_active);
-  if (msg.Control_mode !== undefined) st.control_mode = String(msg.Control_mode);
-  if (msg.Temp_desired !== undefined) st.temp_desired = num(msg.Temp_desired);
+  // La IncuNest manda algunas claves solo al cambiar: sin ellas en el mensaje vale el último valor
+  // guardado (metadata, latestTsKeyNames del nodo "estado previo + SN").
+  var ca = lastOf('Control_active'), pa = lastOf('Phototherapy_active');
+  var cm = lastOf('Control_mode'), td = lastOf('Temp_desired');
+  if (ca !== undefined) st.control_active = truthy(ca);
+  if (pa !== undefined) st.photo = truthy(pa);
+  if (cm !== undefined) st.control_mode = String(cm);
+  if (td !== undefined) st.temp_desired = num(td);
   // pulsioximetría
   var best = null, bestQ = 0;
   var hrs = [['HR1','HR1_SQI'],['HR2','HR2_SQI'],['HR3','HR3_SQI']];
@@ -223,8 +242,8 @@ if (events.length > 0) {
   if (name) bp.name = name;
   if (weight_g > 0) bp.weight_g = weight_g;
   if (age_d >= 0) bp.age_d = age_d;
-  var cc = String(metadata.ss_country || '').toUpperCase(); // spec tb-stay-history
-  if (/^[A-Z]{2}$/.test(cc)) bp.country = cc;
+  var cc = countryOf(); // spec tb-stay-history
+  if (cc) bp.country = cc;
   var mb = mdWith('ITW_BROKER');
   mb.itw_incubator_id = incubator; // topic incubators/${itw_incubator_id}/state en el nodo MQTT
   out.push({ msg: bp, metadata: mb, msgType: 'POST_TELEMETRY_REQUEST' });

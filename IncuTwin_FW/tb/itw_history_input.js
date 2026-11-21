@@ -5,7 +5,7 @@
 //              Devuelve un ARRAY: una entrada por panel de itw_panels (nodo "split array msg").
 //   'hold'  -> IncuTwin_hand_hold, salida LOG (msg.itw_hand_hold = JSON con panel y source).
 //   'sync'  -> cadena IncuTwin del panel, tras pasar a la IncuNest (msg = {kind, panel}).
-// metadata (atributos de la IncuNest): ss_itw_state, ss_country, ss_itw_show_name,
+// metadata (atributos de la IncuNest): ss_itw_state, ss_country (o telemetría countryCode), ss_itw_show_name,
 //   ss_itw_panels (JSON array de nombres de panel), ss_itw_panel_count, cs_baby_name.
 //   En 'event', ss_itw_state es el estado ANTERIOR (se leyo antes de la maquina de estados).
 // Cada entrada lleva `panel` (nombre del device del panel): la cadena cambia el originador con
@@ -20,12 +20,17 @@ try { panels = JSON.parse(metadata.ss_itw_panels || '[]'); } catch (e) { panels 
 if (!(panels instanceof Array)) panels = [];
 var pc = parseInt(metadata.ss_itw_panel_count);
 if (isNaN(pc)) pc = panels.length;
-var cc = String(metadata.ss_country || '').toUpperCase();
+function isoCountry(v) {
+  var c = String(v || '').toUpperCase();
+  return (/^[A-Z]{2}$/.test(c) && c !== 'XX') ? c : '';
+}
+// país: el atributo de MOW manda; si no, el countryCode que manda la IncuNest por telemetría
+var cc = isoCountry(metadata.ss_country) || isoCountry(metadata.countryCode);
 var showName = metadata.ss_itw_show_name === 'true';
 var now = metadata.ts ? parseInt(metadata.ts) : new Date().getTime();
 
 function base(kind, panel) {
-  return { kind: kind, panel: String(panel || ''), country: /^[A-Z]{2}$/.test(cc) ? cc : '',
+  return { kind: kind, panel: String(panel || ''), country: cc,
            show_name: showName, name: showName ? String(metadata.cs_baby_name || '') : '',
            panel_count: pc };
 }

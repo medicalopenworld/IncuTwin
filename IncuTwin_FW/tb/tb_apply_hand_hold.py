@@ -79,7 +79,7 @@ nodes = [
     node("metadata.TbGetAttributesNode", "incutwin_enabled + itw_baby_state",
          {"tellFailureIfAbsent": False, "clientAttributeNames": ["baby_name"], "sharedAttributeNames": [],
           "serverAttributeNames": ["incutwin_enabled", "itw_baby_state", "itw_state", "country",
-                                   "itw_show_name", "itw_panel_count", "itw_panels"], "latestTsKeyNames": [],
+                                   "itw_show_name", "itw_panel_count", "itw_panels"], "latestTsKeyNames": ["countryCode"],
           "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 150, 200),
     js_transform("validar + hand_hold_until", (HERE / "itw_hand_hold.js").read_text(encoding="utf-8"), 400, 200,
                  "Solo con bebé in/parents. Minutos 1..30 (5 por defecto)."),
