@@ -54,8 +54,7 @@ void hh_touch(hand_hold_t *h, bool down, uint32_t now)
     if (down) {
         switch (h->state) {
         case HH_IDLE:
-            h->acc_ms = 0;
-            /* fallthrough */
+            break; /* hay que pulsar antes "Coge mi mano": tocar al bebe en reposo no empieza */
         case HH_READY:
         case HH_GRACE:
             h->last_ms = now;

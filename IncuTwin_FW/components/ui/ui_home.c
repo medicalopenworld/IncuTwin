@@ -2,7 +2,8 @@
  *   barra superior : WiFi | marca | engranaje
  *   centro         : bebe + halo | incubadora vacia | con sus papas (dos tonos de piel)
  *   esquina        : pais de la incubadora, si se comparte
- *   fila           : 3 iconos de estado + boton "Coge mi mano" (o el texto del gesto)
+ *   fila           : simbolos del tratamiento en curso (solo los activos, juntos a la
+ *                    izquierda) + boton "Coge mi mano" (o el texto del gesto)
  *   abajo          : barra de estado siempre visible
  * En demo se desliza a izquierda/derecha entre tres paginas (ui_pages.c).
  * El latido solo suena al tocar el icono del corazon (ritmo real del bebe).
@@ -50,7 +51,9 @@ typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_ALARM } halo
 typedef enum { VIEW_EMPTY = 0, VIEW_BABY, VIEW_PARENTS } home_view_t;
 
 static lv_obj_t *s_scr;
-static lv_obj_t *s_halo, *s_empty_img, *s_parents_img, *s_wifi_img, *s_demo_badge;
+static lv_obj_t *s_halo, *s_empty_img, *s_parents_img, *s_wifi_btn, *s_wifi_img, *s_demo_badge;
+static lv_obj_t *s_info;          /* burbuja con la explicacion del simbolo tocado */
+static lv_timer_t *s_info_timer;
 static lv_obj_t *s_icon_thermo, *s_icon_photo, *s_icon_heart;
 static lv_obj_t *s_btn_hand, *s_lbl_hand;
 static lv_obj_t *s_status, *s_lbl_status;
@@ -59,16 +62,18 @@ static bool s_awake_real; /* para restaurar al terminar el gesto */
 
 static hand_hold_t s_hh;
 static lv_obj_t *s_ring, *s_target, *s_lbl_hold, *s_name, *s_hearts[N_HEARTS];
-static lv_obj_t *s_thanks_img, *s_country;
+static lv_obj_t *s_thanks_img, *s_country, *s_country_flag, *s_country_lbl;
 static int32_t s_ring_lap = -1; /* vuelta pintada; -1 = forzar colores */
 static bool s_parents_dark;
 static lv_timer_t *s_hb_timer; /* latido sonando tras tocar el icono del corazon */
 
 #define HB_TAP_MS 10000
+#define INFO_MS   6000 /* lo que dura la burbuja de informacion */
 #define COL_HEART_ON lv_color_hex(0xFBE3DF)
 static int s_hh_shown = -1;     /* estado pintado; -1 = forzar repintado */
 static twin_snapshot_t s_last;  /* para restaurar la barra de estado */
 static bool s_have_last;
+static bool s_row_shown; /* la fila se ve: bebe a la vista y sin gesto */
 
 static void hold_refresh(bool force);
 static void overlay_refresh(void);
@@ -136,6 +141,66 @@ static lv_obj_t *state_icon_create(lv_obj_t *parent, int32_t x, const void *src)
 
 static void state_icon_set(lv_obj_t *c, lv_color_t col) { lv_obj_set_style_border_color(c, col, 0); }
 
+/* Tratamiento: activo = circulo relleno de su color con el icono en blanco; inactivo = atenuado */
+static void treat_icon_set(lv_obj_t *c, bool on, lv_color_t col)
+{
+    lv_obj_t *icon = lv_obj_get_child(c, 0);
+    lv_obj_set_style_border_color(c, on ? col : COL_OFFLINE, 0);
+    lv_obj_set_style_bg_color(c, on ? col : COL_CARD, 0);
+    lv_obj_set_style_image_recolor(icon, lv_color_white(), 0);
+    lv_obj_set_style_image_recolor_opa(icon, on ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
+    lv_obj_set_style_image_opa(icon, on ? LV_OPA_COVER : LV_OPA_50, 0);
+}
+
+/* ----------------------------------------------------------- info */
+
+static void info_hide(void)
+{
+    if (s_info_timer) {
+        lv_timer_delete(s_info_timer);
+        s_info_timer = NULL;
+    }
+    lv_obj_set_hidden(s_info, true);
+}
+
+static void info_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    s_info_timer = NULL; /* el timer de una vez se borra solo */
+    lv_obj_set_hidden(s_info, true);
+}
+
+/* Burbuja encima de la fila de simbolos, con el borde del color del simbolo; se va sola */
+static void info_show(const char *txt, lv_color_t col)
+{
+    if (s_info_timer) lv_timer_delete(s_info_timer);
+    lv_label_set_text(s_info, txt);
+    lv_obj_set_style_border_color(s_info, col, 0);
+    lv_obj_set_hidden(s_info, false);
+    lv_obj_align(s_info, LV_ALIGN_TOP_MID, 0, 0);
+    lv_obj_update_layout(s_info);
+    lv_obj_set_y(s_info, ICON_Y - 6 - lv_obj_get_height(s_info));
+    s_info_timer = lv_timer_create(info_timer_cb, INFO_MS, NULL);
+    lv_timer_set_repeat_count(s_info_timer, 1);
+}
+
+static void thermo_icon_clicked(lv_event_t *e)
+{
+    (void)e;
+    if (!s_have_last) return;
+    switch (s_last.inc.thermo) {
+    case TWIN_THERMO_HEATING: info_show(tr(STR_INFO_HEATING), COL_WARM); break;
+    case TWIN_THERMO_ALARM:   info_show(tr(STR_INFO_TEMP_ALARM), COL_RED); break;
+    default:                  info_show(tr(STR_INFO_STABLE), COL_OK); break;
+    }
+}
+
+static void photo_icon_clicked(lv_event_t *e)
+{
+    (void)e;
+    info_show(tr(STR_INFO_PHOTO), COL_PHOTO);
+}
+
 /* ------------------------------------------------------------- handlers */
 
 static void gear_clicked(lv_event_t *e)
@@ -174,7 +239,12 @@ static void wifi_icon_clicked(lv_event_t *e)
 static void baby_touched(lv_event_t *e)
 {
     lv_event_code_t c = lv_event_get_code(e);
+    if (c == LV_EVENT_PRESSED && hh_state(&s_hh) == HH_IDLE) {
+        info_show(tr(STR_INFO_PRESS_HAND), COL_CORAL); /* el gesto empieza con el boton */
+        return;
+    }
     if (c == LV_EVENT_PRESSED) {
+        info_hide();
         usage_hand_set(true);
         hh_touch(&s_hh, true, lv_tick_get());
         hold_refresh(false);
@@ -212,18 +282,22 @@ static void heart_icon_clicked(lv_event_t *e)
 {
     (void)e;
     bool pulse = s_have_last && s_last.show_baby && s_last.inc.bpm > 0;
+    if (pulse) {
+        char buf[128];
+        int n = snprintf(buf, sizeof(buf), tr(STR_INFO_HEART), (unsigned)s_last.inc.bpm);
+        if (s_last.inc.bpm > TWIN_BPM_FAST && n > 0 && n < (int)sizeof(buf)) {
+            snprintf(buf + n, sizeof(buf) - n, ". %s", tr(STR_INFO_HEART_FAST));
+        }
+        info_show(buf, COL_CORAL);
+    }
     heart_sound_set(pulse && !s_hb_timer);
 }
 
 /* Deslizar entre paginas (solo en demo). No a mitad de un gesto ya completado. */
-static void scr_gesture(lv_event_t *e)
+/* Tras cambiar de pagina: fuera burbuja y latido, y repintar (el bebe se va o vuelve) */
+static void page_changed(void)
 {
-    (void)e;
-    lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
-    if (dir != LV_DIR_LEFT && dir != LV_DIR_RIGHT) return;
-    hh_state_t st = hh_state(&s_hh);
-    if (st == HH_DONE || st == HH_THANKS) return;
-    if (!ui_pages_swipe(dir == LV_DIR_LEFT ? -1 : 1)) return;
+    info_hide();
     if (s_hb_timer) heart_sound_set(false);
     if (s_have_last) {
         twin_snapshot_t s = s_last;
@@ -231,10 +305,30 @@ static void scr_gesture(lv_event_t *e)
     }
 }
 
+static void scr_gesture(lv_event_t *e)
+{
+    (void)e;
+    lv_dir_t dir = lv_indev_get_gesture_dir(lv_indev_active());
+    if (dir != LV_DIR_LEFT && dir != LV_DIR_RIGHT) return;
+    hh_state_t st = hh_state(&s_hh);
+    if (st == HH_DONE || st == HH_THANKS) return;
+    if (ui_pages_swipe(dir == LV_DIR_LEFT ? -1 : 1)) page_changed();
+}
+
+/* Etiqueta del pais: lleva a su pagina (mapa, distancia, hora) */
+static void country_clicked(lv_event_t *e)
+{
+    (void)e;
+    hh_state_t st = hh_state(&s_hh);
+    if (st == HH_DONE || st == HH_THANKS) return;
+    if (ui_pages_goto(1)) page_changed();
+}
+
 /* El boton prepara el gesto: el bebe abre los ojos y espera el dedo */
 static void hand_btn_clicked(lv_event_t *e)
 {
     (void)e;
+    info_hide();
     hh_button(&s_hh, lv_tick_get());
     hold_refresh(false);
 }
@@ -378,20 +472,35 @@ static void hold_create_above_baby(void)
     lv_obj_set_hidden(s_name, true);
 
     /* pais de la incubadora: etiqueta pequena arriba a la izquierda */
-    s_country = lv_label_create(s_scr);
-    lv_label_set_text(s_country, "");
-    lv_obj_set_style_text_font(s_country, &lv_font_es_12, 0);
-    lv_obj_set_style_text_color(s_country, COL_NAVY_DARK, 0);
+    /* pais: bandera + nombre; es un boton que lleva a la pagina del pais */
+    s_country = lv_obj_create(s_scr);
+    lv_obj_set_size(s_country, LV_SIZE_CONTENT, 24);
     lv_obj_set_style_bg_color(s_country, COL_CARD, 0);
+    lv_obj_set_style_bg_color(s_country, COL_BG_PHOTO, LV_STATE_PRESSED);
     lv_obj_set_style_bg_opa(s_country, LV_OPA_COVER, 0);
     lv_obj_set_style_border_color(s_country, COL_NAVY, 0);
-    lv_obj_set_style_border_width(s_country, 1, 0);
-    lv_obj_set_style_radius(s_country, 10, 0);
-    lv_obj_set_style_pad_hor(s_country, 7, 0);
-    lv_obj_set_style_pad_ver(s_country, 2, 0);
-    lv_obj_set_style_max_width(s_country, 120, 0);
-    lv_label_set_long_mode(s_country, LV_LABEL_LONG_MODE_DOTS);
-    lv_obj_set_pos(s_country, 6, 40);
+    lv_obj_set_style_border_width(s_country, 2, 0);
+    lv_obj_set_style_radius(s_country, 8, 0);
+    lv_obj_set_style_pad_left(s_country, 4, 0);
+    lv_obj_set_style_pad_right(s_country, 7, 0);
+    lv_obj_set_style_pad_ver(s_country, 0, 0);
+    lv_obj_set_style_pad_column(s_country, 5, 0);
+    lv_obj_set_flex_flow(s_country, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(s_country, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_scrollable(s_country, false);
+    lv_obj_add_flag(s_country, UI_FLAG_CLICK_SOUND);
+    lv_obj_set_ext_click_area(s_country, 6);
+    lv_obj_add_event_cb(s_country, country_clicked, LV_EVENT_CLICKED, NULL);
+    lv_obj_set_pos(s_country, 4, 40);
+    s_country_flag = lv_image_create(s_country);
+    lv_image_set_inner_align(s_country_flag, LV_IMAGE_ALIGN_STRETCH); /* bandera de 26 px a 16 */
+    lv_obj_set_clickable(s_country_flag, false);
+    s_country_lbl = lv_label_create(s_country);
+    lv_label_set_text(s_country_lbl, "");
+    lv_obj_set_style_text_font(s_country_lbl, &lv_font_es_12, 0);
+    lv_obj_set_style_text_color(s_country_lbl, COL_NAVY_DARK, 0);
+    lv_obj_set_style_max_width(s_country_lbl, 96, 0);
+    lv_label_set_long_mode(s_country_lbl, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_hidden(s_country, true);
 
     s_lbl_hold = lv_label_create(s_scr);
@@ -414,6 +523,37 @@ static void hold_timer_cb(lv_timer_t *t)
     (void)t;
     hh_tick(&s_hh, lv_tick_get());
     hold_refresh(false);
+}
+
+/* Botones de arriba (WiFi, ajustes): fondo blanco y marco azul de la marca */
+static void top_button_style(lv_obj_t *b)
+{
+    lv_obj_set_style_bg_color(b, COL_CARD, 0);
+    lv_obj_set_style_bg_color(b, COL_BG_PHOTO, LV_STATE_PRESSED);
+    lv_obj_set_style_border_color(b, COL_NAVY, 0);
+    lv_obj_set_style_border_width(b, 2, 0);
+    lv_obj_set_style_radius(b, 8, 0);
+    lv_obj_set_style_shadow_width(b, 0, 0);
+    lv_obj_set_style_pad_all(b, 0, 0);
+}
+
+static void info_create(void)
+{
+    s_info = lv_label_create(s_scr);
+    lv_label_set_text(s_info, "");
+    lv_obj_set_width(s_info, 224);
+    lv_obj_set_style_text_font(s_info, &lv_font_es_14, 0);
+    lv_obj_set_style_text_color(s_info, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_align(s_info, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_bg_color(s_info, COL_CARD, 0);
+    lv_obj_set_style_bg_opa(s_info, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_width(s_info, 2, 0);
+    lv_obj_set_style_radius(s_info, 12, 0);
+    lv_obj_set_style_pad_hor(s_info, 10, 0);
+    lv_obj_set_style_pad_ver(s_info, 7, 0);
+    lv_label_set_long_mode(s_info, LV_LABEL_LONG_MODE_WRAP);
+    lv_obj_set_clickable(s_info, false);
+    lv_obj_set_hidden(s_info, true);
 }
 
 /* ----------------------------------------------------------------- build */
@@ -455,8 +595,17 @@ lv_obj_t *ui_home_create(void)
 
     s_icon_thermo = state_icon_create(s_scr, 8, &img_icon_thermo);
     s_icon_photo = state_icon_create(s_scr, 58, &img_icon_lamp);
+    lv_obj_t *tap[] = { s_icon_thermo, s_icon_photo };
+    lv_event_cb_t tap_cb[] = { thermo_icon_clicked, photo_icon_clicked };
+    for (int i = 0; i < 2; i++) { /* tocar: que es este tratamiento */
+        lv_obj_set_clickable(tap[i], true);
+        lv_obj_add_flag(tap[i], UI_FLAG_CLICK_SOUND); /* suenan como un boton */
+        lv_obj_set_ext_click_area(tap[i], 4);
+        lv_obj_add_event_cb(tap[i], tap_cb[i], LV_EVENT_CLICKED, NULL);
+    }
     s_icon_heart = state_icon_create(s_scr, 108, &img_heart);
     lv_obj_set_clickable(s_icon_heart, true); /* tocar: oir su latido */
+    lv_obj_add_flag(s_icon_heart, UI_FLAG_CLICK_SOUND);
     lv_obj_set_ext_click_area(s_icon_heart, 4);
     lv_obj_add_event_cb(s_icon_heart, heart_icon_clicked, LV_EVENT_CLICKED, NULL);
 
@@ -487,6 +636,7 @@ lv_obj_t *ui_home_create(void)
     lv_timer_create(hold_timer_cb, HH_TICK_MS, NULL);
 
     ui_pages_create(s_scr); /* encima del bebe, debajo de las barras */
+    info_create();
     lv_obj_add_event_cb(s_scr, scr_gesture, LV_EVENT_GESTURE, NULL);
 
     /* barra de estado */
@@ -510,12 +660,16 @@ lv_obj_t *ui_home_create(void)
     lv_obj_center(s_lbl_status);
 
     /* barra superior */
-    s_wifi_img = lv_image_create(s_scr);
+    /* WiFi y ajustes: botones con marco, para que se vea que se pueden tocar */
+    s_wifi_btn = lv_button_create(s_scr);
+    lv_obj_set_size(s_wifi_btn, 42, 30);
+    lv_obj_align(s_wifi_btn, LV_ALIGN_TOP_LEFT, 4, 5);
+    top_button_style(s_wifi_btn);
+    lv_obj_set_ext_click_area(s_wifi_btn, 6);
+    lv_obj_add_event_cb(s_wifi_btn, wifi_icon_clicked, LV_EVENT_SHORT_CLICKED, NULL); /* cambiar de red */
+    s_wifi_img = lv_image_create(s_wifi_btn);
     lv_image_set_src(s_wifi_img, &img_wifi_off);
-    lv_obj_set_pos(s_wifi_img, 8, 8);
-    lv_obj_set_clickable(s_wifi_img, true); /* tocar: cambiar de red WiFi */
-    lv_obj_set_ext_click_area(s_wifi_img, 10);
-    lv_obj_add_event_cb(s_wifi_img, wifi_icon_clicked, LV_EVENT_SHORT_CLICKED, NULL);
+    lv_obj_center(s_wifi_img);
 
     s_demo_badge = lv_label_create(s_scr);
     lv_label_set_text(s_demo_badge, "DEMO");
@@ -536,9 +690,7 @@ lv_obj_t *ui_home_create(void)
     lv_obj_t *gear = lv_button_create(s_scr);
     lv_obj_set_size(gear, 42, 30);
     lv_obj_align(gear, LV_ALIGN_TOP_RIGHT, -4, 5);
-    lv_obj_set_style_bg_color(gear, COL_CARD, 0);
-    lv_obj_set_style_shadow_width(gear, 0, 0);
-    lv_obj_set_style_radius(gear, 10, 0);
+    top_button_style(gear);
     lv_obj_add_event_cb(gear, gear_clicked, LV_EVENT_SHORT_CLICKED, NULL);
     lv_obj_add_event_cb(gear, gear_long_pressed, LV_EVENT_LONG_PRESSED, NULL);
     lv_obj_t *gl = lv_label_create(gear);
@@ -609,15 +761,31 @@ static void status_bar_apply(const twin_snapshot_t *s)
     }
 }
 
+/* Fila de abajo: solo los simbolos del tratamiento en curso, juntos desde la izquierda, y el
+ * boton "Coge mi mano". El corazon solo sale con un pulso normal (twin_apply filtra el resto). */
+static void row_apply(bool shown)
+{
+    s_row_shown = shown;
+    const twin_incubator_t *inc = &s_last.inc;
+    bool baby = s_have_last && s_last.show_baby;
+    bool on[] = { baby && inc->thermo != TWIN_THERMO_OFF, baby && inc->photo, baby && inc->bpm > 0 };
+    lv_obj_t *icons[] = { s_icon_thermo, s_icon_photo, s_icon_heart };
+    int32_t x = 8;
+    for (size_t i = 0; i < sizeof(icons) / sizeof(icons[0]); i++) {
+        lv_obj_set_hidden(icons[i], !shown || !on[i]);
+        if (on[i]) {
+            lv_obj_set_x(icons[i], x);
+            x += ICON_D + 6;
+        }
+    }
+    lv_obj_set_hidden(s_btn_hand, !shown);
+}
+
 static void home_set_view(home_view_t view)
 {
     lv_obj_set_hidden(baby_widget_obj(), view != VIEW_BABY);
     /* durante el gesto la fila la ocupa su texto */
-    bool row_hidden = view != VIEW_BABY || hh_state(&s_hh) != HH_IDLE;
-    lv_obj_t *row[] = { s_icon_thermo, s_icon_photo, s_icon_heart, s_btn_hand };
-    for (size_t i = 0; i < sizeof(row) / sizeof(row[0]); i++) {
-        lv_obj_set_hidden(row[i], row_hidden);
-    }
+    row_apply(view == VIEW_BABY && hh_state(&s_hh) == HH_IDLE);
     lv_obj_set_hidden(s_empty_img, view != VIEW_EMPTY);
     lv_obj_set_hidden(s_parents_img, view != VIEW_PARENTS);
 }
@@ -634,12 +802,12 @@ static void parents_img_apply(uint8_t skin)
 static void wifi_icon_apply(const twin_snapshot_t *s)
 {
     if (s->demo) {
-        lv_obj_set_hidden(s_wifi_img, true);
+        lv_obj_set_hidden(s_wifi_btn, true);
         lv_obj_set_hidden(s_demo_badge, false);
         return;
     }
     lv_obj_set_hidden(s_demo_badge, true);
-    lv_obj_set_hidden(s_wifi_img, false);
+    lv_obj_set_hidden(s_wifi_btn, false);
     if (!s->link.wifi) {
         lv_image_set_src(s_wifi_img, &img_wifi_off);
         lv_obj_set_style_image_recolor_opa(s_wifi_img, LV_OPA_TRANSP, 0);
@@ -724,9 +892,13 @@ static void overlay_refresh(void)
 
     bool show_country = (s->show_baby || s->parents_view) && s->inc.country[0] != '\0' && !thanks;
     if (show_country) {
-        char buf[48];
-        snprintf(buf, sizeof(buf), LV_SYMBOL_GPS " %s", tr_country(s->inc.country));
-        label_set(s_country, buf);
+        label_set(s_country_lbl, tr_country(s->inc.country));
+        const lv_image_dsc_t *flag = flag_image(s->inc.country);
+        lv_obj_set_hidden(s_country_flag, flag == NULL);
+        if (flag && lv_image_get_src(s_country_flag) != flag) {
+            lv_image_set_src(s_country_flag, flag);
+            lv_obj_set_size(s_country_flag, (int32_t)flag->header.w * 16 / flag->header.h, 16);
+        }
     }
     lv_obj_set_hidden(s_country, !show_country);
 }
@@ -752,10 +924,8 @@ static void hold_refresh(bool force)
     if (force || (int)st != s_hh_shown || baby_view != shown_view) {
         s_hh_shown = (int)st;
         shown_view = baby_view;
-        lv_obj_t *row[] = { s_icon_thermo, s_icon_photo, s_icon_heart, s_btn_hand };
-        for (size_t i = 0; i < sizeof(row) / sizeof(row[0]); i++) {
-            lv_obj_set_hidden(row[i], !baby_view || !idle);
-        }
+        row_apply(baby_view && idle);
+        if (!baby_view || !idle) info_hide();
         lv_obj_set_hidden(s_lbl_hold, !baby_view || idle);
         lv_obj_set_hidden(s_ring, !baby_view || idle || st == HH_READY);
         target_run(baby_view && st == HH_READY);
@@ -826,18 +996,12 @@ void ui_home_apply(const twin_snapshot_t *s)
     overlay_refresh();
     parents_img_apply(inc->skin);
 
-    if (!s->show_baby) {
-        state_icon_set(s_icon_thermo, COL_OFFLINE);
-    } else {
-        switch (inc->thermo) {
-        case TWIN_THERMO_HEATING: state_icon_set(s_icon_thermo, COL_WARM); break;
-        case TWIN_THERMO_STABLE:  state_icon_set(s_icon_thermo, COL_OK); break;
-        case TWIN_THERMO_ALARM:   state_icon_set(s_icon_thermo, COL_RED); break;
-        default:                  state_icon_set(s_icon_thermo, COL_OFFLINE); break;
-        }
-    }
-    state_icon_set(s_icon_photo, s->show_baby && inc->photo ? COL_PHOTO : COL_OFFLINE);
-    state_icon_set(s_icon_heart, s->show_baby && inc->bpm > 0 ? COL_CORAL : COL_OFFLINE);
+    lv_color_t tcol = inc->thermo == TWIN_THERMO_HEATING ? COL_WARM
+                    : inc->thermo == TWIN_THERMO_ALARM   ? COL_RED : COL_OK;
+    treat_icon_set(s_icon_thermo, s->show_baby && inc->thermo != TWIN_THERMO_OFF, tcol);
+    treat_icon_set(s_icon_photo, s->show_baby && inc->photo, COL_PHOTO);
+    state_icon_set(s_icon_heart, COL_CORAL);
+    row_apply(s_row_shown); /* el tratamiento puede haber cambiado */
 
     baby_set_skin_tone(inc->skin);
     if (hh_idle) baby_set_awake(inc->awake); /* durante el gesto los ojos los pone el gesto */

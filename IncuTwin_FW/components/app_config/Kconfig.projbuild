@@ -51,8 +51,8 @@ menu "IncuTwin"
         range 60 86400
 
     config INCUTWIN_DEFAULT_SKIN
-        int "Tono de piel por defecto del bebe (0..4)"
-        default 1
+        int "Tono de piel del bebe antes de recibir el estado (0..4); luego manda el pais"
+        default 3
         range 0 4
 
     config INCUTWIN_SNTP_SERVER

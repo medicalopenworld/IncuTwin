@@ -37,9 +37,10 @@ el gesto SHALL volver a reposo sin enviar nada.
   se envía un solo aviso y, al levantar el dedo, el acumulado se queda quieto durante el
   agradecimiento
 
-#### Scenario: Tocar directamente
+#### Scenario: Tocar sin pulsar el botón
 - **WHEN** en reposo se pone el dedo sobre el bebé sin pulsar el botón
-- **THEN** el gesto pasa a sosteniendo
+- **THEN** el gesto sigue en reposo (el botón es obligatorio, decisión de Pablo 21-nov-2026) y la
+  pantalla recuerda que hay que pulsar "Coge mi mano"
 
 ### Requirement: Aviso a la IncuNest [test-unity]
 Al pasar a completado, el panel SHALL publicar una única vez en `incutwin/<client_id>/hand`,

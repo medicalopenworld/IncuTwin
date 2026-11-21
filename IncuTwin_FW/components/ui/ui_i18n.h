@@ -24,6 +24,14 @@ typedef enum {
     STR_DAYS,
     /* pantalla principal */
     STR_HAND,
+    /* info al tocar los simbolos de tratamiento y al bebe en reposo */
+    STR_INFO_HEATING,
+    STR_INFO_STABLE,
+    STR_INFO_TEMP_ALARM,
+    STR_INFO_PHOTO,
+    STR_INFO_HEART,       /* formato: %u latidos por minuto */
+    STR_INFO_HEART_FAST,  /* solo si el pulso pasa de TWIN_BPM_FAST */
+    STR_INFO_PRESS_HAND,
     /* gesto "Coge mi mano" (spec twin-display) */
     STR_HH_READY,
     STR_HH_HOLD1,
@@ -37,6 +45,7 @@ typedef enum {
     /* paginas de la demo (spec twin-display) */
     STR_PG_HOSPITAL,
     STR_PG_LOCAL_TIME,
+    STR_PG_DISTANCE, /* formato: %s km */
     STR_PG_ACHIEVEMENTS,
     STR_PG_ACH_SUB,
     STR_PG_MY_DAYS,

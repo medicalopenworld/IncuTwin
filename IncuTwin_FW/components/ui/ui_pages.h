@@ -21,6 +21,9 @@ void ui_pages_apply(const twin_snapshot_t *s);
  * Devuelve true si ha cambiado de pagina. */
 bool ui_pages_swipe(int dir);
 
+/* Desliza hasta la pagina indicada si se puede ver; false si no (o si ya esta en ella). */
+bool ui_pages_goto(int page);
+
 int ui_pages_current(void);
 
 /* Gesto "Coge mi mano" completado (suma a los logros de la demo). */

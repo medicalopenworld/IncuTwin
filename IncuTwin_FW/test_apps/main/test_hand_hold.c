@@ -17,10 +17,17 @@ static void setup(uint32_t cooldown_s)
     hh_set_available(&h, true, true, 0);
 }
 
-/* dedo puesto de t0 a t1, con ticks cada 100 ms */
+/* "Coge mi mano" exige pulsar el boton antes de poner el dedo: start() lo pulsa si hace falta */
+static void start(uint32_t t)
+{
+    if (hh_state(&h) == HH_IDLE) hh_button(&h, t);
+    hh_touch(&h, true, t);
+}
+
+/* dedo puesto de t0 a t1 (pulsando antes el boton si hace falta), con ticks cada 100 ms */
 static void hold(uint32_t t0, uint32_t t1)
 {
-    hh_touch(&h, true, t0);
+    start(t0);
     for (uint32_t t = t0; t <= t1; t += 100) hh_tick(&h, t);
     hh_touch(&h, false, t1);
 }
@@ -86,7 +93,7 @@ TEST_CASE("hand_hold: listo sin tocar 20 s vuelve a reposo", "[hand_hold]")
 TEST_CASE("hand_hold: seguir tras completar no reenvia", "[hand_hold]")
 {
     setup(0);
-    hh_touch(&h, true, 0);
+    start(0);
     idle_until(0, S(240));
     TEST_ASSERT_EQUAL(HH_DONE, hh_state(&h));
     TEST_ASSERT_TRUE(hh_take_send(&h));
@@ -104,7 +111,7 @@ TEST_CASE("hand_hold: seguir tras completar no reenvia", "[hand_hold]")
 TEST_CASE("hand_hold: tras completar el anillo sigue dando vueltas", "[hand_hold]")
 {
     setup(0);
-    hh_touch(&h, true, 0);
+    start(0);
     idle_until(0, S(30));
     TEST_ASSERT_EQUAL_UINT32(S(30), hh_held_ms(&h, S(30)));
     idle_until(S(30), S(150)); /* 2,5 vueltas */
@@ -135,10 +142,17 @@ TEST_CASE("hand_hold: en reposo no hay tiempo acumulado", "[hand_hold]")
     TEST_ASSERT_EQUAL_UINT32(0, hh_held_ms(&h, S(31)));
 }
 
-TEST_CASE("hand_hold: tocar directamente desde reposo", "[hand_hold]")
+TEST_CASE("hand_hold: tocar al bebe sin pulsar el boton no empieza", "[hand_hold]")
 {
     setup(0);
     hh_touch(&h, true, 0);
+    TEST_ASSERT_EQUAL(HH_IDLE, hh_state(&h));
+    idle_until(0, S(5));
+    hh_touch(&h, false, S(5));
+    TEST_ASSERT_EQUAL(HH_IDLE, hh_state(&h));
+    TEST_ASSERT_EQUAL_UINT32(0, hh_held_ms(&h, S(5)));
+    hh_button(&h, S(6));
+    hh_touch(&h, true, S(7));
     TEST_ASSERT_EQUAL(HH_HOLDING, hh_state(&h));
 }
 
@@ -154,7 +168,7 @@ TEST_CASE("hand_hold: sin envio en demo o sin sesion", "[hand_hold]")
 TEST_CASE("hand_hold: la vista desaparece y vuelve a reposo", "[hand_hold]")
 {
     setup(0);
-    hh_touch(&h, true, 0);
+    start(0);
     idle_until(0, S(30));
     hh_set_available(&h, false, true, S(30));
     TEST_ASSERT_EQUAL(HH_IDLE, hh_state(&h));
@@ -200,7 +214,7 @@ TEST_CASE("hand_hold: reloj que desborda 32 bits", "[hand_hold]")
 {
     setup(0);
     uint32_t t0 = 0xFFFFFFFFu - S(30);
-    hh_touch(&h, true, t0);
+    start(t0);
     for (uint32_t i = 0; i <= 610; i++) hh_tick(&h, t0 + i * 100u);
     TEST_ASSERT_EQUAL(HH_DONE, hh_state(&h));
 }

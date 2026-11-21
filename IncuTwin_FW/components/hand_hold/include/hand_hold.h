@@ -43,6 +43,7 @@ void hh_init(hand_hold_t *h, const hh_config_t *cfg);
 
 /* Entradas */
 void hh_button(hand_hold_t *h, uint32_t now);
+/* En reposo el dedo no hace nada: el gesto empieza siempre con hh_button(). */
 void hh_touch(hand_hold_t *h, bool down, uint32_t now);
 /* visible = vista BEBE en pantalla (si no, vuelve a reposo);
  * can_send = ni demo, con sesion MQTT y emparejado. */

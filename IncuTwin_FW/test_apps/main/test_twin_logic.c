@@ -126,6 +126,21 @@ TEST_CASE("apply: bpm sin pulseox no cuenta", "[twin][ingest]")
     TEST_ASSERT_EQUAL(0, inc.bpm); /* fuera de rango */
 }
 
+TEST_CASE("apply: solo se ensena un pulso normal de recien nacido (100..180)", "[twin][ingest]")
+{
+    twin_incubator_t inc; uint32_t seq = 0;
+    twin_incubator_reset(&inc, 1);
+    static const struct { int bpm; uint16_t shown; } C[] = {
+        { 94, 0 }, { 99, 0 }, { 100, 100 }, { 142, 142 }, { 180, 180 }, { 181, 0 }, { 240, 0 },
+    };
+    for (uint32_t i = 0; i < sizeof(C) / sizeof(C[0]); i++) {
+        twin_msg_t m = base_msg(TWIN_MSG_STATE_BABY, i + 1, "heartbeat");
+        m.pulseox = true; m.bpm = C[i].bpm;
+        twin_apply(&inc, &seq, &m);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(C[i].shown, inc.bpm, "bpm mostrado");
+    }
+}
+
 TEST_CASE("apply: offline y tratamientos ausentes", "[twin][ingest]")
 {
     twin_incubator_t inc; uint32_t seq = 0;

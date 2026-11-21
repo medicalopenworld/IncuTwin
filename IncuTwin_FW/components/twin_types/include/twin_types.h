@@ -12,6 +12,13 @@ extern "C" {
 #define TWIN_INCUBATOR_ID_LEN 17 /* 1..16 chars [A-Za-z0-9_-] + 0 */
 #define TWIN_NAME_LEN 24         /* nombre del bebe: <= 23 bytes UTF-8 + 0 */
 #define TWIN_BPM_MAX 300
+/* Pulso que se ensena (latido, corazon, numero): solo el normal de un recien nacido. Fuera de
+ * este rango casi siempre es una mala lectura del sensor y solo asustaria (Pablo, 21-nov-2026). */
+#define TWIN_BPM_SHOW_MIN 100
+#define TWIN_BPM_SHOW_MAX 180
+/* A partir de aqui un adulto lo veria rapido (su normal en reposo es <= 100): se explica que el
+ * corazon de los bebes late muy rapido. */
+#define TWIN_BPM_FAST 110
 #define TWIN_SKIN_COUNT 5
 #define TWIN_SKIN_DARK_MIN 3 /* tonos 3..4: familia de piel oscura en "con sus papas" */
 #define TWIN_COUNTRY_LEN 3      /* ISO 3166-1 alfa-2 en mayusculas + 0 */
@@ -39,7 +46,8 @@ typedef struct {
     bool pulseox;         /* "pulseox" en treatments */
     uint16_t bpm;         /* 0 = sin pulso */
     bool awake;           /* extension; false por defecto */
-    uint8_t skin;         /* 0..4; extension, por defecto Kconfig */
+    uint8_t skin;         /* 0..4; "skin" del estado o, si nunca vino, el del pais */
+    bool skin_set;        /* llego "skin" explicito: ya no se deduce del pais */
     char name[TWIN_NAME_LEN]; /* "" = no compartido */
     char country[TWIN_COUNTRY_LEN]; /* pais de la incubadora ("CM"); "" = no compartido */
     uint16_t weight_g;    /* 0 = no compartido */

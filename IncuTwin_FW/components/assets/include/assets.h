@@ -7,4 +7,5 @@
 
 #include "assets_baby.h"
 #include "assets_extra.h"
+#include "assets_flags.h"
 #include "fonts.h"

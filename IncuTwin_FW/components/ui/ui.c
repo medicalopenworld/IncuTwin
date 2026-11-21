@@ -63,8 +63,10 @@ lv_obj_t *ui_msgbox(const char *title, const char *text, const char *btn_text, l
     return mb;
 }
 
-/* Feedback sonoro al pulsar cualquier boton (spec sound): enganchado al indev, no a cada
- * widget. El bebe tiene su propio latido y queda fuera. */
+/* Feedback sonoro solo al pulsar un boton (spec sound): enganchado al indev, no a cada widget.
+ * Cuenta como boton un lv_button, lo marcado con UI_FLAG_CLICK_SOUND (botones del msgbox,
+ * simbolos de tratamiento) o una imagen pulsable. Tocar el bebe o una zona vacia no suena: el
+ * tactil da a veces pulsaciones fantasma y no deben oirse (Pablo, 21-nov-2026). */
 static void click_feedback_cb(lv_event_t *e)
 {
     (void)e;

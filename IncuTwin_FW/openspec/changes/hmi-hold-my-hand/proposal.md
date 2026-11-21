@@ -20,8 +20,8 @@ nombre puesto en la IncuNest se ve en el panel y, si no hay, no se muestra nada.
 - **Gesto "Coge mi mano"** (capability nueva `hold-my-hand`): máquina de estados reposo → listo
   (botón pulsado) → sosteniendo → gracia (dedo levantado, ≤ 3 s) → completado. Progreso
   visible como un anillo coral alrededor del halo que se llena en 60 s; corazones que suben;
-  texto por fases en la fila inferior y en la barra de estado. Tocar al bebé directamente desde
-  reposo también empieza el gesto.
+  texto por fases en la fila inferior y en la barra de estado. Tocar al bebé desde reposo no
+  empieza el gesto: hay que pulsar antes el botón (21-nov-2026).
 - **Ojos invertidos**: listo y gracia → ojos abiertos ("te espera"); sosteniendo y completado →
   ojos cerrados ("se calma en tu mano"). Al terminar vuelve al estado real.
 - **Aviso a la IncuNest**: al llegar a 60 s el panel publica una vez `incutwin/<client_id>/hand`

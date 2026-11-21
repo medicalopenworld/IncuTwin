@@ -1,5 +1,7 @@
 #include "twin_logic.h"
 
+#include "twin_geo.h"
+
 #include <string.h>
 
 void twin_incubator_reset(twin_incubator_t *inc, uint8_t default_skin)
@@ -37,14 +39,13 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
     inc->thermo = m->heat ? TWIN_THERMO_STABLE : TWIN_THERMO_OFF;
     inc->photo = m->photo;
     inc->pulseox = m->pulseox;
-    inc->bpm = (m->pulseox && m->bpm >= 1 && m->bpm <= TWIN_BPM_MAX) ? (uint16_t)m->bpm : 0;
+    inc->bpm = (m->pulseox && m->bpm >= TWIN_BPM_SHOW_MIN && m->bpm <= TWIN_BPM_SHOW_MAX) ? (uint16_t)m->bpm : 0;
 
     /* extensiones: prevalecen si vienen; name/weight/age se borran si no vienen
      * (ThingsBoard publica el estado completo cada vez) */
     if (m->has_thermo) inc->thermo = m->thermo;
     if (m->has_baby) inc->baby = m->baby;
     inc->awake = m->has_awake ? m->awake : false;
-    if (m->has_skin) inc->skin = m->skin;
     if (m->has_name) {
         strncpy(inc->name, m->name, TWIN_NAME_LEN - 1);
         inc->name[TWIN_NAME_LEN - 1] = '\0';
@@ -55,6 +56,13 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
         memcpy(inc->country, m->country, TWIN_COUNTRY_LEN);
     } else {
         inc->country[0] = '\0';
+    }
+    /* tono: el explicito manda y se conserva; si no, el del pais (4 de 5 si no se sabe) */
+    if (m->has_skin) {
+        inc->skin = m->skin;
+        inc->skin_set = true;
+    } else if (!inc->skin_set) {
+        inc->skin = twin_geo_skin(inc->country);
     }
     inc->weight_g = m->has_weight ? m->weight_g : 0;
     inc->age_d = m->has_age ? m->age_d : -1;
