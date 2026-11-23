@@ -87,6 +87,7 @@ typedef struct {
     twin_acc_t acc;
     bool acc_remind;       /* "¿Le das la mano hoy?" */
     uint8_t acc_week;      /* corazones: bit 0 = hoy ... bit 6 = hace 6 dias */
+    uint8_t acc_super;     /* los que son super corazon (3 min de mano), mismos bits */
     /* derivados (twin_derive) */
     bool link_ok;
     bool show_baby;

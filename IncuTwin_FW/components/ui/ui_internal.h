@@ -17,7 +17,8 @@ lv_obj_t *ui_home_create(void);
 void ui_home_apply(const twin_snapshot_t *s);
 void ui_home_retranslate(void);
 void ui_home_screen_pressed(void);
-void ui_home_goto_baby(void); /* desde la etiqueta del pais del mapa */ /* toque en cualquier sitio (despedida del modo acompañar) */
+void ui_home_goto_baby(void); /* desde la etiqueta del pais del mapa */
+void ui_home_status_refresh(void); /* repinta la barra de estado (la hora del mapa ha cambiado) */ /* toque en cualquier sitio (despedida del modo acompañar) */
 
 /* ajustes */
 lv_obj_t *ui_settings_create(void);

@@ -21,6 +21,16 @@ SHALL llevar a la página del país. Un código que el panel no conozca SHALL mo
 
 ## ADDED Requirements
 
+### Requirement: Página del mapa con poco texto [manual]
+La página del país SHALL mostrar solo el mapa, la etiqueta del país arriba y los km en una
+pastilla sobre el centro de la línea que une tu IncuTwin con la IncuNest. La hora del país SHALL
+ir en la barra de estado mientras se ve el mapa ("En Togo son las 17:43"), salvo avisos urgentes
+(alarma, sin WiFi, sin credenciales, conexión perdida).
+
+#### Scenario: Ver el mapa
+- **WHEN** se desliza a la página del país de una IncuNest en Togo
+- **THEN** sobre la línea pone "4.020 km" y la barra de estado "En Togo son las 17:43"
+
 ### Requirement: Volver al bebé desde el mapa [manual]
 En la página del país, la etiqueta de arriba (bandera y nombre) SHALL llevar también el bebé en
 pequeño y, al pulsarla, SHALL volver a la página del bebé.

@@ -225,9 +225,11 @@ static void mark_day(acc_t *a, int32_t day)
     if (a->p.mask_day == ACC_NO_DAY) {
         a->p.mask_day = day;
         a->p.days_mask = 0;
+        a->p.super_mask = 0;
     } else if (day > a->p.mask_day) {
         int32_t diff = day - a->p.mask_day;
         a->p.days_mask = diff >= 7 ? 0 : (uint8_t)((a->p.days_mask << diff) & 0x7F);
+        a->p.super_mask = diff >= 7 ? 0 : (uint8_t)((a->p.super_mask << diff) & 0x7F);
         a->p.mask_day = day;
     }
     int32_t off = a->p.mask_day - day; /* un dia anterior (reloj corregido) cae en su bit */
@@ -244,6 +246,25 @@ uint32_t acc_gesture(acc_t *a, int32_t day)
     mark_day(a, day);
     return ACC_R_PHASE | ACC_R_SAVE;
 }
+
+uint32_t acc_super(acc_t *a, int32_t day)
+{
+    uint32_t r = acc_gesture(a, day);
+    if (!r || day == ACC_NO_DAY) return r;
+    int32_t off = a->p.mask_day - day;
+    if (off >= 0 && off < 7) a->p.super_mask |= (uint8_t)(1u << off);
+    return r;
+}
+
+static uint8_t shifted(uint8_t mask, int32_t mask_day, int32_t day)
+{
+    if (mask_day == ACC_NO_DAY) return 0;
+    if (day == ACC_NO_DAY || day <= mask_day) return mask;
+    int32_t diff = day - mask_day;
+    return diff >= 7 ? 0 : (uint8_t)((mask << diff) & 0x7F);
+}
+
+uint8_t acc_super_mask(const acc_t *a, int32_t day) { return shifted(a->p.super_mask, a->p.mask_day, day); }
 
 uint32_t acc_touch(acc_t *a, uint32_t now_s)
 {
@@ -307,14 +328,7 @@ bool acc_remind_active(const acc_t *a, int32_t day, int hour)
            a->p.gesture_day != day;
 }
 
-uint8_t acc_week_mask(const acc_t *a, int32_t day)
-{
-    if (a->p.mask_day == ACC_NO_DAY) return 0;
-    if (day == ACC_NO_DAY || day <= a->p.mask_day) return a->p.days_mask;
-    int32_t diff = day - a->p.mask_day;
-    if (diff >= 7) return 0;
-    return (uint8_t)((a->p.days_mask << diff) & 0x7F);
-}
+uint8_t acc_week_mask(const acc_t *a, int32_t day) { return shifted(a->p.days_mask, a->p.mask_day, day); }
 
 acc_streak_msg_t acc_streak_msg(uint8_t mask, int *n)
 {

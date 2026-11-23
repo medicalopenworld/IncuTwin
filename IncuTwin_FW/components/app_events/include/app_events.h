@@ -53,6 +53,7 @@ typedef enum {
 typedef enum {
     APP_ACC_GESTURE = 1, /* "Coge mi mano" completado (aunque no se pueda publicar) */
     APP_ACC_TOUCH,       /* toque en la pantalla durante la despedida */
+    APP_ACC_SUPER,       /* 3 minutos de mano en el mismo gesto: super corazon */
 } app_evt_acc_input_t;
 
 typedef struct {

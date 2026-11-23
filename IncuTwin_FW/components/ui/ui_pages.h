@@ -4,6 +4,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stddef.h>
 
 #include "lvgl.h"
 #include "twin_types.h"
@@ -30,3 +31,7 @@ int ui_pages_current(void);
 void ui_pages_note_hand(void);
 
 void ui_pages_retranslate(void);
+
+/* En la pagina del mapa: la hora del pais para la barra de estado ("En Togo son las 17:43").
+ * false si no se esta viendo el mapa o aun no hay hora. */
+bool ui_pages_status_text(char *buf, size_t n);

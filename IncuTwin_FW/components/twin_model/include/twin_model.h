@@ -45,7 +45,7 @@ void twin_model_demo_set_skin(uint8_t skin);
 
 /* Modo Acompañar (spec accompany): fase, recordatorio y corazones para la UI. Publica solo si
  * cambia. En la demo el snapshot los lleva apagados. */
-void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week);
+void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week, uint8_t super);
 
 twin_snapshot_t twin_model_get(void);
 

@@ -70,7 +70,7 @@ static void local_now(int32_t *day, int *hour)
 }
 
 /* "Coge mi mano" hecho sin hora SNTP: se apunta en su dia en cuanto llega la hora */
-static bool s_gesture_pending;
+static bool s_gesture_pending, s_super_pending;
 static uint32_t s_gesture_at; /* now_s() del gesto */
 
 /* ------------------------------------------------------------- con el mutex */
@@ -85,13 +85,14 @@ static void save_locked(void)
 static void publish_ui_locked(void)
 {
     if (!s_enabled) {
-        twin_model_set_acc(TWIN_ACC_OFF, false, 0);
+        twin_model_set_acc(TWIN_ACC_OFF, false, 0, 0);
         return;
     }
     int32_t day;
     int hour;
     local_now(&day, &hour);
-    twin_model_set_acc(acc_phase(&s_acc), acc_remind_active(&s_acc, day, hour), acc_week_mask(&s_acc, day));
+    twin_model_set_acc(acc_phase(&s_acc), acc_remind_active(&s_acc, day, hour), acc_week_mask(&s_acc, day),
+                       acc_super_mask(&s_acc, day));
 }
 
 /* La IncuNest actual ha cambiado: el gemelo pasa a ella con su ultimo estado guardado. */
@@ -152,6 +153,13 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
         } else if (r) {
             ESP_LOGI(TAG, "gesto completado: hoy cuenta como dia acompañado");
         }
+    } else if (in == APP_ACC_SUPER) {
+        r = acc_super(&s_acc, day);
+        if (r && day == ACC_NO_DAY) {
+            s_gesture_pending = s_super_pending = true;
+            s_gesture_at = now_s();
+        }
+        if (r) ESP_LOGI(TAG, "3 minutos de mano: super corazon%s", day == ACC_NO_DAY ? " (al llegar la hora)" : "");
     } else if (in == APP_ACC_TOUCH) {
         r = acc_touch(&s_acc, now_s());
     }
@@ -287,7 +295,8 @@ void accompany_tick_1s(void)
     if (s_gesture_pending && day != ACC_NO_DAY) {
         s_gesture_pending = false;
         int32_t gday = local_day_of(time(NULL) - (time_t)(now_s() - s_gesture_at), NULL);
-        r = acc_gesture(&s_acc, gday);
+        r = s_super_pending ? acc_super(&s_acc, gday) : acc_gesture(&s_acc, gday);
+        s_super_pending = false;
         ESP_LOGI(TAG, "hora disponible: el gesto pendiente cuenta para el dia %ld%s", (long)gday,
                  r ? "" : " (ya sin bebe: no)");
     }

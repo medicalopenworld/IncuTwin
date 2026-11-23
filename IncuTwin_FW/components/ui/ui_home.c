@@ -12,6 +12,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "acc_logic.h"
 #include "assets.h"
 #include "baby_widget.h"
 #include "hand_hold.h"
@@ -66,6 +67,7 @@ static lv_obj_t *s_ring, *s_target, *s_lbl_hold, *s_name, *s_hearts[N_HEARTS];
 static lv_obj_t *s_thanks_img, *s_country, *s_country_flag, *s_country_lbl;
 static int32_t s_ring_lap = -1; /* vuelta pintada; -1 = forzar colores */
 static bool s_parents_dark;
+static bool s_super_sent; /* super corazon ya avisado en este gesto */
 static lv_timer_t *s_hb_timer; /* latido sonando tras tocar el icono del corazon */
 
 #define HB_TAP_MS 10000
@@ -327,6 +329,13 @@ static void country_clicked(lv_event_t *e)
     hh_state_t st = hh_state(&s_hh);
     if (st == HH_DONE || st == HH_THANKS) return;
     if (ui_pages_goto(1)) page_changed();
+}
+
+static void status_bar_apply(const twin_snapshot_t *s);
+
+void ui_home_status_refresh(void)
+{
+    if (s_have_last && hh_state(&s_hh) == HH_IDLE) status_bar_apply(&s_last);
 }
 
 /* Etiqueta del pais en la pagina del mapa: vuelve al bebe */
@@ -763,7 +772,16 @@ static void status_bar_baby(const twin_incubator_t *inc)
 
 static void status_bar_apply(const twin_snapshot_t *s)
 {
-    switch (twin_status_of(s)) {
+    twin_status_t st = twin_status_of(s);
+    /* en la pagina del mapa, la hora del pais (salvo avisos que no pueden esperar) */
+    char clock[64];
+    bool urgent = st == TWIN_ST_ALARM || st == TWIN_ST_NO_WIFI || st == TWIN_ST_NO_CREDS ||
+                  st == TWIN_ST_BROKER_LOST;
+    if (!urgent && ui_pages_status_text(clock, sizeof(clock))) {
+        status_bar_text(clock, COL_NAVY_DARK);
+        return;
+    }
+    switch (st) {
     case TWIN_ST_HOME:        status_bar_text(tr(STR_ST_HOME), COL_OK); break;
     case TWIN_ST_PARENTS:     status_bar_text(tr(STR_ST_PARENTS), COL_OK); break;
     case TWIN_ST_NO_WIFI:     status_bar_text(tr(STR_ST_NO_WIFI), COL_RED); break;
@@ -965,7 +983,10 @@ static void hold_refresh(bool force)
         hearts_run(baby_view && (st == HH_HOLDING || st == HH_DONE));
         thanks_show(baby_view && st == HH_THANKS);
         overlay_refresh();
-        if (idle) s_ring_lap = -1;
+        if (idle) {
+            s_ring_lap = -1;
+            s_super_sent = false;
+        }
 
         bool boxed = st == HH_READY || st == HH_THANKS;
         lv_obj_set_style_bg_opa(s_lbl_hold, boxed ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
@@ -1005,7 +1026,24 @@ static void hold_refresh(bool force)
         break;
     default: /* completado, con o sin dedo */
         hold_text(tr(STR_HH_THANKS));
-        status_bar_text(tr(STR_HH_ST_DONE), COL_OK);
+        if (st == HH_DONE && s_last.acc != TWIN_ACC_OFF && !s_last.demo) {
+            /* modo acompañar: sigue con el dedo hasta los 3 min y es un super corazon */
+            uint32_t held_s = hh_held_ms(&s_hh, now) / 1000;
+            if (held_s >= ACC_SUPER_S) {
+                if (!s_super_sent) {
+                    s_super_sent = true;
+                    app_evt_acc_input_t in = APP_ACC_SUPER;
+                    app_events_post(TWIN_EVT_ACC_INPUT, &in, sizeof(in));
+                }
+                status_bar_text(tr(STR_HH_ST_SUPER), COL_SUPER);
+            } else {
+                unsigned left = ACC_SUPER_S - held_s;
+                snprintf(buf, sizeof(buf), tr(STR_HH_ST_SUPER_IN), left / 60, left % 60);
+                status_bar_text(buf, COL_OK);
+            }
+        } else {
+            status_bar_text(tr(STR_HH_ST_DONE), COL_OK);
+        }
         break;
     }
 }

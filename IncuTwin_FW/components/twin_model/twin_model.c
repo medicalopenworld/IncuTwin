@@ -28,6 +28,7 @@ static uint8_t s_demo_skin; /* tono que se esta probando en la demo */
 static twin_acc_t s_acc;     /* modo Acompañar */
 static bool s_acc_remind;
 static uint8_t s_acc_week;
+static uint8_t s_acc_super;
 
 #define LOCK()   xSemaphoreTake(s_mutex, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_mutex)
@@ -54,6 +55,7 @@ static twin_snapshot_t build_snapshot(void)
         s.acc = s_acc;
         s.acc_remind = s_acc_remind;
         s.acc_week = s_acc_week;
+        s.acc_super = s_acc_super;
     }
     twin_derive(&s);
     return s;
@@ -312,13 +314,14 @@ void twin_model_demo_set_skin(uint8_t skin)
     UNLOCK();
 }
 
-void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week)
+void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week, uint8_t super)
 {
     LOCK();
-    if (acc != s_acc || remind != s_acc_remind || week != s_acc_week) {
+    if (acc != s_acc || remind != s_acc_remind || week != s_acc_week || super != s_acc_super) {
         s_acc = acc;
         s_acc_remind = remind;
         s_acc_week = week;
+        s_acc_super = super;
         publish_locked();
     }
     UNLOCK();

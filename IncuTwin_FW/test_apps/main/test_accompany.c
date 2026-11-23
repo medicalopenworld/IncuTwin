@@ -398,6 +398,34 @@ TEST_CASE("acc: texto de la racha segun los corazones", "[acc]")
     TEST_ASSERT_EQUAL(ACC_SM_START, acc_streak_msg(0x14, &n)); /* ni hoy ni ayer */
 }
 
+TEST_CASE("acc: super corazon con 3 minutos de mano", "[acc]")
+{
+    fresh();
+    baby("297", 0);
+    acc_gesture(&a, DAY); /* a los 20 s */
+    TEST_ASSERT_EQUAL_HEX8(0x01, acc_week_mask(&a, DAY));
+    TEST_ASSERT_EQUAL_HEX8(0x00, acc_super_mask(&a, DAY));
+    uint32_t r = acc_super(&a, DAY); /* a los 3 min */
+    TEST_ASSERT_TRUE(r & ACC_R_SAVE);
+    TEST_ASSERT_EQUAL_HEX8(0x01, acc_super_mask(&a, DAY));
+    /* dos dias despues: se desplaza con los corazones; ese dia sin super */
+    acc_gesture(&a, DAY + 2);
+    TEST_ASSERT_EQUAL_HEX8(0x05, acc_week_mask(&a, DAY + 2));
+    TEST_ASSERT_EQUAL_HEX8(0x04, acc_super_mask(&a, DAY + 2));
+    TEST_ASSERT_EQUAL_HEX8(0x00, acc_super_mask(&a, DAY + 9)); /* mas de una semana */
+}
+
+TEST_CASE("acc: super corazon tambien cuenta como gesto, y sin bebe nada", "[acc]")
+{
+    fresh();
+    TEST_ASSERT_EQUAL_UINT32(0, acc_super(&a, DAY)); /* buscando: no hay a quien */
+    baby("297", 0);
+    acc_super(&a, DAY);
+    TEST_ASSERT_EQUAL(TWIN_ACC_WITH, acc_phase(&a));
+    TEST_ASSERT_EQUAL_HEX8(0x01, acc_week_mask(&a, DAY));
+    TEST_ASSERT_EQUAL_HEX8(0x01, acc_super_mask(&a, DAY));
+}
+
 TEST_CASE("acc: el gesto sin hora cuenta en su dia cuando llega la hora", "[acc]")
 {
     fresh();

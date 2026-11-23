@@ -13,6 +13,17 @@ empate, la de mayor `hash(client_id) ^ hash(id)`. Sin ninguna, SHALL quedarse bu
 - **WHEN** todas las IncuNest conocidas están libres o desconectadas
 - **THEN** la barra dice "Ahora no hay bebés. Te avisaré" y, al llegar un bebé a cualquiera, la elige
 
+### Requirement: Súper corazón [test-unity]
+En modo Acompañar, "Coge mi mano" SHALL completarse con 20 s de dedo (`CONFIG_INCUTWIN_HAND_MIN_S`,
+antes 60 s). Si en el mismo gesto se llega a 3 min de dedo, ese día SHALL ser un súper corazón:
+dorado en la racha, y también cuenta como día acompañado. Mientras se sigue con el dedo, la barra
+de estado SHALL decir cuánto falta ("Súper corazón en 2:40") y, al llegar, "¡Súper corazón!".
+
+#### Scenario: Tres minutos
+- **WHEN** se completa el gesto y se mantiene el dedo hasta los 3 min
+- **THEN** el corazón de hoy se pinta dorado y la frase de la racha dice "¡Súper corazón hoy! 3
+  minutos de la mano"
+
 ### Requirement: Nunca una IncuNest de España [test-unity]
 Las IncuNest de España son de muestra o están en fabricación. El panel SHALL ignorar los estados
 cuyo `country` sea `ES`, `XX` o falte (podría ser una de aquí): no las elige, no las muestra y no
@@ -85,10 +96,12 @@ gesto. Entre las 22:00 y las 9:00 las melodías automáticas SHALL no sonar.
 El panel SHALL marcar cada día con un gesto completado y mostrar en la página del país 7
 corazones, llenos los días de los últimos 7 en que acompañó (el de la derecha es hoy).
 
-#### Scenario: Pulsar los corazones
-- **WHEN** se pulsan los corazones con los tres últimos días encendidos (hoy incluido)
-- **THEN** sale unos segundos "¡3 días seguidos! Vuelve mañana"; sin ninguno, "Cada día que le das
-  la mano se enciende un corazón"; sin hora SNTP, "Esperando la hora para contar los días"
+#### Scenario: Página de la racha
+- **WHEN** en modo Acompañar se desliza a la derecha del mapa
+- **THEN** sale "Tu racha": 7 corazones de lunes (izquierda) a domingo, con su inicial debajo (hoy
+  en coral), que se rellenan de izquierda a derecha según pasa la semana; los días que no han
+  llegado casi transparentes; y una frase: "¡3 días seguidos! Vuelve mañana", "Cada día que le das
+  la mano se enciende un corazón" o, sin hora SNTP, "Esperando la hora para contar los días"
 
 #### Scenario: Gesto sin hora
 - **WHEN** se completa "Coge mi mano" antes de que el panel tenga hora SNTP

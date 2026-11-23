@@ -43,6 +43,9 @@ typedef struct {
     uint8_t engaged;        /* ya hubo gesto con el bebe actual */
     uint8_t days_mask;      /* bit i = dia mask_day - i con gesto */
     char cur[TWIN_INCUBATOR_ID_LEN]; /* "" = ninguna */
+    /* bit i = dia mask_day - i con super corazon (3 min de mano). Ocupa el relleno que habia
+     * tras cur (a 0 en los blobs guardados antes): mismo tamaño, sin cambiar de version. */
+    uint8_t super_mask;
     int32_t gesture_day;    /* ultimo dia con gesto */
     int32_t mask_day;
     int32_t remind_day;     /* ultimo dia con llamada */
@@ -102,6 +105,10 @@ int acc_seen_index(const acc_t *a, const char *id);
 
 /* "Coge mi mano" completado. */
 uint32_t acc_gesture(acc_t *a, int32_t day);
+/* 3 minutos de mano en el mismo gesto: super corazon ese dia (tambien cuenta como gesto). */
+#define ACC_SUPER_S 180
+uint32_t acc_super(acc_t *a, int32_t day);
+uint8_t acc_super_mask(const acc_t *a, int32_t day);
 /* Toque en la pantalla (cierra la despedida). */
 uint32_t acc_touch(acc_t *a, uint32_t now_s);
 /* Cada segundo. hour = hora local 0..23, o -1 sin hora valida; shown = bebe a la vista. */

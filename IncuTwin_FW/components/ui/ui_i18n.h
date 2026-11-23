@@ -35,6 +35,12 @@ typedef enum {
     STR_STREAK_KEEP1,
     STR_STREAK_KEEP,
     STR_STREAK_NO_TIME,
+    STR_STREAK_TITLE,
+    STR_WEEKDAY_INITIALS, /* 7 letras, de domingo a sabado */
+    STR_PG_TIME_IN,       /* barra de estado en el mapa: pais, hora */
+    STR_HH_ST_SUPER_IN,   /* min, s que faltan para el super corazon */
+    STR_HH_ST_SUPER,
+    STR_STREAK_SUPER,
     STR_DAY,
     STR_DAYS,
     /* pantalla principal */
