@@ -140,21 +140,49 @@ static uint32_t search(acc_t *a, uint32_t now_s)
     return pick(a) | ACC_R_PHASE | ACC_R_SAVE;
 }
 
+/* Entrada de la tabla para `id` (la crea si hace falta); -1 si esta llena de bebes. */
+static int seen_slot(acc_t *a, const char *id)
+{
+    int i = acc_seen_index(a, id);
+    if (i >= 0) return i;
+    if (a->n_seen < ACC_MAX_INC) {
+        i = a->n_seen++;
+    } else { /* llena: reutilizar una sin bebe que no sea la actual */
+        for (int k = 0; k < ACC_MAX_INC && i < 0; k++) {
+            if (!a->seen[k].present && strcmp(a->seen[k].id, a->p.cur) != 0) i = k;
+        }
+        if (i < 0) return -1;
+    }
+    copy_id(a->seen[i].id, id);
+    a->seen[i].present = false;
+    a->seen[i].home = false;
+    return i;
+}
+
+bool acc_country_ok(const char *cc)
+{
+    if (!cc || strlen(cc) != 2) return false;
+    if (cc[0] < 'A' || cc[0] > 'Z' || cc[1] < 'A' || cc[1] > 'Z') return false;
+    return strcmp(cc, "ES") != 0 && strcmp(cc, "XX") != 0;
+}
+
+uint32_t acc_exclude(acc_t *a, const char *id, uint32_t now_s)
+{
+    if (!id || !id[0]) return 0;
+    int i = seen_slot(a, id);
+    if (i >= 0) {
+        a->seen[i].present = false;
+        a->seen[i].home = false;
+    }
+    if (a->p.cur[0] && !strcmp(id, a->p.cur)) return search(a, now_s);
+    return 0;
+}
+
 uint32_t acc_seen_update(acc_t *a, const char *id, bool present, bool home, uint32_t now_s)
 {
     if (!id || !id[0]) return 0;
-    int i = acc_seen_index(a, id);
-    if (i < 0) {
-        if (a->n_seen < ACC_MAX_INC) {
-            i = a->n_seen++;
-        } else { /* llena: reutilizar una sin bebe que no sea la actual */
-            for (int k = 0; k < ACC_MAX_INC && i < 0; k++) {
-                if (!a->seen[k].present && strcmp(a->seen[k].id, a->p.cur) != 0) i = k;
-            }
-            if (i < 0) return 0;
-        }
-        copy_id(a->seen[i].id, id);
-    }
+    int i = seen_slot(a, id);
+    if (i < 0) return 0;
     a->seen[i].present = present;
     a->seen[i].home = home;
 

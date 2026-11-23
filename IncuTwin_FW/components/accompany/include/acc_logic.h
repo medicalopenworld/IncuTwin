@@ -78,6 +78,12 @@ void acc_hold_pick(acc_t *a, uint32_t until_s);
 
 /* Estado recibido de una IncuNest. present = bebe dentro o con sus papas; home = alta. */
 uint32_t acc_seen_update(acc_t *a, const char *id, bool present, bool home, uint32_t now_s);
+/* Pais que se puede acompañar: ISO alfa-2 conocido y que no sea España (en España solo hay
+ * IncuNest de muestra o de fabrica). Sin pais o "XX" tampoco: podria ser una de aqui. */
+bool acc_country_ok(const char *cc);
+/* Estado de una IncuNest que no se puede acompañar: nunca se elige y, si es la actual, se deja
+ * en el acto (sin despedida ni margen de 2 h) y se busca otra. */
+uint32_t acc_exclude(acc_t *a, const char *id, uint32_t now_s);
 /* Indice de la IncuNest en a->seen (para el payload guardado en PSRAM); -1 si no esta. */
 int acc_seen_index(const acc_t *a, const char *id);
 

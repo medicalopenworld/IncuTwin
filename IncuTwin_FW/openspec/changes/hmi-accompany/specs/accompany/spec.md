@@ -13,6 +13,20 @@ empate, la de mayor `hash(client_id) ^ hash(id)`. Sin ninguna, SHALL quedarse bu
 - **WHEN** todas las IncuNest conocidas están libres o desconectadas
 - **THEN** la barra dice "Ahora no hay bebés. Te avisaré" y, al llegar un bebé a cualquiera, la elige
 
+### Requirement: Nunca una IncuNest de España [test-unity]
+Las IncuNest de España son de muestra o están en fabricación. El panel SHALL ignorar los estados
+cuyo `country` sea `ES`, `XX` o falte (podría ser una de aquí): no las elige, no las muestra y no
+las guarda. Si la actual resulta serlo, SHALL dejarla en el acto, sin despedida ni margen de 2 h,
+y buscar otra.
+
+#### Scenario: Bebé en España y en Togo
+- **WHEN** hay bebé en 363 (`country: "ES"`) y en 297 (`country: "TG"`)
+- **THEN** elige 297 aunque 363 tenga más historial
+
+#### Scenario: La actual es de España
+- **WHEN** el panel acompaña a TEST-acc y llega su estado con `country: "ES"`
+- **THEN** la deja y elige otra IncuNest con bebé, o se queda buscando
+
 ### Requirement: No abandonar a mitad de estancia [test-unity]
 Con una IncuNest actual con bebé, el panel SHALL quedarse con ella aunque otra con más historial
 tenga bebé.

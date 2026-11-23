@@ -231,6 +231,18 @@ void accompany_ingest(const char *json, size_t len)
         ESP_LOGW(TAG, "estado descartado: %s", twin_parse_result_str(pr));
         return;
     }
+    if (!acc_country_ok(m.has_country ? m.country : "")) {
+        /* España (muestra/fabrica) o sin pais: nunca se muestra; ni se guarda ni va al gemelo */
+        LOCK();
+        uint32_t r = acc_exclude(&s_acc, m.incubator_id, now_s());
+        if (r & ACC_R_SWITCH) {
+            ESP_LOGI(TAG, "%s excluida (pais '%s'): se busca otro bebe", m.incubator_id,
+                     m.has_country ? m.country : "");
+        }
+        handle_locked(r);
+        UNLOCK();
+        return;
+    }
     bool present = m.state == TWIN_MSG_STATE_BABY &&
                    (!m.has_baby || m.baby == TWIN_BABY_IN || m.baby == TWIN_BABY_PARENTS);
     bool home = m.has_baby && m.baby == TWIN_BABY_HOME;

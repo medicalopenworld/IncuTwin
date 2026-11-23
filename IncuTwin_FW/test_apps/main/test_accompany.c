@@ -74,6 +74,46 @@ TEST_CASE("acc: sin bebes sigue buscando y elige al primero que llegue", "[acc]"
     TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
 }
 
+TEST_CASE("acc: solo paises conocidos y nunca España", "[acc]")
+{
+    TEST_ASSERT_TRUE(acc_country_ok("TG"));
+    TEST_ASSERT_TRUE(acc_country_ok("ET"));
+    TEST_ASSERT_FALSE(acc_country_ok("ES")); /* las de España son de muestra o de fabrica */
+    TEST_ASSERT_FALSE(acc_country_ok("XX")); /* sin geolocalizar: podria ser España */
+    TEST_ASSERT_FALSE(acc_country_ok(""));
+    TEST_ASSERT_FALSE(acc_country_ok(NULL));
+    TEST_ASSERT_FALSE(acc_country_ok("TGO"));
+}
+
+TEST_CASE("acc: la actual resulta excluida, se deja al momento y se busca otra", "[acc]")
+{
+    fresh();
+    baby("353", 0);
+    baby("297", 0);
+    TEST_ASSERT_EQUAL_STRING("353", acc_current(&a));
+    uint32_t r = acc_exclude(&a, "353", 10);
+    TEST_ASSERT_TRUE(r & ACC_R_SWITCH);
+    TEST_ASSERT_FALSE(r & ACC_R_FORWARD);
+    TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
+    TEST_ASSERT_EQUAL(TWIN_ACC_WAITING, acc_phase(&a));
+    acc_exclude(&a, "353", 20); /* otra vez: no cambia nada */
+    TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
+}
+
+TEST_CASE("acc: excluida tambien saca de la despedida, aunque no haya otra", "[acc]")
+{
+    fresh();
+    baby("TEST-acc", 0);
+    acc_seen_update(&a, "TEST-acc", false, true, 10); /* se va a casa */
+    TEST_ASSERT_EQUAL(TWIN_ACC_FAREWELL, acc_phase(&a));
+    uint32_t r = acc_exclude(&a, "TEST-acc", 20);
+    TEST_ASSERT_TRUE(r & ACC_R_SWITCH);
+    TEST_ASSERT_EQUAL(TWIN_ACC_SEARCHING, acc_phase(&a));
+    TEST_ASSERT_EQUAL_STRING("", acc_current(&a));
+    baby("297", 30);
+    TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
+}
+
 TEST_CASE("acc: un bebe que se va a casa no se elige", "[acc]")
 {
     fresh();
