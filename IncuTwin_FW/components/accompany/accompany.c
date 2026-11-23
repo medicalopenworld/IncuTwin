@@ -52,18 +52,26 @@ static int32_t days_from_civil(int y, unsigned m, unsigned d)
     return era * 146097 + (int32_t)doe - 719468;
 }
 
+static int32_t local_day_of(time_t t, int *hour)
+{
+    struct tm tm;
+    localtime_r(&t, &tm);
+    if (hour) *hour = tm.tm_hour;
+    return days_from_civil(tm.tm_year + 1900, (unsigned)tm.tm_mon + 1, (unsigned)tm.tm_mday);
+}
+
 /* Dia y hora locales (España); ACC_NO_DAY / -1 sin hora SNTP. */
 static void local_now(int32_t *day, int *hour)
 {
     *day = ACC_NO_DAY;
     *hour = -1;
     if (!net_wifi_time_valid()) return;
-    time_t t = time(NULL);
-    struct tm tm;
-    localtime_r(&t, &tm);
-    *day = days_from_civil(tm.tm_year + 1900, (unsigned)tm.tm_mon + 1, (unsigned)tm.tm_mday);
-    *hour = tm.tm_hour;
+    *day = local_day_of(time(NULL), hour);
 }
+
+/* "Coge mi mano" hecho sin hora SNTP: se apunta en su dia en cuanto llega la hora */
+static bool s_gesture_pending;
+static uint32_t s_gesture_at; /* now_s() del gesto */
 
 /* ------------------------------------------------------------- con el mutex */
 
@@ -137,7 +145,13 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
     uint32_t r = 0;
     if (in == APP_ACC_GESTURE) {
         r = acc_gesture(&s_acc, day);
-        if (r) ESP_LOGI(TAG, "gesto completado: hoy cuenta como dia acompañado");
+        if (r && day == ACC_NO_DAY) {
+            s_gesture_pending = true;
+            s_gesture_at = now_s();
+            ESP_LOGI(TAG, "gesto completado sin hora: se apuntara al llegar la hora");
+        } else if (r) {
+            ESP_LOGI(TAG, "gesto completado: hoy cuenta como dia acompañado");
+        }
     } else if (in == APP_ACC_TOUCH) {
         r = acc_touch(&s_acc, now_s());
     }
@@ -269,6 +283,14 @@ void accompany_tick_1s(void)
     bool shown = !s.demo && (s.show_baby || s.parents_view);
     sound_set_quiet(acc_quiet(hour));
     LOCK();
-    handle_locked(acc_tick(&s_acc, now_s(), day, hour, shown));
+    uint32_t r = 0;
+    if (s_gesture_pending && day != ACC_NO_DAY) {
+        s_gesture_pending = false;
+        int32_t gday = local_day_of(time(NULL) - (time_t)(now_s() - s_gesture_at), NULL);
+        r = acc_gesture(&s_acc, gday);
+        ESP_LOGI(TAG, "hora disponible: el gesto pendiente cuenta para el dia %ld%s", (long)gday,
+                 r ? "" : " (ya sin bebe: no)");
+    }
+    handle_locked(r | acc_tick(&s_acc, now_s(), day, hour, shown));
     UNLOCK();
 }

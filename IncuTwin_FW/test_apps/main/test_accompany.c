@@ -381,6 +381,36 @@ TEST_CASE("acc: corazones de los ultimos 7 dias", "[acc]")
     TEST_ASSERT_EQUAL_HEX8(0x01, acc_week_mask(&a, DAY + 10));
 }
 
+TEST_CASE("acc: texto de la racha segun los corazones", "[acc]")
+{
+    int n = -1;
+    TEST_ASSERT_EQUAL(ACC_SM_NONE, acc_streak_msg(0x00, &n));
+    TEST_ASSERT_EQUAL(ACC_SM_TODAY1, acc_streak_msg(0x01, &n));
+    TEST_ASSERT_EQUAL(1, n);
+    TEST_ASSERT_EQUAL(ACC_SM_TODAY1, acc_streak_msg(0x05, &n)); /* hoy, ayer no, antier si */
+    TEST_ASSERT_EQUAL(ACC_SM_RUN, acc_streak_msg(0x07, &n));
+    TEST_ASSERT_EQUAL(3, n);
+    TEST_ASSERT_EQUAL(ACC_SM_WEEK, acc_streak_msg(0x7F, &n));
+    TEST_ASSERT_EQUAL(7, n);
+    TEST_ASSERT_EQUAL(ACC_SM_KEEP1, acc_streak_msg(0x02, &n)); /* ayer si, hoy aun no */
+    TEST_ASSERT_EQUAL(ACC_SM_KEEP, acc_streak_msg(0x0E, &n));
+    TEST_ASSERT_EQUAL(3, n);
+    TEST_ASSERT_EQUAL(ACC_SM_START, acc_streak_msg(0x14, &n)); /* ni hoy ni ayer */
+}
+
+TEST_CASE("acc: el gesto sin hora cuenta en su dia cuando llega la hora", "[acc]")
+{
+    fresh();
+    baby("297", 0);
+    acc_gesture(&a, ACC_NO_DAY); /* sin SNTP: pasa a "con el bebe" pero sin dia */
+    TEST_ASSERT_EQUAL(TWIN_ACC_WITH, acc_phase(&a));
+    TEST_ASSERT_EQUAL_HEX8(0, acc_week_mask(&a, DAY));
+    acc_gesture(&a, DAY); /* llega la hora: el pegamento repite el gesto con su dia */
+    TEST_ASSERT_EQUAL_HEX8(0x01, acc_week_mask(&a, DAY));
+    acc_tick(&a, 10, DAY, 10, true);
+    TEST_ASSERT_EQUAL_UINT32(1, acc_hist_secs(&a, "297")); /* y hoy cuenta */
+}
+
 /* --------------------------------------------------------------- guardar */
 
 TEST_CASE("acc: restaurar lo guardado; basura = estado inicial", "[acc]")

@@ -78,6 +78,19 @@ void acc_hold_pick(acc_t *a, uint32_t until_s);
 
 /* Estado recibido de una IncuNest. present = bebe dentro o con sus papas; home = alta. */
 uint32_t acc_seen_update(acc_t *a, const char *id, bool present, bool home, uint32_t now_s);
+/* Que decir al pulsar los corazones (bit 0 = hoy). n = dias seguidos hasta hoy, o hasta ayer si
+ * hoy aun no. */
+typedef enum {
+    ACC_SM_NONE,   /* ningun corazon: como funciona */
+    ACC_SM_START,  /* ni hoy ni ayer: empieza una racha */
+    ACC_SM_TODAY1, /* hoy si, ayer no */
+    ACC_SM_RUN,    /* n dias seguidos hasta hoy (2..6) */
+    ACC_SM_WEEK,   /* los 7 */
+    ACC_SM_KEEP1,  /* ayer si, hoy aun no */
+    ACC_SM_KEEP,   /* n dias hasta ayer, hoy aun no */
+} acc_streak_msg_t;
+acc_streak_msg_t acc_streak_msg(uint8_t mask, int *n);
+
 /* Pais que se puede acompañar: ISO alfa-2 conocido y que no sea España (en España solo hay
  * IncuNest de muestra o de fabrica). Sin pais o "XX" tampoco: podria ser una de aqui. */
 bool acc_country_ok(const char *cc);

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "acc_logic.h"
 #include "assets.h"
 #include "esp_heap_caps.h"
 #include "esp_log.h"
@@ -64,6 +65,10 @@ static char s_country[TWIN_COUNTRY_LEN] = ""; /* pais pintado; "" = ninguno toda
 static lv_obj_t *s_week_box, *s_week[WEEK_N];
 static bool s_acc_on;
 static int s_week_mask = -1; /* pintado; -1 = forzar */
+/* al pulsar los corazones: una frase sobre la racha, unos segundos */
+#define WEEK_INFO_MS 4500
+static lv_obj_t *s_week_info, *s_week_info_lbl;
+static lv_timer_t *s_week_info_timer;
 
 /* ------------------------------------------------------------- helpers */
 
@@ -232,6 +237,39 @@ static void fmt_km(char *buf, size_t n, uint32_t km)
     else snprintf(buf, n, "%u", (unsigned)km);
 }
 
+static void chip_clicked(lv_event_t *e)
+{
+    (void)e;
+    ui_home_goto_baby();
+}
+
+static void week_info_timer_cb(lv_timer_t *t)
+{
+    lv_obj_set_hidden(s_week_info, true);
+    lv_timer_pause(t);
+}
+
+/* Corazones pulsados: que significan y como va la racha */
+static void week_clicked(lv_event_t *e)
+{
+    (void)e;
+    int n = 0;
+    ui_str_t id = STR_STREAK_NO_TIME;
+    if (net_wifi_time_valid()) {
+        static const ui_str_t BY_MSG[] = {
+            [ACC_SM_NONE] = STR_STREAK_NONE,     [ACC_SM_START] = STR_STREAK_START,
+            [ACC_SM_TODAY1] = STR_STREAK_TODAY1, [ACC_SM_RUN] = STR_STREAK_RUN,
+            [ACC_SM_WEEK] = STR_STREAK_WEEK,     [ACC_SM_KEEP1] = STR_STREAK_KEEP1,
+            [ACC_SM_KEEP] = STR_STREAK_KEEP,
+        };
+        id = BY_MSG[acc_streak_msg(s_week_mask < 0 ? 0 : (uint8_t)s_week_mask, &n)];
+    }
+    lv_label_set_text_fmt(s_week_info_lbl, tr(id), n);
+    lv_obj_set_hidden(s_week_info, false);
+    lv_timer_reset(s_week_info_timer);
+    lv_timer_resume(s_week_info_timer);
+}
+
 /* Tarjeta blanca semitransparente encima del mapa */
 static lv_obj_t *overlay(lv_obj_t *parent)
 {
@@ -358,8 +396,19 @@ void ui_pages_create(lv_obj_t *scr)
     s_lbl_country = lv_label_create(row);
     lv_obj_set_style_text_font(s_lbl_country, &lv_font_es_20, 0);
     lv_obj_set_style_text_color(s_lbl_country, COL_NAVY_DARK, 0);
-    lv_obj_set_style_max_width(s_lbl_country, 150, 0);
+    lv_obj_set_style_max_width(s_lbl_country, 130, 0);
     lv_label_set_long_mode(s_lbl_country, LV_LABEL_LONG_MODE_DOTS);
+    /* el bebe en pequeno: la etiqueta es un boton que vuelve a su pagina */
+    lv_obj_t *baby = lv_image_create(row);
+    lv_image_set_src(baby, &img_baby_sleep);
+    lv_image_set_inner_align(baby, LV_IMAGE_ALIGN_STRETCH); /* 114x185 a 16x26 */
+    lv_obj_set_size(baby, 16, 26);
+    lv_obj_set_clickable(baby, false);
+    lv_obj_set_clickable(s_chip, true);
+    lv_obj_set_style_bg_color(s_chip, COL_BG_PHOTO, LV_STATE_PRESSED);
+    lv_obj_add_flag(s_chip, UI_FLAG_CLICK_SOUND);
+    lv_obj_set_ext_click_area(s_chip, 6);
+    lv_obj_add_event_cb(s_chip, chip_clicked, LV_EVENT_CLICKED, NULL);
     s_lbl_hosp = lv_label_create(s_chip);
     lv_obj_set_style_text_font(s_lbl_hosp, &lv_font_es_12, 0);
     lv_obj_set_style_text_color(s_lbl_hosp, COL_NAVY_DARK, 0);
@@ -387,8 +436,28 @@ void ui_pages_create(lv_obj_t *scr)
         lv_image_set_inner_align(h, LV_IMAGE_ALIGN_STRETCH);
         lv_obj_set_size(h, 20, 18);
         lv_obj_set_style_image_recolor(h, COL_OFFLINE, 0);
+        lv_obj_set_clickable(h, false);
     }
+    lv_obj_set_clickable(s_week_box, true);
+    lv_obj_add_flag(s_week_box, UI_FLAG_CLICK_SOUND);
+    lv_obj_set_ext_click_area(s_week_box, 6);
+    lv_obj_add_event_cb(s_week_box, week_clicked, LV_EVENT_CLICKED, NULL);
     lv_obj_set_hidden(s_week_box, true);
+
+    s_week_info = overlay(p);
+    lv_obj_set_size(s_week_info, 216, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_hor(s_week_info, 10, 0);
+    lv_obj_set_style_pad_ver(s_week_info, 6, 0);
+    lv_obj_align(s_week_info, LV_ALIGN_BOTTOM_MID, 0, -(INFO_H + 6 + 6 + WEEK_H + 6));
+    s_week_info_lbl = lv_label_create(s_week_info);
+    lv_obj_set_width(s_week_info_lbl, lv_pct(100));
+    lv_obj_set_style_text_font(s_week_info_lbl, &lv_font_es_14, 0);
+    lv_obj_set_style_text_color(s_week_info_lbl, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_align(s_week_info_lbl, LV_TEXT_ALIGN_CENTER, 0);
+    lv_label_set_long_mode(s_week_info_lbl, LV_LABEL_LONG_MODE_WRAP);
+    lv_obj_set_hidden(s_week_info, true);
+    s_week_info_timer = lv_timer_create(week_info_timer_cb, WEEK_INFO_MS, NULL);
+    lv_timer_pause(s_week_info_timer);
 
     /* pagina 2: logros acumulados */
     p = s_pg[2] = panel(scr);
@@ -469,6 +538,7 @@ void ui_pages_apply(const twin_snapshot_t *s)
     s_acc_on = acc_on;
     lv_obj_set_hidden(s_week_box, !acc_on);
     if (acc_on) week_refresh(s->acc_week);
+    else lv_obj_set_hidden(s_week_info, true);
     if (known && (strcmp(cc, s_country) != 0 || demo_changed || acc_changed)) {
         memcpy(s_country, cc, TWIN_COUNTRY_LEN);
         country_page_refresh();

@@ -316,6 +316,19 @@ uint8_t acc_week_mask(const acc_t *a, int32_t day)
     return (uint8_t)((a->p.days_mask << diff) & 0x7F);
 }
 
+acc_streak_msg_t acc_streak_msg(uint8_t mask, int *n)
+{
+    mask &= 0x7F;
+    bool today = mask & 1u;
+    int run = 0;
+    for (int b = today ? 0 : 1; b < 7 && (mask & (1u << b)); b++) run++;
+    if (n) *n = run;
+    if (!mask) return ACC_SM_NONE;
+    if (today) return run >= 7 ? ACC_SM_WEEK : run >= 2 ? ACC_SM_RUN : ACC_SM_TODAY1;
+    if (run == 0) return ACC_SM_START;
+    return run == 1 ? ACC_SM_KEEP1 : ACC_SM_KEEP;
+}
+
 bool acc_quiet(int hour)
 {
     return hour >= 0 && (hour >= ACC_QUIET_FROM || hour < ACC_QUIET_TO);

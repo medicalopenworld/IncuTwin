@@ -85,6 +85,16 @@ gesto. Entre las 22:00 y las 9:00 las melodías automáticas SHALL no sonar.
 El panel SHALL marcar cada día con un gesto completado y mostrar en la página del país 7
 corazones, llenos los días de los últimos 7 en que acompañó (el de la derecha es hoy).
 
+#### Scenario: Pulsar los corazones
+- **WHEN** se pulsan los corazones con los tres últimos días encendidos (hoy incluido)
+- **THEN** sale unos segundos "¡3 días seguidos! Vuelve mañana"; sin ninguno, "Cada día que le das
+  la mano se enciende un corazón"; sin hora SNTP, "Esperando la hora para contar los días"
+
+#### Scenario: Gesto sin hora
+- **WHEN** se completa "Coge mi mano" antes de que el panel tenga hora SNTP
+- **THEN** en cuanto llega la hora, el gesto se apunta en el día en que se hizo y se enciende su
+  corazón
+
 #### Scenario: Racha con un hueco
 - **WHEN** hubo gesto hoy, ayer y hace 3 días
 - **THEN** los corazones son ○○○●○●● de izquierda a derecha

@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "app_events.h"
 #include "board.h"
@@ -33,6 +34,15 @@ static int cmd_info(int argc, char **argv)
     printf("estado     online=%d baby=%d thermo=%d photo=%d bpm=%u state_rx=%d demo=%d\n",
            s.inc.online, s.inc.baby, s.inc.thermo, s.inc.photo, s.inc.bpm, s.link.state_rx, s.demo);
     printf("tactil     errores i2c %lu\n", (unsigned long)board_touch_error_count());
+    time_t now = time(NULL);
+    struct tm tm;
+    localtime_r(&now, &tm);
+    if (tm.tm_year + 1900 >= 2025) {
+        printf("hora       %04d-%02d-%02d %02d:%02d:%02d (local)\n", tm.tm_year + 1900, tm.tm_mon + 1,
+               tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+    } else {
+        printf("hora       sin SNTP\n");
+    }
     board_log_memory(TAG);
     return 0;
 }

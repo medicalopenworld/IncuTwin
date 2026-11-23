@@ -26,6 +26,15 @@ typedef enum {
     STR_ACC_REMIND,
     STR_ACC_ENDED,
     STR_ACC_FAREWELL,
+    /* al pulsar los corazones de la racha (acc_streak_msg); %d = dias */
+    STR_STREAK_NONE,
+    STR_STREAK_START,
+    STR_STREAK_TODAY1,
+    STR_STREAK_RUN,
+    STR_STREAK_WEEK,
+    STR_STREAK_KEEP1,
+    STR_STREAK_KEEP,
+    STR_STREAK_NO_TIME,
     STR_DAY,
     STR_DAYS,
     /* pantalla principal */

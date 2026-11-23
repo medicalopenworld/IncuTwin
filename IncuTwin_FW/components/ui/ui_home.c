@@ -1,7 +1,7 @@
 /* Pantalla principal (spec twin-display). Layout vertical 240x320:
  *   barra superior : WiFi | marca | engranaje
  *   centro         : bebe + halo | incubadora vacia | con sus papas (dos tonos de piel)
- *   esquina        : pais de la incubadora, si se comparte
+ *   cuerpo del bebe: pais de la incubadora, si se comparte (oculto durante el gesto)
  *   fila           : simbolos del tratamiento en curso (solo los activos, juntos a la
  *                    izquierda) + boton "Coge mi mano" (o el texto del gesto)
  *   abajo          : barra de estado siempre visible
@@ -35,6 +35,7 @@
 /* gesto "Coge mi mano" */
 #define RING_D        196
 #define NAME_Y        206
+#define COUNTRY_Y     164 /* centrado en la manta, entre la cara y el nombre */
 #define N_HEARTS      4
 #define HH_TICK_MS    100
 #define COL_RING_BG   lv_color_hex(0xF5C4B3)
@@ -328,6 +329,12 @@ static void country_clicked(lv_event_t *e)
     if (ui_pages_goto(1)) page_changed();
 }
 
+/* Etiqueta del pais en la pagina del mapa: vuelve al bebe */
+void ui_home_goto_baby(void)
+{
+    if (ui_pages_goto(0)) page_changed();
+}
+
 /* El boton prepara el gesto: el bebe abre los ojos y espera el dedo */
 static void hand_btn_clicked(lv_event_t *e)
 {
@@ -475,8 +482,7 @@ static void hold_create_above_baby(void)
     lv_obj_align(s_name, LV_ALIGN_TOP_MID, 0, NAME_Y);
     lv_obj_set_hidden(s_name, true);
 
-    /* pais de la incubadora: etiqueta pequena arriba a la izquierda */
-    /* pais: bandera + nombre; es un boton que lleva a la pagina del pais */
+    /* pais: bandera + nombre sobre el cuerpo del bebe; es un boton que lleva a la pagina del pais */
     s_country = lv_obj_create(s_scr);
     lv_obj_set_size(s_country, LV_SIZE_CONTENT, 24);
     lv_obj_set_style_bg_color(s_country, COL_CARD, 0);
@@ -495,7 +501,7 @@ static void hold_create_above_baby(void)
     lv_obj_add_flag(s_country, UI_FLAG_CLICK_SOUND);
     lv_obj_set_ext_click_area(s_country, 6);
     lv_obj_add_event_cb(s_country, country_clicked, LV_EVENT_CLICKED, NULL);
-    lv_obj_set_pos(s_country, 4, 40);
+    lv_obj_align(s_country, LV_ALIGN_TOP_MID, 0, COUNTRY_Y);
     s_country_flag = lv_image_create(s_country);
     lv_image_set_inner_align(s_country_flag, LV_IMAGE_ALIGN_STRETCH); /* bandera de 26 px a 16 */
     lv_obj_set_clickable(s_country_flag, false);
@@ -909,7 +915,9 @@ static void overlay_refresh(void)
     if (show_name) label_set(s_name, s->inc.name);
     lv_obj_set_hidden(s_name, !show_name);
 
-    bool show_country = (s->show_baby || s->parents_view) && s->inc.country[0] != '\0' && !thanks;
+    /* encima del cuerpo: fuera mientras dura el gesto, que el dedo va justo ahi */
+    bool show_country = (s->show_baby || s->parents_view) && s->inc.country[0] != '\0' &&
+                        hh_state(&s_hh) == HH_IDLE;
     if (show_country) {
         label_set(s_country_lbl, tr_country(s->inc.country));
         const lv_image_dsc_t *flag = flag_image(s->inc.country);
