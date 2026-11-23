@@ -19,6 +19,15 @@ antes 60 s). Si en el mismo gesto se llega a 3 min de dedo, ese día SHALL ser u
 dorado en la racha, y también cuenta como día acompañado. Mientras se sigue con el dedo, la barra
 de estado SHALL decir cuánto falta ("Súper corazón en 2:40") y, al llegar, "¡Súper corazón!".
 
+Al soltar tras completar, el gesto SHALL terminar: volver a poner el dedo en el agradecimiento NO
+SHALL reanudarlo, y otro gesto empieza de cero con "Coge mi mano". El agradecimiento SHALL durar
+15 s (`CONFIG_INCUTWIN_HAND_THANKS_S`) o hasta pulsar su botón "Volver al bebé".
+
+#### Scenario: Volver a coger la mano
+- **WHEN** se suelta tras completar y se vuelve a poner el dedo
+- **THEN** sigue el agradecimiento; con "Volver al bebé" (o a los 15 s) vuelve la vista del bebé
+  y hay que pulsar "Coge mi mano" y empezar de 0
+
 #### Scenario: Tres minutos
 - **WHEN** se completa el gesto y se mantiene el dedo hasta los 3 min
 - **THEN** el corazón de hoy se pinta dorado y la frase de la racha dice "¡Súper corazón hoy! 3

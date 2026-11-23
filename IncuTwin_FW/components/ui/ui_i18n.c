@@ -39,6 +39,8 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_HH_ST_SUPER_IN */ { "Súper corazón en %u:%02u",          "Super heart in %u:%02u" },
     /* STR_HH_ST_SUPER    */ { "¡Súper corazón!",                   "Super heart!" },
     /* STR_STREAK_SUPER   */ { "¡Súper corazón hoy! 3 minutos de la mano", "Super heart today! 3 minutes hand in hand" },
+    /* STR_HH_BACK        */ { "Volver al bebé",                    "Back to the baby" },
+    /* STR_HH_ST_AGAIN    */ { "Vuelve cuando quieras",             "Come back anytime" },
     /* STR_DAY            */ { "día",                               "day" },
     /* STR_DAYS           */ { "días",                              "days" },
     /* STR_HAND           */ { "Coge mi mano",                      "Hold my hand" },

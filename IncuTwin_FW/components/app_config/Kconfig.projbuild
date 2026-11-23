@@ -83,8 +83,8 @@ menu "IncuTwin"
             range 5 120
 
         config INCUTWIN_HAND_THANKS_S
-            int "Segundos que se ve el agradecimiento al soltar"
-            default 4
+            int "Segundos que se ve el agradecimiento al soltar (o hasta pulsar Volver)"
+            default 15
             range 1 30
 
         config INCUTWIN_HAND_COOLDOWN_S

@@ -100,12 +100,32 @@ TEST_CASE("hand_hold: seguir tras completar no reenvia", "[hand_hold]")
     TEST_ASSERT_FALSE(hh_take_send(&h));
     hh_touch(&h, false, S(240));
     TEST_ASSERT_EQUAL(HH_THANKS, hh_state(&h));
-    hh_touch(&h, true, S(241)); /* vuelve el dedo durante el agradecimiento */
-    TEST_ASSERT_EQUAL(HH_DONE, hh_state(&h));
+    hh_touch(&h, true, S(241)); /* vuelve el dedo durante el agradecimiento: no reanuda */
+    TEST_ASSERT_EQUAL(HH_THANKS, hh_state(&h));
     hh_touch(&h, false, S(242));
     idle_until(S(242), S(246));
     TEST_ASSERT_EQUAL(HH_IDLE, hh_state(&h));
     TEST_ASSERT_FALSE(hh_take_send(&h));
+}
+
+TEST_CASE("hand_hold: tras completar se vuelve a empezar de cero", "[hand_hold]")
+{
+    setup(0);
+    start(0);
+    idle_until(0, S(70));
+    hh_touch(&h, false, S(70));
+    TEST_ASSERT_EQUAL(HH_THANKS, hh_state(&h));
+    hh_dismiss(&h, S(71)); /* boton "Volver" del agradecimiento */
+    TEST_ASSERT_EQUAL(HH_IDLE, hh_state(&h));
+    TEST_ASSERT_EQUAL_UINT32(0, hh_held_ms(&h, S(71)));
+    hh_touch(&h, true, S(72)); /* en reposo el dedo no hace nada */
+    TEST_ASSERT_EQUAL(HH_IDLE, hh_state(&h));
+    hh_button(&h, S(73));
+    hh_touch(&h, true, S(74));
+    TEST_ASSERT_EQUAL(HH_HOLDING, hh_state(&h));
+    TEST_ASSERT_EQUAL_UINT16(0, hh_progress_permille(&h, S(74)));
+    hh_dismiss(&h, S(75)); /* fuera del agradecimiento no hace nada */
+    TEST_ASSERT_EQUAL(HH_HOLDING, hh_state(&h));
 }
 
 TEST_CASE("hand_hold: tras completar el anillo sigue dando vueltas", "[hand_hold]")
@@ -124,10 +144,9 @@ TEST_CASE("hand_hold: tras completar el anillo sigue dando vueltas", "[hand_hold
     /* al agradecer el anillo se queda quieto */
     uint32_t frozen = hh_held_ms(&h, S(151));
     TEST_ASSERT_EQUAL_UINT32(frozen, hh_held_ms(&h, S(153)));
-    /* vuelve el dedo: sigue sumando desde ahi, sin segundo aviso */
+    /* vuelve el dedo: ya no suma (hay que empezar otro gesto) ni hay segundo aviso */
     hh_touch(&h, true, S(153));
-    idle_until(S(153), S(163));
-    TEST_ASSERT_UINT32_WITHIN(150, frozen + S(10), hh_held_ms(&h, S(163)));
+    TEST_ASSERT_EQUAL_UINT32(frozen, hh_held_ms(&h, S(155)));
     TEST_ASSERT_FALSE(hh_take_send(&h));
 }
 

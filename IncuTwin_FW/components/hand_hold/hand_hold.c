@@ -60,11 +60,7 @@ void hh_touch(hand_hold_t *h, bool down, uint32_t now)
             h->last_ms = now;
             enter(h, HH_HOLDING, now);
             break;
-        case HH_THANKS:
-            h->last_ms = now;
-            enter(h, HH_DONE, now); /* sigue acompanando; no hay segundo aviso */
-            break;
-        default:
+        default: /* agradeciendo: el gesto ha terminado; otro empieza de cero con el boton */
             break;
         }
         return;
@@ -82,6 +78,11 @@ void hh_touch(hand_hold_t *h, bool down, uint32_t now)
     default:
         break;
     }
+}
+
+void hh_dismiss(hand_hold_t *h, uint32_t now)
+{
+    if (h->state == HH_THANKS) reset(h, now);
 }
 
 void hh_set_available(hand_hold_t *h, bool visible, bool can_send, uint32_t now)

@@ -58,6 +58,7 @@ static lv_obj_t *s_info;          /* burbuja con la explicacion del simbolo toca
 static lv_timer_t *s_info_timer;
 static lv_obj_t *s_icon_thermo, *s_icon_photo, *s_icon_heart;
 static lv_obj_t *s_btn_hand, *s_lbl_hand;
+static lv_obj_t *s_btn_back; /* "Volver al bebé" en el agradecimiento */
 static lv_obj_t *s_status, *s_lbl_status;
 static halo_mode_t s_halo_mode = HALO_CALM;
 static bool s_awake_real; /* para restaurar al terminar el gesto */
@@ -344,6 +345,14 @@ void ui_home_goto_baby(void)
     if (ui_pages_goto(0)) page_changed();
 }
 
+/* "Volver al bebé" en el agradecimiento: cierra el gesto sin esperar */
+static void back_btn_clicked(lv_event_t *e)
+{
+    (void)e;
+    hh_dismiss(&s_hh, lv_tick_get());
+    hold_refresh(false);
+}
+
 /* El boton prepara el gesto: el bebe abre los ojos y espera el dedo */
 static void hand_btn_clicked(lv_event_t *e)
 {
@@ -466,14 +475,27 @@ static void hold_create_above_baby(void)
         s_hearts[i] = h;
     }
 
-    /* al terminar el gesto: los papas con la IncuNest y el corazon, a pantalla completa.
-     * Pulsable como el bebe: volver a poner el dedo sigue acompanando. */
+    /* al terminar el gesto: los papas con la IncuNest y el corazon, a pantalla completa. El gesto
+     * ha terminado: el dedo ya no lo reanuda (pulsable solo para tapar al bebe de debajo); otro
+     * empieza de cero con "Coge mi mano". "Volver al bebé" lo cierra sin esperar. */
     s_thanks_img = lv_image_create(s_scr);
     lv_image_set_src(s_thanks_img, &img_hand_thanks);
     lv_obj_set_pos(s_thanks_img, 0, 0);
     lv_obj_set_clickable(s_thanks_img, true);
-    lv_obj_add_event_cb(s_thanks_img, baby_touched, LV_EVENT_ALL, NULL);
     lv_obj_set_hidden(s_thanks_img, true);
+
+    s_btn_back = lv_button_create(s_scr);
+    lv_obj_set_size(s_btn_back, 132, ICON_D);
+    lv_obj_align(s_btn_back, LV_ALIGN_TOP_MID, 0, ICON_Y);
+    lv_obj_set_style_bg_color(s_btn_back, COL_CORAL, 0);
+    lv_obj_set_style_radius(s_btn_back, 14, 0);
+    lv_obj_set_style_shadow_width(s_btn_back, 0, 0);
+    lv_obj_add_event_cb(s_btn_back, back_btn_clicked, LV_EVENT_CLICKED, NULL);
+    lv_obj_t *lbl_back = lv_label_create(s_btn_back);
+    lv_obj_set_style_text_font(lbl_back, &lv_font_es_14, 0);
+    lv_label_set_text(lbl_back, tr(STR_HH_BACK));
+    lv_obj_center(lbl_back);
+    lv_obj_set_hidden(s_btn_back, true);
 
     s_name = lv_label_create(s_scr);
     lv_label_set_text(s_name, "");
@@ -892,6 +914,7 @@ static void thanks_show(bool on)
     if (on != lv_obj_has_flag(s_thanks_img, LV_OBJ_FLAG_HIDDEN)) return;
     lv_anim_delete(s_thanks_img, thanks_opa_cb);
     lv_obj_set_hidden(s_thanks_img, !on);
+    lv_obj_set_hidden(s_btn_back, !on);
     if (!on) return;
     lv_obj_set_style_opa(s_thanks_img, LV_OPA_TRANSP, 0);
     lv_anim_t a;
@@ -1042,7 +1065,8 @@ static void hold_refresh(bool force)
                 status_bar_text(buf, COL_OK);
             }
         } else {
-            status_bar_text(tr(STR_HH_ST_DONE), COL_OK);
+            /* con el dedo puesto sigue sumando; ya soltado, el gesto ha terminado */
+            status_bar_text(tr(st == HH_DONE ? STR_HH_ST_DONE : STR_HH_ST_AGAIN), COL_OK);
         }
         break;
     }

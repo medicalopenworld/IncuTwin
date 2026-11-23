@@ -41,6 +41,8 @@ typedef enum {
     STR_HH_ST_SUPER_IN,   /* min, s que faltan para el super corazon */
     STR_HH_ST_SUPER,
     STR_STREAK_SUPER,
+    STR_HH_BACK,
+    STR_HH_ST_AGAIN,
     STR_DAY,
     STR_DAYS,
     /* pantalla principal */
