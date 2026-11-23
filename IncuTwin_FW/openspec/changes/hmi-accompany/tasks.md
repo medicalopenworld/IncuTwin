@@ -27,5 +27,6 @@ Verificación en la IncuTwin de COM12: `test_apps` on-target y después la app.
 ## 4. Verificación
 
 - [x] 4.1 `idf.py -C test_apps` en COM12: todos los tests en verde
-- [ ] 4.2 `idf.py build` y flash en COM12; poner el panel en modo Acompañar y comprobar que elige
-      una IncuNest con bebé
+- [x] 4.2 `idf.py build` y flash en COM12; poner el panel en modo Acompañar y comprobar que elige
+      una IncuNest con bebé (23-nov: las 7 reales offline → buscando; `TEST-acc` sin retener →
+      la elige; reinicio sin su estado → fin de estancia; "home" → despedida)

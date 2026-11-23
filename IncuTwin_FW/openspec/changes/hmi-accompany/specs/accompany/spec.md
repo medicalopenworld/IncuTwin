@@ -25,6 +25,8 @@ tenga bebé.
 Si la IncuNest actual pasa a `baby = "home"`, el panel SHALL pasar a la despedida, congelar esa
 vista y elegir otra al tocar la pantalla o al cambiar el día. Si deja de tener bebé por otra causa
 (libre, desconectada), SHALL esperar 2 h; si el bebé vuelve sigue con ella, y si no, elige otra.
+Si tras conectar y recibir los retenidos no llega ningún estado de la actual, SHALL tratarlo igual
+que un fin de estancia sin alta.
 
 #### Scenario: Se va a casa
 - **WHEN** 353 publica `baby: "home"` y después `state: "free"`
@@ -38,6 +40,10 @@ vista y elegir otra al tocar la pantalla o al cambiar el día. Si deja de tener 
 #### Scenario: Estancia terminada sin alta
 - **WHEN** 353 queda libre 2 h
 - **THEN** el panel elige otra IncuNest sin haber celebrado nada
+
+#### Scenario: La actual ya no publica
+- **WHEN** el panel se reinicia acompañando a una IncuNest sin estado retenido
+- **THEN** pasada la espera de los retenidos cuenta como fin de estancia y a las 2 h elige otra
 
 ### Requirement: Tiempo acompañado [test-unity]
 El panel SHALL sumar 1 s por segundo a la IncuNest actual solo si hoy se ha completado

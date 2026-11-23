@@ -226,6 +226,15 @@ uint32_t acc_touch(acc_t *a, uint32_t now_s)
 uint32_t acc_tick(acc_t *a, uint32_t now_s, int32_t day, int hour, bool shown)
 {
     uint32_t r = 0;
+    twin_acc_t ph = (twin_acc_t)a->p.phase;
+    /* pasada la espera de los retenidos sin noticias de la actual (desaparecio, o no tenia
+     * retenido y se ha reiniciado): es un fin de estancia, o se quedaria esperandola siempre */
+    if ((ph == TWIN_ACC_WAITING || ph == TWIN_ACC_WITH) && a->p.cur[0] &&
+        since(now_s, a->pick_after) <= 0x7fffffffu && acc_seen_index(a, a->p.cur) < 0) {
+        a->p.phase = TWIN_ACC_ENDING;
+        a->ending_since = now_s;
+        r |= ACC_R_PHASE | ACC_R_SAVE;
+    }
     switch ((twin_acc_t)a->p.phase) {
     case TWIN_ACC_SEARCHING:
         if (since(now_s, a->pick_after) <= 0x7fffffffu) r |= pick(a);
@@ -254,7 +263,7 @@ uint32_t acc_tick(acc_t *a, uint32_t now_s, int32_t day, int hour, bool shown)
     default:
         break;
     }
-    twin_acc_t ph = (twin_acc_t)a->p.phase;
+    ph = (twin_acc_t)a->p.phase;
     if (day != ACC_NO_DAY && hour >= ACC_REMIND_HOUR && (ph == TWIN_ACC_WAITING || ph == TWIN_ACC_WITH) &&
         a->p.gesture_day != day && a->p.remind_day != day) {
         a->p.remind_day = day;

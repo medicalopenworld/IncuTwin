@@ -210,6 +210,28 @@ TEST_CASE("acc: vuelve sin gesto previo, sigue esperando", "[acc]")
     TEST_ASSERT_EQUAL(TWIN_ACC_WAITING, acc_phase(&a));
 }
 
+TEST_CASE("acc: la actual no llega tras reiniciar, cuenta como fin de estancia", "[acc]")
+{
+    fresh();
+    baby("TEST-x", 0); /* sin retenido: tras reiniciar ya no se vuelve a ver */
+    acc_gesture(&a, DAY);
+    acc_persist_t p = a.p;
+    acc_restore(&a, &p, 7, 100);
+    acc_hold_pick(&a, 100 + 0x70000000u); /* sin conexion: se espera */
+    acc_tick(&a, 200, DAY, 10, true);
+    TEST_ASSERT_EQUAL(TWIN_ACC_WITH, acc_phase(&a));
+    acc_hold_pick(&a, 305); /* conecta; llegan los retenidos, pero no el suyo */
+    baby("297", 301);
+    acc_tick(&a, 304, DAY, 10, true);
+    TEST_ASSERT_EQUAL(TWIN_ACC_WITH, acc_phase(&a));
+    uint32_t r = acc_tick(&a, 305, DAY, 10, true);
+    TEST_ASSERT_TRUE(r & ACC_R_PHASE);
+    TEST_ASSERT_EQUAL(TWIN_ACC_ENDING, acc_phase(&a));
+    TEST_ASSERT_EQUAL_STRING("TEST-x", acc_current(&a)); /* el margen de 2 h de siempre */
+    acc_tick(&a, 305 + ACC_ENDING_S, DAY, 10, false);
+    TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
+}
+
 /* ------------------------------------------------------ tiempo acompañado */
 
 TEST_CASE("acc: sin gesto hoy no cuenta", "[acc]")
