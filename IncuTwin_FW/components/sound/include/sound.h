@@ -35,6 +35,10 @@ void sound_request(sound_melody_t m);
  * Con bpm 0 o volumen Apagado no suena. */
 void sound_heartbeat(bool on);
 
+/* Horario de silencio del modo Acompañar: descarta las melodias automaticas (bebe detectado,
+ * fanfarria); el clic y el latido al tocar siguen sonando. */
+void sound_set_quiet(bool quiet);
+
 #ifdef __cplusplus
 }
 #endif

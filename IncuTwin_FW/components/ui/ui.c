@@ -70,6 +70,7 @@ lv_obj_t *ui_msgbox(const char *title, const char *text, const char *btn_text, l
 static void click_feedback_cb(lv_event_t *e)
 {
     (void)e;
+    if (lv_screen_active() == s_scr_home) ui_home_screen_pressed();
     lv_obj_t *obj = lv_indev_get_active_obj();
     if (!obj) return;
     bool is_button = lv_obj_has_class(obj, &lv_button_class) || lv_obj_has_flag(obj, UI_FLAG_CLICK_SOUND);

@@ -7,7 +7,9 @@
  */
 
 #include <inttypes.h>
+#include <string.h>
 
+#include "accompany.h"
 #include "app_events.h"
 #include "board.h"
 #include "bringup_screen.h"
@@ -66,6 +68,7 @@ static void tick_1s_cb(void *arg)
 {
     (void)arg;
     twin_model_tick_1s();
+    accompany_tick_1s();
     twin_snapshot_t s = twin_model_get();
     usage_tick_1s(s.link_ok && s.inc.online && !s.demo);
 }
@@ -91,14 +94,18 @@ void app_main(void)
     settings_init();
     usage_init();
 
+    accompany_init();
     char inc_id[TWIN_INCUBATOR_ID_LEN] = "";
-    identity_incubator_id(inc_id);
+    if (accompany_enabled()) accompany_current(inc_id); /* la que acompañaba antes de reiniciar */
+    else identity_incubator_id(inc_id);
     twin_model_init(CONFIG_INCUTWIN_DEFAULT_SKIN, identity_has_creds(), inc_id);
+    accompany_start();
     sound_init();
     ESP_ERROR_CHECK(net_wifi_init());
 #if !CONFIG_INCUTWIN_SIM
     /* el broker: arranca en cuanto haya WiFi; sin credenciales se queda en espera */
     if (mqtt_link_start() == ESP_OK) {
+        mqtt_link_set_accompany(accompany_enabled());
         cloud_status_start();
         commands_start();
     }

@@ -46,7 +46,14 @@ typedef enum {
     /* ui -> cloud_status: gesto "Coge mi mano" completado y hay que avisar a la IncuNest.
      * data: ninguno (el id emparejado lo pone la red) */
     TWIN_EVT_HAND_HOLD,
+    /* ui -> accompany: gesto completado o toque en la despedida. data: app_evt_acc_input_t */
+    TWIN_EVT_ACC_INPUT,
 } app_event_id_t;
+
+typedef enum {
+    APP_ACC_GESTURE = 1, /* "Coge mi mano" completado (aunque no se pueda publicar) */
+    APP_ACC_TOUCH,       /* toque en la pantalla durante la despedida */
+} app_evt_acc_input_t;
 
 typedef struct {
     bool connected;

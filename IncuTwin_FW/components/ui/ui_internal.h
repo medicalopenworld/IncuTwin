@@ -16,6 +16,7 @@
 lv_obj_t *ui_home_create(void);
 void ui_home_apply(const twin_snapshot_t *s);
 void ui_home_retranslate(void);
+void ui_home_screen_pressed(void); /* toque en cualquier sitio (despedida del modo acompañar) */
 
 /* ajustes */
 lv_obj_t *ui_settings_create(void);

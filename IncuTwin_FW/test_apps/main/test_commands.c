@@ -49,6 +49,19 @@ TEST_CASE("pair: set, unpair e invalidos", "[pairing]")
     TEST_ASSERT_EQUAL(PAIR_INVALID, cmd_parse_pair(bad4, strlen(bad4), id));
 }
 
+TEST_CASE("pair: modo acompañar", "[pairing][acc]")
+{
+    char id[TWIN_INCUBATOR_ID_LEN] = "x";
+    const char *acc = "{\"mode\":\"accompany\"}";
+    TEST_ASSERT_EQUAL(PAIR_ACCOMPANY, cmd_parse_pair(acc, strlen(acc), id));
+    TEST_ASSERT_EQUAL_STRING("", id);
+    const char *other = "{\"mode\":\"party\"}";
+    TEST_ASSERT_EQUAL(PAIR_INVALID, cmd_parse_pair(other, strlen(other), id));
+    /* un id manda sobre el modo: emparejado fijo */
+    const char *both = "{\"mode\":\"accompany\",\"incubator_id\":\"353\"}";
+    TEST_ASSERT_EQUAL(PAIR_SET, cmd_parse_pair(both, strlen(both), id));
+}
+
 TEST_CASE("brightness: clamp 10..100 y rechazo", "[cmd]")
 {
     int v;

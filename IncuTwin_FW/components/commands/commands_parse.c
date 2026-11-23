@@ -62,6 +62,11 @@ pair_cmd_t cmd_parse_pair(const char *payload, size_t len, char out_id[TWIN_INCU
         strncpy(out_id, id->valuestring, TWIN_INCUBATOR_ID_LEN - 1);
         out_id[TWIN_INCUBATOR_ID_LEN - 1] = '\0';
         res = PAIR_SET;
+    } else if (cJSON_IsObject(root) && !id) {
+        const cJSON *mode = cJSON_GetObjectItemCaseSensitive(root, "mode");
+        if (cJSON_IsString(mode) && mode->valuestring && !strcmp(mode->valuestring, "accompany")) {
+            res = PAIR_ACCOMPANY;
+        }
     }
     cJSON_Delete(root);
     return res;

@@ -32,6 +32,9 @@ static esp_timer_handle_t s_retry_timer;
 /* msg_id de las dos ultimas suscripciones a incubators/<id>/state (al conectar y al llegar el
  * cmd/pair retenido se suscribe dos veces seguidas): para reconocer su SUBACK */
 static int s_state_sub_msg_id[2] = { -1, -1 };
+#define ACC_TOPIC "incubators/+/state"
+static bool s_accompany;
+static int s_acc_sub_msg_id = -1;
 
 static bool is_state_sub(int msg_id)
 {
@@ -69,6 +72,12 @@ static void retry_cb(void *arg)
 
 static void subscribe_state_topic(void)
 {
+    if (s_accompany) {
+        if (!s_connected) return;
+        s_acc_sub_msg_id = esp_mqtt_client_subscribe(s_client, ACC_TOPIC, 1);
+        ESP_LOGI(TAG, "suscrito a %s (modo acompañar)", ACC_TOPIC);
+        return;
+    }
     if (!s_connected || !s_incubator_id[0]) return;
     snprintf(s_state_topic, sizeof(s_state_topic), "incubators/%s/state", s_incubator_id);
     s_state_sub_msg_id[1] = s_state_sub_msg_id[0];
@@ -103,7 +112,9 @@ static void on_mqtt_event(void *arg, esp_event_base_t base, int32_t id, void *da
         break;
     case MQTT_EVENT_SUBSCRIBED:
         if (ev->error_handle && ev->error_handle->error_type == MQTT_ERROR_TYPE_SUBSCRIBE_FAILED) {
-            if (is_state_sub(ev->msg_id) && s_incubator_id[0]) {
+            if (ev->msg_id == s_acc_sub_msg_id) {
+                ESP_LOGW(TAG, "suscripcion a %s rechazada: falta el rol incubators-all", ACC_TOPIC);
+            } else if (is_state_sub(ev->msg_id) && s_incubator_id[0] && !s_accompany) {
                 /* el broker ya no nos deja ver esa incubadora: nos han desemparejado
                  * mientras estabamos desconectados (spec pairing) */
                 ESP_LOGW(TAG, "suscripcion a %s rechazada: desemparejado por el broker", s_state_topic);
@@ -171,6 +182,7 @@ static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
 static void on_pairing(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg; (void)base; (void)id;
+    if (s_accompany) return; /* la IncuNest la elige accompany; la suscripcion es la comodin */
     mqtt_link_set_incubator(((const app_evt_pairing_t *)data)->incubator_id);
 }
 
@@ -230,6 +242,7 @@ const char *mqtt_link_client_id(void) { return s_client_id; }
 
 void mqtt_link_set_incubator(const char *incubator_id)
 {
+    if (s_accompany) return;
     const char *new_id = incubator_id ? incubator_id : "";
     if (strcmp(new_id, s_incubator_id) == 0) {
         subscribe_state_topic(); /* asegurar la suscripcion */
@@ -242,6 +255,26 @@ void mqtt_link_set_incubator(const char *incubator_id)
     strncpy(s_incubator_id, new_id, TWIN_INCUBATOR_ID_LEN - 1);
     s_incubator_id[TWIN_INCUBATOR_ID_LEN - 1] = '\0';
     subscribe_state_topic();
+}
+
+void mqtt_link_set_accompany(bool on)
+{
+    if (on == s_accompany) return;
+    if (on) {
+        if (s_connected && s_incubator_id[0]) {
+            esp_mqtt_client_unsubscribe(s_client, s_state_topic);
+            ESP_LOGI(TAG, "desuscrito de %s", s_state_topic);
+        }
+        s_incubator_id[0] = '\0';
+        s_accompany = true;
+        subscribe_state_topic();
+    } else {
+        if (s_connected) {
+            esp_mqtt_client_unsubscribe(s_client, ACC_TOPIC);
+            ESP_LOGI(TAG, "desuscrito de %s", ACC_TOPIC);
+        }
+        s_accompany = false;
+    }
 }
 
 bool mqtt_link_publish(const char *topic, const char *payload, size_t len, int qos, bool retain)

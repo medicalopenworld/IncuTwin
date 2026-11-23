@@ -225,6 +225,17 @@ void sound_init(void)
     app_events_subscribe(TWIN_EVT_SETTINGS_CHANGED, on_settings, NULL);
 }
 
-void sound_request(sound_melody_t m) { atomic_store(&s_req, (int)m); }
+static atomic_bool s_quiet;
+
+void sound_request(sound_melody_t m)
+{
+    if (atomic_load(&s_quiet) && (m == SOUND_BABY || m == SOUND_PARENTS)) {
+        ESP_LOGI(TAG, "melodia %d silenciada (horario nocturno)", (int)m);
+        return;
+    }
+    atomic_store(&s_req, (int)m);
+}
+
+void sound_set_quiet(bool quiet) { atomic_store(&s_quiet, quiet); }
 
 void sound_heartbeat(bool on) { atomic_store(&s_hb_req, on ? 1 : 2); }

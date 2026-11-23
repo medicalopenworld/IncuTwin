@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "accompany.h"
 #include "app_events.h"
 #include "commands_parse.h"
 #include "esp_log.h"
@@ -71,7 +72,8 @@ static void on_msg(void *arg, esp_event_base_t base, int32_t id, void *data)
     const app_evt_mqtt_msg_t *m = data;
 
     if (cmd_is_state_topic(m->topic, NULL)) {
-        twin_model_ingest(m->payload, m->len);
+        if (accompany_enabled()) accompany_ingest(m->payload, m->len); /* todas las IncuNest */
+        else twin_model_ingest(m->payload, m->len);
         return;
     }
     char name[CMD_NAME_MAX];

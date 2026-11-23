@@ -91,17 +91,21 @@ void twin_derive(twin_snapshot_t *s)
 twin_status_t twin_status_of(const twin_snapshot_t *s)
 {
     const twin_link_t *l = &s->link;
-    if (s->parents_view && s->inc.baby == TWIN_BABY_HOME) return TWIN_ST_HOME;
+    bool acc = s->acc != TWIN_ACC_OFF;
+    if (s->parents_view && s->inc.baby == TWIN_BABY_HOME)
+        return s->acc == TWIN_ACC_FAREWELL ? TWIN_ST_ACC_FAREWELL : TWIN_ST_HOME;
     if (s->parents_view) return TWIN_ST_PARENTS;
     if (!l->wifi) return TWIN_ST_NO_WIFI;
     if (!l->has_creds) return TWIN_ST_NO_CREDS;
     if (!l->broker_once) return TWIN_ST_CONNECTING;
     if (l->broker_lost) return TWIN_ST_BROKER_LOST;
-    if (!l->paired) return TWIN_ST_UNPAIRED;
+    if (!l->paired) return acc ? TWIN_ST_ACC_SEARCH : TWIN_ST_UNPAIRED;
     if (!l->state_rx) return TWIN_ST_WAITING;
     if (!s->inc.online) return TWIN_ST_INC_OFF;
-    if (s->inc.baby != TWIN_BABY_IN) return TWIN_ST_NO_BABY;
+    if (s->inc.baby != TWIN_BABY_IN) return s->acc == TWIN_ACC_ENDING ? TWIN_ST_ACC_ENDED : TWIN_ST_NO_BABY;
     if (s->inc.thermo == TWIN_THERMO_ALARM) return TWIN_ST_ALARM;
+    if (s->acc == TWIN_ACC_WAITING) return TWIN_ST_ACC_WAITING;
+    if (acc && s->acc_remind) return TWIN_ST_ACC_REMIND;
     if (s->inc.name[0]) return TWIN_ST_NAME;
     return s->inc.awake ? TWIN_ST_AWAKE : TWIN_ST_SLEEP;
 }

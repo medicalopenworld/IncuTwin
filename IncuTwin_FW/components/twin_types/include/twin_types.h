@@ -54,6 +54,16 @@ typedef struct {
     int16_t age_d;        /* -1 = no compartido */
 } twin_incubator_t;
 
+/* Fase del modo Acompañar (spec accompany). */
+typedef enum {
+    TWIN_ACC_OFF = 0,   /* modo apagado: emparejado fijo o sin emparejar */
+    TWIN_ACC_SEARCHING, /* sin IncuNest: buscando una con bebe */
+    TWIN_ACC_WAITING,   /* bebe elegido, falta el primer gesto: "Un bebe te espera" */
+    TWIN_ACC_WITH,      /* acompañando */
+    TWIN_ACC_ENDING,    /* su IncuNest sin bebe o desconectada: margen antes de buscar otra */
+    TWIN_ACC_FAREWELL,  /* se fue a casa: despedida hasta tocar la pantalla o el dia siguiente */
+} twin_acc_t;
+
 /* Estado del enlace del panel. */
 typedef struct {
     bool wifi;
@@ -73,6 +83,10 @@ typedef struct {
     twin_link_t link;
     twin_incubator_t inc;
     bool demo;             /* overlay del modo demo activo */
+    /* modo Acompañar (TWIN_ACC_OFF si esta apagado o en la demo) */
+    twin_acc_t acc;
+    bool acc_remind;       /* "¿Le das la mano hoy?" */
+    uint8_t acc_week;      /* corazones: bit 0 = hoy ... bit 6 = hace 6 dias */
     /* derivados (twin_derive) */
     bool link_ok;
     bool show_baby;
@@ -101,6 +115,12 @@ typedef enum {
     TWIN_ST_NAME,
     TWIN_ST_AWAKE,
     TWIN_ST_SLEEP,
+    /* modo Acompañar */
+    TWIN_ST_ACC_SEARCH,   /* "Ahora no hay bebes. Te avisare" */
+    TWIN_ST_ACC_WAITING,  /* "Un bebe te espera" */
+    TWIN_ST_ACC_REMIND,   /* "¿Le das la mano hoy?" */
+    TWIN_ST_ACC_ENDED,    /* "Ha terminado su estancia" */
+    TWIN_ST_ACC_FAREWELL, /* "¡Se ha ido a casa! Gracias por acompañarle" */
 } twin_status_t;
 
 #ifdef __cplusplus

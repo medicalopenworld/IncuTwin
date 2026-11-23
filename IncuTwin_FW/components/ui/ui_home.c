@@ -47,7 +47,7 @@
 static const uint32_t LAP_COLS[] = { 0xDE6F63, 0x054E92, 0xF5A93B, 0x3F9E63 };
 #define N_LAP_COLS (sizeof(LAP_COLS) / sizeof(LAP_COLS[0]))
 
-typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_ALARM } halo_mode_t;
+typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_ALARM, HALO_CALL } halo_mode_t;
 typedef enum { VIEW_EMPTY = 0, VIEW_BABY, VIEW_PARENTS } home_view_t;
 
 static lv_obj_t *s_scr;
@@ -74,6 +74,9 @@ static int s_hh_shown = -1;     /* estado pintado; -1 = forzar repintado */
 static twin_snapshot_t s_last;  /* para restaurar la barra de estado */
 static bool s_have_last;
 static bool s_row_shown; /* la fila se ve: bebe a la vista y sin gesto */
+static uint32_t s_farewell_ms; /* lv_tick al entrar en la despedida del modo acompañar */
+static bool s_farewell;
+#define FAREWELL_TOUCH_MIN_MS 5000 /* que no la cierre un toque fantasma nada mas salir */
 
 static void hold_refresh(bool force);
 static void overlay_refresh(void);
@@ -111,6 +114,7 @@ static void halo_set_mode(halo_mode_t m)
     case HALO_WARM:  col = COL_HALO_WARM; break;
     case HALO_PHOTO: col = COL_HALO_PHOTO; period = 2000; break;
     case HALO_ALARM: col = COL_HALO_ALARM; period = 700; break;
+    case HALO_CALL:  col = COL_HALO_CALL; period = 1200; break;
     default: break;
     }
     lv_obj_set_hidden(s_halo, false);
@@ -701,6 +705,16 @@ lv_obj_t *ui_home_create(void)
     return s_scr;
 }
 
+/* Cualquier pulsacion en la pantalla: en la despedida del modo acompañar la cierra (pasados unos
+ * segundos, por los toques fantasma del tactil). */
+void ui_home_screen_pressed(void)
+{
+    if (!s_farewell || lv_tick_elaps(s_farewell_ms) < FAREWELL_TOUCH_MIN_MS) return;
+    s_farewell = false; /* un aviso por despedida */
+    app_evt_acc_input_t in = APP_ACC_TOUCH;
+    app_events_post(TWIN_EVT_ACC_INPUT, &in, sizeof(in));
+}
+
 void ui_home_retranslate(void)
 {
     lv_label_set_text(s_lbl_hand, tr(STR_HAND));
@@ -756,6 +770,11 @@ static void status_bar_apply(const twin_snapshot_t *s)
     case TWIN_ST_NO_BABY:     status_bar_text(tr(STR_ST_NO_BABY), COL_PHOTO); break;
     case TWIN_ST_ALARM:       status_bar_text(tr(STR_ST_ALARM), COL_RED); break;
     case TWIN_ST_NAME:        status_bar_baby(&s->inc); break;
+    case TWIN_ST_ACC_SEARCH:  status_bar_text(tr(STR_ACC_SEARCH), COL_OFFLINE); break;
+    case TWIN_ST_ACC_WAITING: status_bar_text(tr(STR_ACC_WAITING), COL_CORAL); break;
+    case TWIN_ST_ACC_REMIND:  status_bar_text(tr(STR_ACC_REMIND), COL_CORAL); break;
+    case TWIN_ST_ACC_ENDED:   status_bar_text(tr(STR_ACC_ENDED), COL_OFFLINE); break;
+    case TWIN_ST_ACC_FAREWELL: status_bar_text(tr(STR_ACC_FAREWELL), COL_OK); break;
     case TWIN_ST_AWAKE:       status_bar_text(tr(STR_ST_AWAKE), COL_OK); break;
     default:                  status_bar_text(tr(STR_ST_SLEEP), COL_OK); break;
     }
@@ -920,7 +939,13 @@ static void hold_refresh(bool force)
 
     if (hh_take_send(&s_hh)) app_events_post(TWIN_EVT_HAND_HOLD, NULL, 0);
 
-    if (st == HH_DONE && s_hh_shown == HH_HOLDING) ui_pages_note_hand(); /* +1 en los logros */
+    if (st == HH_DONE && s_hh_shown == HH_HOLDING) {
+        ui_pages_note_hand(); /* +1 en los logros */
+        if (s_have_last && !s_last.demo) { /* modo acompañar: hoy cuenta (si esta apagado, nada) */
+            app_evt_acc_input_t in = APP_ACC_GESTURE;
+            app_events_post(TWIN_EVT_ACC_INPUT, &in, sizeof(in));
+        }
+    }
     if (force || (int)st != s_hh_shown || baby_view != shown_view) {
         s_hh_shown = (int)st;
         shown_view = baby_view;
@@ -983,6 +1008,9 @@ void ui_home_apply(const twin_snapshot_t *s)
     s_awake_real = inc->awake;
     s_last = *s;
     s_have_last = true;
+    bool farewell = s->acc == TWIN_ACC_FAREWELL;
+    if (farewell && !s_farewell) s_farewell_ms = lv_tick_get();
+    s_farewell = farewell;
     ui_pages_apply(s);
     hh_set_available(&s_hh, s->show_baby && ui_pages_current() == 0,
                      !s->demo && s->link.broker_connected && s->link.paired, lv_tick_get());
@@ -1007,8 +1035,10 @@ void ui_home_apply(const twin_snapshot_t *s)
     if (hh_idle) baby_set_awake(inc->awake); /* durante el gesto los ojos los pone el gesto */
     baby_set_heart_rate(s->show_baby ? inc->bpm : 0);
 
+    bool calling = s->acc == TWIN_ACC_WAITING || (s->acc != TWIN_ACC_OFF && s->acc_remind);
     if (!s->show_baby)                          halo_set_mode(HALO_OFF);
     else if (inc->thermo == TWIN_THERMO_ALARM)   halo_set_mode(HALO_ALARM);
+    else if (calling)                            halo_set_mode(HALO_CALL);
     else if (inc->photo)                         halo_set_mode(HALO_PHOTO);
     else if (inc->thermo == TWIN_THERMO_HEATING) halo_set_mode(HALO_WARM);
     else                                         halo_set_mode(HALO_CALM);

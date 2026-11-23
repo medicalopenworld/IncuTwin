@@ -98,6 +98,23 @@ SET_IMPL(storage_set_u8, uint8_t, nvs_set_u8)
 SET_IMPL(storage_set_u32, uint32_t, nvs_set_u32)
 SET_IMPL(storage_set_i32, int32_t, nvs_set_i32)
 
+bool storage_get_blob(const char *ns, const char *key, void *out, size_t len)
+{
+    nvs_handle_t h;
+    if (!open_ns(ns, NVS_READONLY, &h)) return false;
+    size_t got = len;
+    esp_err_t err = nvs_get_blob(h, key, out, &got);
+    nvs_close(h);
+    return err == ESP_OK && got == len;
+}
+
+bool storage_set_blob(const char *ns, const char *key, const void *val, size_t len)
+{
+    nvs_handle_t h;
+    if (!open_ns(ns, NVS_READWRITE, &h)) return false;
+    return commit_close(h, nvs_set_blob(h, key, val, len), ns, key);
+}
+
 bool storage_erase_key(const char *ns, const char *key)
 {
     nvs_handle_t h;
@@ -122,10 +139,11 @@ bool storage_erase_ns(const char *ns)
 
 void storage_factory_reset(void)
 {
-    ESP_LOGW(TAG, "factory reset: borrando prov, settings y twin");
+    ESP_LOGW(TAG, "factory reset: borrando prov, settings, twin y acc");
     storage_erase_ns(STORAGE_NS_PROV);
     storage_erase_ns(STORAGE_NS_SETTINGS);
     storage_erase_ns(STORAGE_NS_TWIN);
+    storage_erase_ns(STORAGE_NS_ACC);
     vTaskDelay(pdMS_TO_TICKS(200)); /* que salga el log */
     esp_restart();
 }

@@ -80,6 +80,38 @@ TEST_CASE("status: con sus papas y en casa mandan sobre todo", "[twin][status]")
     TEST_ASSERT_EQUAL(TWIN_ST_NO_WIFI, twin_status_of(&s));
 }
 
+TEST_CASE("status: modo acompañar", "[twin][status][acc]")
+{
+    twin_snapshot_t s = linked_snapshot();
+    s.acc = TWIN_ACC_WAITING;
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_WAITING, twin_status_of(&s));
+    s.inc.thermo = TWIN_THERMO_ALARM;
+    TEST_ASSERT_EQUAL(TWIN_ST_ALARM, twin_status_of(&s)); /* la alarma manda */
+    s.inc.thermo = TWIN_THERMO_STABLE;
+    s.acc = TWIN_ACC_WITH;
+    TEST_ASSERT_EQUAL(TWIN_ST_SLEEP, twin_status_of(&s));
+    s.acc_remind = true;
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_REMIND, twin_status_of(&s));
+    s.acc_remind = false;
+    s.acc = TWIN_ACC_ENDING;
+    s.inc.baby = TWIN_BABY_NONE; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_ENDED, twin_status_of(&s));
+    s.inc.online = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_INC_OFF, twin_status_of(&s));
+    s = linked_snapshot();
+    s.acc = TWIN_ACC_FAREWELL;
+    s.inc.baby = TWIN_BABY_HOME; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_FAREWELL, twin_status_of(&s));
+    s.acc = TWIN_ACC_SEARCHING;
+    s.link.paired = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_SEARCH, twin_status_of(&s));
+    s.link.wifi = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_NO_WIFI, twin_status_of(&s)); /* sin red, lo de siempre */
+    s = linked_snapshot();
+    s.link.paired = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_UNPAIRED, twin_status_of(&s)); /* modo apagado */
+}
+
 TEST_CASE("derive: caida breve del broker mantiene link_ok", "[twin][status]")
 {
     twin_snapshot_t s = linked_snapshot();

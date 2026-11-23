@@ -20,6 +20,12 @@ typedef enum {
     STR_ST_ALARM,
     STR_ST_AWAKE,
     STR_ST_SLEEP,
+    /* modo Acompañar (spec accompany) */
+    STR_ACC_SEARCH,
+    STR_ACC_WAITING,
+    STR_ACC_REMIND,
+    STR_ACC_ENDED,
+    STR_ACC_FAREWELL,
     STR_DAY,
     STR_DAYS,
     /* pantalla principal */

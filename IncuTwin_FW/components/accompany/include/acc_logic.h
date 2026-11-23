@@ -1,0 +1,104 @@
+/* IncuTwin — logica pura del modo Acompañar (spec accompany, openspec hmi-accompany).
+ *
+ * Sin IDF, sin LVGL, sin estado global: el tiempo (s monotonos), el dia local (dias desde
+ * 1970 en hora de España, o ACC_NO_DAY sin hora valida) y la hora local entran como parametros.
+ * accompany.c es el pegamento (NVS, PSRAM, eventos). Probado en test_apps. */
+#pragma once
+
+#include <stdbool.h>
+#include <stdint.h>
+
+#include "twin_types.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
+#define ACC_MAX_INC     64          /* IncuNest que se recuerdan a la vez (tabla en RAM) */
+#define ACC_HIST_MAX    32          /* IncuNest en el historial (NVS) */
+#define ACC_ENDING_S    (2 * 3600)  /* sin bebe o desconectada antes de buscar otra */
+#define ACC_SAVE_S      600         /* guardar el historial cada 10 min mientras cuenta */
+#define ACC_REMIND_HOUR 19          /* recordatorio diario */
+#define ACC_QUIET_FROM  22          /* silencio de 22:00 ... */
+#define ACC_QUIET_TO    9           /* ... a 9:00 */
+#define ACC_NO_DAY      INT32_MIN   /* dia desconocido / nunca */
+#define ACC_PERSIST_VERSION 1
+
+/* Resultado de cada entrada (mascara) */
+#define ACC_R_SWITCH  0x01u /* cambio la IncuNest actual (puede ser a ninguna) */
+#define ACC_R_PHASE   0x02u /* cambio la fase o lo que se presenta */
+#define ACC_R_SAVE    0x04u /* hay que guardar acc_persist_t */
+#define ACC_R_REMIND  0x08u /* toca la llamada del recordatorio (una vez al dia) */
+#define ACC_R_FORWARD 0x10u /* el estado recibido es de la actual: aplicarlo al gemelo */
+
+typedef struct {
+    char id[TWIN_INCUBATOR_ID_LEN];
+    uint32_t secs;
+} acc_hist_t;
+
+/* Lo que se guarda en NVS (blob acc/state). */
+typedef struct {
+    uint8_t version;
+    uint8_t phase;          /* twin_acc_t (nunca TWIN_ACC_OFF) */
+    uint8_t engaged;        /* ya hubo gesto con el bebe actual */
+    uint8_t days_mask;      /* bit i = dia mask_day - i con gesto */
+    char cur[TWIN_INCUBATOR_ID_LEN]; /* "" = ninguna */
+    int32_t gesture_day;    /* ultimo dia con gesto */
+    int32_t mask_day;
+    int32_t remind_day;     /* ultimo dia con llamada */
+    int32_t farewell_day;   /* dia en que empezo la despedida */
+    uint8_t n_hist;
+    acc_hist_t hist[ACC_HIST_MAX];
+} acc_persist_t;
+
+typedef struct {
+    char id[TWIN_INCUBATOR_ID_LEN];
+    bool present; /* bebe dentro o con sus papas */
+    bool home;    /* se ha ido a casa */
+} acc_seen_t;
+
+typedef struct {
+    acc_persist_t p;
+    acc_seen_t seen[ACC_MAX_INC];
+    uint8_t n_seen;
+    uint32_t seed;          /* hash del client id: reparte los empates entre paneles */
+    uint32_t ending_since;  /* s; entrada en TWIN_ACC_ENDING */
+    uint32_t pick_after;    /* s; no elegir antes (dejar llegar todos los retenidos) */
+    uint32_t unsaved_s;     /* segundos contados desde el ultimo guardado */
+} acc_t;
+
+uint32_t acc_hash(const char *s); /* FNV-1a de 32 bits */
+
+/* Estado inicial (buscando, historial vacio). */
+void acc_init(acc_t *a, uint32_t seed);
+/* Recupera lo guardado; si no es valido, acc_init. */
+void acc_restore(acc_t *a, const acc_persist_t *p, uint32_t seed, uint32_t now_s);
+/* No elegir hasta now_s >= until_s (al conectar llegan de golpe los retenidos). */
+void acc_hold_pick(acc_t *a, uint32_t until_s);
+
+/* Estado recibido de una IncuNest. present = bebe dentro o con sus papas; home = alta. */
+uint32_t acc_seen_update(acc_t *a, const char *id, bool present, bool home, uint32_t now_s);
+/* Indice de la IncuNest en a->seen (para el payload guardado en PSRAM); -1 si no esta. */
+int acc_seen_index(const acc_t *a, const char *id);
+
+/* "Coge mi mano" completado. */
+uint32_t acc_gesture(acc_t *a, int32_t day);
+/* Toque en la pantalla (cierra la despedida). */
+uint32_t acc_touch(acc_t *a, uint32_t now_s);
+/* Cada segundo. hour = hora local 0..23, o -1 sin hora valida; shown = bebe a la vista. */
+uint32_t acc_tick(acc_t *a, uint32_t now_s, int32_t day, int hour, bool shown);
+
+/* Salidas */
+static inline twin_acc_t acc_phase(const acc_t *a) { return (twin_acc_t)a->p.phase; }
+static inline const char *acc_current(const acc_t *a) { return a->p.cur; }
+uint32_t acc_hist_secs(const acc_t *a, const char *id);
+/* "¿Le das la mano hoy?": hay bebe, son las 19:00 o mas y hoy no ha habido gesto. */
+bool acc_remind_active(const acc_t *a, int32_t day, int hour);
+/* Corazones: bit 0 = hoy ... bit 6 = hace 6 dias. */
+uint8_t acc_week_mask(const acc_t *a, int32_t day);
+/* Horario de silencio (hour < 0 = sin hora: no hay silencio). */
+bool acc_quiet(int hour);
+
+#ifdef __cplusplus
+}
+#endif

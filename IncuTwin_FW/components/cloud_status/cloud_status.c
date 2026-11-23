@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 
+#include "accompany.h"
 #include "app_events.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
@@ -22,12 +23,12 @@ static esp_timer_handle_t s_timer;
 static void publish(const char *why)
 {
     char topic[80], payload[STATUS_PAYLOAD_MAX + 1];
-    char inc[TWIN_INCUBATOR_ID_LEN] = "";
-    identity_incubator_id(inc);
     twin_snapshot_t s = twin_model_get();
+    /* la del gemelo: la emparejada o, en modo acompañar, la que se acompaña ahora */
+    const char *inc = s.link.paired ? s.link.incubator_id : "";
     int64_t ts = net_wifi_time_valid() ? (int64_t)time(NULL) : 0;
     int n = status_payload_build(payload, sizeof(payload), esp_app_get_description()->version,
-                                 s.link.rssi, inc, ts);
+                                 s.link.rssi, inc, accompany_enabled(), ts);
     if (n < 0) return;
     snprintf(topic, sizeof(topic), "incutwin/%s/status", mqtt_link_client_id());
     if (mqtt_link_publish(topic, payload, (size_t)n, 1, true)) {
@@ -64,9 +65,9 @@ static void on_hand_hold(void *arg, esp_event_base_t base, int32_t id, void *dat
 {
     (void)arg; (void)base; (void)id; (void)data;
     char topic[80], payload[HAND_PAYLOAD_MAX + 1];
-    char inc[TWIN_INCUBATOR_ID_LEN] = "";
-    identity_incubator_id(inc);
-    if (inc[0] == '\0') return;
+    twin_snapshot_t s = twin_model_get();
+    if (!s.link.paired || s.link.incubator_id[0] == '\0') return;
+    const char *inc = s.link.incubator_id;
     int n = hand_payload_build(payload, sizeof(payload), inc, CONFIG_INCUTWIN_HAND_MIN_S);
     if (n < 0) return;
     snprintf(topic, sizeof(topic), "incutwin/%s/hand", mqtt_link_client_id());

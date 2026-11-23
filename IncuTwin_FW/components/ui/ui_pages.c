@@ -57,6 +57,13 @@ static int s_page;
 static bool s_enabled;
 static unsigned s_hands; /* gestos completados en esta demo: hoy cuenta como dia acompañado */
 static char s_country[TWIN_COUNTRY_LEN] = ""; /* pais pintado; "" = ninguno todavia */
+/* Modo acompañar: 7 corazones encima de la tarjeta de distancia (hoy a la derecha) */
+#define WEEK_N     7
+#define WEEK_H     30
+#define WEEK_GAP   (6 + WEEK_H) /* lo que sube el encuadre del mapa */
+static lv_obj_t *s_week_box, *s_week[WEEK_N];
+static bool s_acc_on;
+static int s_week_mask = -1; /* pintado; -1 = forzar */
 
 /* ------------------------------------------------------------- helpers */
 
@@ -260,7 +267,8 @@ static void country_page_refresh(void)
     /* mapa: encuadre para los dos puntos entre la etiqueta y la tarjeta de abajo */
     if (s_map_buf) {
         const wm_frame_t f = { .w = MAP_W, .h = MAP_H, .top = (int16_t)(chip_h + 8),
-                               .bottom = INFO_H + 8, .margin = 12, .min_ppd = 1.2f, .max_ppd = 9.0f };
+                               .bottom = (int16_t)(INFO_H + 8 + (s_acc_on ? WEEK_GAP : 0)), .margin = 12,
+                               .min_ppd = 1.2f, .max_ppd = 9.0f };
         wm_view_t v;
         wm_fit(&v, &f, TWIN_GEO_HOME_LAT, TWIN_GEO_HOME_LON, g->lat, g->lon);
         int64_t t0 = esp_timer_get_time();
@@ -367,6 +375,21 @@ void ui_pages_create(lv_obj_t *scr)
     lv_label_set_text(s_lbl_time, "--:--");
     s_lbl_utc = text(c, &lv_font_es_12, COL_OFFLINE, 0, 0);
 
+    /* encima: los dias que has acompañado esta semana (modo acompañar) */
+    s_week_box = overlay(p);
+    lv_obj_set_size(s_week_box, WEEK_N * 26 + 10, WEEK_H);
+    lv_obj_set_pos(s_week_box, (240 - (WEEK_N * 26 + 10)) / 2, PG_H - INFO_H - 6 - 6 - WEEK_H);
+    lv_obj_set_flex_flow(s_week_box, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(s_week_box, LV_FLEX_ALIGN_SPACE_EVENLY, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    for (int i = 0; i < WEEK_N; i++) {
+        lv_obj_t *h = s_week[i] = lv_image_create(s_week_box);
+        lv_image_set_src(h, &img_heart);
+        lv_image_set_inner_align(h, LV_IMAGE_ALIGN_STRETCH);
+        lv_obj_set_size(h, 20, 18);
+        lv_obj_set_style_image_recolor(h, COL_OFFLINE, 0);
+    }
+    lv_obj_set_hidden(s_week_box, true);
+
     /* pagina 2: logros acumulados */
     p = s_pg[2] = panel(scr);
     lv_obj_set_user_data(p, (void *)(intptr_t)2);
@@ -416,6 +439,18 @@ void ui_pages_retranslate(void)
     lv_obj_align(s_lbl_ach_sub, LV_ALIGN_TOP_MID, 0, 36);
 }
 
+/* Corazones: bit 0 de la mascara = hoy (el de la derecha) */
+static void week_refresh(uint8_t mask)
+{
+    if ((int)mask == s_week_mask) return;
+    s_week_mask = mask;
+    for (int i = 0; i < WEEK_N; i++) {
+        bool on = mask & (1u << (WEEK_N - 1 - i));
+        lv_obj_set_style_image_recolor_opa(s_week[i], on ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
+        lv_obj_set_style_image_opa(s_week[i], on ? LV_OPA_COVER : LV_OPA_40, 0);
+    }
+}
+
 /* ------------------------------------------------------------------- API */
 
 void ui_pages_apply(const twin_snapshot_t *s)
@@ -429,7 +464,12 @@ void ui_pages_apply(const twin_snapshot_t *s)
     /* pais: el del estado; en la demo, Camerun si el escenario no trae otro */
     const char *cc = s->inc.country[0] ? s->inc.country : (s_enabled ? DEMO_COUNTRY : "");
     bool known = twin_geo_find(cc) != NULL;
-    if (known && (strcmp(cc, s_country) != 0 || demo_changed)) {
+    bool acc_on = !s_enabled && s->acc != TWIN_ACC_OFF;
+    bool acc_changed = acc_on != s_acc_on;
+    s_acc_on = acc_on;
+    lv_obj_set_hidden(s_week_box, !acc_on);
+    if (acc_on) week_refresh(s->acc_week);
+    if (known && (strcmp(cc, s_country) != 0 || demo_changed || acc_changed)) {
         memcpy(s_country, cc, TWIN_COUNTRY_LEN);
         country_page_refresh();
     }
