@@ -65,46 +65,47 @@ Reglas de `twin_notices_update` (`heat` = `thermo != TWIN_THERMO_OFF`; «dentro�
 ```c
 TEST_CASE("notice: primer estado solo fija la base", "[notice]") {
     twin_notice_base_t b = {0};
-    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, true, true)));
+    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, true, true)));
 }
 TEST_CASE("notice: arranque con bebe guardado no avisa de calor", "[notice]") {
     twin_notice_base_t b; twin_notice_base_boot(&b, true, TWIN_BABY_IN);
-    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, true, true)));
-    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_PHOTO_OFF, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, true, true)));
+    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_PHOTO_OFF, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, false, true)));
 }
 TEST_CASE("notice: arranque sin bebe guardado y llega bebe = ingreso", "[notice]") {
     twin_notice_base_t b; twin_notice_base_boot(&b, true, TWIN_BABY_NONE);
-    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_ADMISSION, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_HEATING, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_ADMISSION, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_HEATING, false, true)));
 }
 TEST_CASE("notice: ingreso con calor", "[notice]") {
     twin_notice_base_t b = base(TWIN_BABY_NONE, false, false);
-    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_ADMISSION | TWIN_NOTICE_HEAT_ON, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_HEATING, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_ADMISSION | TWIN_NOTICE_HEAT_ON, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_HEATING, false, true)));
 }
 TEST_CASE("notice: in->parents avisa, parents->in no", "[notice]") {
     twin_notice_base_t b = base(TWIN_BABY_IN, false, false);
-    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_PARENTS, twin_notices_update(&b, &inc(TWIN_BABY_PARENTS, TWIN_THERMO_OFF, false, true)));
-    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_OFF, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_PARENTS, twin_notices_update(&b, inc(TWIN_BABY_PARENTS, TWIN_THERMO_OFF, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_OFF, false, true)));
 }
 TEST_CASE("notice: home es salida, sin fanfarria", "[notice]") {
     twin_notice_base_t b = base(TWIN_BABY_PARENTS, false, false);
-    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_EXIT, twin_notices_update(&b, &inc(TWIN_BABY_HOME, TWIN_THERMO_OFF, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_EXIT, twin_notices_update(&b, inc(TWIN_BABY_HOME, TWIN_THERMO_OFF, false, true)));
 }
 TEST_CASE("notice: offline no avisa y al volver igual tampoco", "[notice]") {
     twin_notice_base_t b = base(TWIN_BABY_IN, true, false);
-    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, &inc(TWIN_BABY_NONE, TWIN_THERMO_OFF, false, false)));
-    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_NONE, TWIN_THERMO_OFF, false, false)));
+    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_STABLE, false, true)));
 }
 TEST_CASE("notice: vuelve de offline sin bebe = una salida", "[notice]") {
     twin_notice_base_t b = base(TWIN_BABY_IN, false, false);
-    twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_OFF, false, false));
-    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_EXIT, twin_notices_update(&b, &inc(TWIN_BABY_NONE, TWIN_THERMO_OFF, false, true)));
+    twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_OFF, false, false));
+    TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_EXIT, twin_notices_update(&b, inc(TWIN_BABY_NONE, TWIN_THERMO_OFF, false, true)));
 }
 TEST_CASE("notice: alarma con calor previo no avisa", "[notice]") {
     twin_notice_base_t b = base(TWIN_BABY_IN, true, false);
-    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, &inc(TWIN_BABY_IN, TWIN_THERMO_ALARM, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_ALARM, false, true)));
 }
 ```
-  `base(baby, heat, photo)` devuelve una base `valid` y `treatments_known`.
+  `base(baby, heat, photo)` devuelve una base `valid` y `treatments_known`. `inc(baby, thermo, photo, online)` devuelve
+  `const twin_incubator_t *` a un `static` del test (en C no se puede tomar la dirección de un valor devuelto).
 
 - [ ] **Step 2: Run** `idf.py -C test_apps -p COM6 flash` y `python tools/serial_capture.py --port COM6 --seconds 20 --reset` — Expected: no compila (`twin_notices_update` no existe).
 - [ ] **Step 3: Implement** según las reglas.
@@ -135,13 +136,13 @@ TEST_CASE("notice: alarma con calor previo no avisa", "[notice]") {
 ```c
 TEST_CASE("ring: el mas reciente primero", "[evlog]") {
     event_ring_t r = {0};
-    event_ring_push(&r, &E(100, TWIN_NOTICE_ADMISSION)); event_ring_push(&r, &E(200, TWIN_NOTICE_HEAT_ON));
+    event_ring_push(&r, E(100, TWIN_NOTICE_ADMISSION)); event_ring_push(&r, E(200, TWIN_NOTICE_HEAT_ON));
     event_entry_t o; TEST_ASSERT_TRUE(event_ring_get(&r, 0, &o));
     TEST_ASSERT_EQUAL_UINT32(200, o.at); TEST_ASSERT_EQUAL_UINT8(2, r.unseen);
 }
 TEST_CASE("ring: 51 entradas conservan las 50 mas nuevas", "[evlog]") {
     event_ring_t r = {0};
-    for (uint32_t i = 1; i <= 51; i++) event_ring_push(&r, &E(i, TWIN_NOTICE_EXIT));
+    for (uint32_t i = 1; i <= 51; i++) event_ring_push(&r, E(i, TWIN_NOTICE_EXIT));
     event_entry_t o;
     TEST_ASSERT_EQUAL_UINT8(50, r.count); TEST_ASSERT_EQUAL_UINT8(50, r.unseen);
     event_ring_get(&r, 0, &o); TEST_ASSERT_EQUAL_UINT32(51, o.at);
@@ -149,10 +150,12 @@ TEST_CASE("ring: 51 entradas conservan las 50 mas nuevas", "[evlog]") {
     TEST_ASSERT_FALSE(event_ring_get(&r, 50, &o));
 }
 TEST_CASE("ring: marcar visto", "[evlog]") {
-    event_ring_t r = {0}; event_ring_push(&r, &E(1, TWIN_NOTICE_EXIT));
+    event_ring_t r = {0}; event_ring_push(&r, E(1, TWIN_NOTICE_EXIT));
     event_ring_mark_seen(&r); TEST_ASSERT_EQUAL_UINT8(0, r.unseen);
 }
 ```
+
+  `E(at, kind)` devuelve `const event_entry_t *` a un `static` del test con `inc = "SIM01"`.
 
 - [ ] **Step 2: Run** el test app en COM6 — Expected: no compila.
 - [ ] **Step 3: Implement** `event_ring.c`, `event_log.c` y el componente.
@@ -221,7 +224,7 @@ TEST_CASE("quiet: intervalo sin medianoche", "[quiet]") {
 - [ ] **Step 1: Run** test app en COM6 tras borrar los tests de transiciones — Expected: `0 Failures`.
 - [ ] **Step 2: Implement** lo de *Produces*.
 - [ ] **Step 3: Run** `idf.py build` — Expected: compila sin referencias a `TWIN_EVT_TRANSITION` (`git grep TWIN_EVT_TRANSITION` vacío).
-- [ ] **Step 4: Run** build `sim` en COM6 (`idf.py -B build-sim -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.sim" -p COM6 flash`), abrir `SIM: http://<ip>/` del log y: bebé dentro → suena «bebé detectado»; quitar bebé → no suena; con horario nocturno que incluya la hora actual (poner desde = hora actual en NVS por consola o, si aún no hay UI, temporalmente en el defecto), bebé dentro → no suena. Anotar el resultado en el informe.
+- [ ] **Step 4: Run** build `sim` en COM6 (`idf.py -B build-sim -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.sim" -p COM6 flash`), abrir `SIM: http://<ip>/` del log y: bebé dentro → suena «bebé detectado»; quitar bebé → no suena; bebé dentro y luego «con sus papás» → fanfarria. (El horario nocturno se prueba en la tarea 8, cuando ya se puede cambiar desde Ajustes.) Anotar el resultado en el informe.
 - [ ] **Step 5: Commit** `git commit -m "feat(twin): publicar avisos; el buzzer solo suena en ingreso y con sus papas"`
 
 ---
