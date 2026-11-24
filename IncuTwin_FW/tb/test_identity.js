@@ -58,12 +58,16 @@ test('bebé nuevo sin sexo: el sistema sortea sexo y apodo y los publica en el b
   const a = incubator('353').admit(6);
   assert.strictEqual(a.events[0].event, 'baby_in');
   assert.ok(a.broker.sex === 'm' || a.broker.sex === 'f');
-  assert.ok(isName(a.broker.sex, a.broker.name), a.broker.name);
+  assert.ok(isName(a.broker.sex, a.attrs.itw_baby_alias), a.attrs.itw_baby_alias);
+  // el apodo no va como nombre: sin nombre real el panel pregunta (spec nombre-bebe-panel)
+  assert.strictEqual(a.broker.name, undefined);
+  assert.strictEqual(a.panel.name, '');
+  // la estancia viaja al panel
+  assert.strictEqual(a.broker.stay_id, '353:6');
+  assert.strictEqual(a.broker.stay_id, a.attrs.itw_stay_id);
   assert.strictEqual(a.panel.sex, a.broker.sex);
-  assert.strictEqual(a.panel.name, a.broker.name);
   assert.strictEqual(a.attrs.itw_baby_sex, a.broker.sex);
   assert.strictEqual(a.attrs.itw_baby_sex_src, 'auto');
-  assert.strictEqual(a.attrs.itw_baby_alias, a.broker.name);
   assert.strictEqual(a.broker.weight_g, undefined, 'el peso no sale sin consentimiento');
   assert.strictEqual(a.broker.age_d, undefined);
 });
@@ -73,15 +77,15 @@ test('sin bebé no hay nombre ni sexo', () => {
   a.attrsMsg({ baby_seq: 5, baby_admission_epoch: 0 });      // perfil viejo en el slot, sin terapia
   a.tele({ Control_active: false, Phototherapy_active: false });
   assert.strictEqual(a.panel.baby, 'none');
-  assert.strictEqual(a.panel.name, '');
+  assert.strictEqual(a.attrs.itw_baby_alias, '');
   assert.strictEqual(a.panel.sex, '');
   assert.strictEqual(a.attrs.itw_baby_sex, '');
 });
 
 test('la identidad no cambia durante el episodio (latidos, canguro, vuelta, offline/online)', () => {
   const a = incubator('353').admit(6);
-  const id = [a.broker.name, a.broker.sex];
-  const same = () => assert.deepStrictEqual([a.panel.name, a.panel.sex], id);
+  const id = [a.attrs.itw_baby_alias, a.broker.sex];
+  const same = () => assert.deepStrictEqual([a.attrs.itw_baby_alias, a.panel.sex], id);
   for (let i = 0; i < 30; i++) { a.tele({ Control_active: true, Air_temp: 35, HR1: 140, HR1_SQI: 0.9 }); same(); }
   a.step({}, 'INACTIVITY_EVENT', 3 * M); same();
   a.step({}, 'ACTIVITY_EVENT', 10 * M); same();
@@ -90,62 +94,62 @@ test('la identidad no cambia durante el episodio (latidos, canguro, vuelta, offl
   assert.strictEqual(a.panel.baby, 'parents'); same();
   a.tele({ Control_active: true, Air_temp: 34 }, 1 * H);
   assert.strictEqual(a.panel.baby, 'in'); same();
-  assert.deepStrictEqual([a.broker.name, a.broker.sex], id);
+  assert.deepStrictEqual([a.attrs.itw_baby_alias, a.broker.sex], id);
 });
 
 test('alta a casa: el panel sigue recibiendo el mismo nombre; el siguiente bebé estrena identidad', () => {
   const a = incubator('353').admit(6);
-  const first = [a.broker.name, a.broker.sex];
+  const first = [a.attrs.itw_baby_alias, a.broker.sex];
   a.tele({ Control_active: false, Phototherapy_active: false }, 2 * 24 * H);
   a.tele({ baby_seq: 6, baby_outcome: 1, baby_discharge_epoch: Math.floor(a.t / 1000) });
   a.attrsMsg({ baby_seq: 0, baby_admission_epoch: 0 });
   assert.strictEqual(a.broker.baby, 'home');
-  assert.deepStrictEqual([a.panel.name, a.panel.sex], first);
+  assert.deepStrictEqual([a.attrs.itw_baby_alias, a.panel.sex], first);
   a.admit(7);
   assert.strictEqual(a.events[0].event, 'baby_in');
-  assert.notStrictEqual(a.broker.name, first[0], 'dos bebés seguidos no comparten apodo');
-  assert.ok(isName(a.broker.sex, a.broker.name));
+  assert.notStrictEqual(a.attrs.itw_baby_alias, first[0], 'dos bebés seguidos no comparten apodo');
+  assert.ok(isName(a.broker.sex, a.attrs.itw_baby_alias));
 });
 
 test('reemplazo sin alta (baby_seq nuevo bajo terapia) = bebé nuevo', () => {
   const a = incubator('353').admit(6);
-  const first = a.broker.name;
+  const first = a.attrs.itw_baby_alias;
   // con la terapia encendida, el cambio de perfil ya cierra un episodio y abre el otro
   a.attrsMsg({ baby_seq: 7, baby_admission_epoch: Math.floor(a.t / 1000) });
   assert.deepStrictEqual(a.events.map(e => e.event).slice(0, 2), ['baby_out', 'baby_in']);
   assert.strictEqual(a.events[0].payload.reason, 'replaced');
   assert.strictEqual(a.attrs.itw_stay_id, '353:7');
-  assert.notStrictEqual(a.broker.name, first);
-  assert.ok(isName(a.broker.sex, a.broker.name));
+  assert.notStrictEqual(a.attrs.itw_baby_alias, first);
+  assert.ok(isName(a.broker.sex, a.attrs.itw_baby_alias));
 });
 
 test('alta por error: reabrir el mismo baby_seq conserva la identidad', () => {
   const a = incubator('353').admit(6);
-  const id = [a.broker.name, a.broker.sex];
+  const id = [a.attrs.itw_baby_alias, a.broker.sex];
   a.tele({ Control_active: false, Phototherapy_active: false }, 1 * H);
   a.tele({ baby_seq: 6, baby_outcome: 0, baby_discharge_epoch: Math.floor(a.t / 1000) });
   assert.strictEqual(a.panel.baby, 'out');
-  assert.strictEqual(a.panel.name, '', 'alta que no es a casa: el bebé deja de mostrarse');
+  assert.strictEqual(a.attrs.itw_baby_alias, '', 'alta que no es a casa: el bebé deja de mostrarse');
   a.tele({ Control_active: true, Air_temp: 34 }, 1 * H);
   assert.strictEqual(a.events[0].event, 'baby_back');
-  assert.deepStrictEqual([a.broker.name, a.broker.sex], id);
+  assert.deepStrictEqual([a.attrs.itw_baby_alias, a.broker.sex], id);
 });
 
 test('reproducible: perder itw_state a mitad del episodio no cambia al bebé', () => {
   const a = incubator('353').admit(6);
-  const id = [a.broker.name, a.broker.sex];
+  const id = [a.attrs.itw_baby_alias, a.broker.sex];
   a.state = null;                                            // TB pierde el server attribute
   a.tele({ Control_active: true, Air_temp: 35 });
-  assert.deepStrictEqual([a.panel.name, a.panel.sex], id);
+  assert.deepStrictEqual([a.attrs.itw_baby_alias, a.panel.sex], id);
   const b = incubator('353').admit(6);                       // otra instancia de TB, mismo stay_id
-  assert.deepStrictEqual([b.broker.name, b.broker.sex], id);
+  assert.deepStrictEqual([b.attrs.itw_baby_alias, b.broker.sex], id);
 });
 
 test('el mismo baby_seq en otra incubadora es otro bebé (el hash es del stay_id)', () => {
   let differ = 0;
   for (let seq = 1; seq <= 40; seq++) {
     const a = incubator('353').admit(seq), b = incubator('354').admit(seq);
-    if (a.broker.name !== b.broker.name) differ++;
+    if (a.attrs.itw_baby_alias !== b.attrs.itw_baby_alias) differ++;
   }
   assert.ok(differ >= 35, 'coinciden demasiado: ' + differ);
 });
@@ -156,7 +160,7 @@ test('si la IncuNest manda el sexo, se respeta (ISO 5218 y m/f)', () => {
     const [raw, want] = cases[seq % cases.length];
     const a = incubator('353').admit(seq, { baby_sex: raw });
     assert.strictEqual(a.broker.sex, want, 'baby_sex=' + raw);
-    assert.ok(isName(want, a.broker.name), a.broker.name);
+    assert.ok(isName(want, a.attrs.itw_baby_alias), a.attrs.itw_baby_alias);
     assert.strictEqual(a.attrs.itw_baby_sex_src, 'device');
   }
 });
@@ -166,22 +170,22 @@ test('sexo 0, vacío o desconocido = no ha llegado: se sortea', () => {
     const a = incubator('353').admit(6, { baby_sex: raw });
     const ref = incubator('353').admit(6);
     assert.strictEqual(a.attrs.itw_baby_sex_src, 'auto', 'baby_sex=' + JSON.stringify(raw));
-    assert.deepStrictEqual([a.broker.name, a.broker.sex], [ref.broker.name, ref.broker.sex]);
+    assert.deepStrictEqual([a.attrs.itw_baby_alias, a.broker.sex], [ref.attrs.itw_baby_alias, ref.broker.sex]);
   }
 });
 
 test('el sexo real que llega tarde corrige el sorteado (y el apodo, que va con el sexo)', () => {
   let seq = 1, a;
   for (;; seq++) { a = incubator('353').admit(seq); if (a.broker.sex === 'm') break; }
-  const before = a.broker.name;
+  const before = a.attrs.itw_baby_alias;
   a.attrsMsg({ baby_sex: 2 });
   assert.strictEqual(a.panel.sex, 'f');
-  assert.ok(isName('f', a.panel.name));
+  assert.ok(isName('f', a.attrs.itw_baby_alias));
   assert.strictEqual(a.attrs.itw_baby_sex_src, 'device');
   // si confirma el sorteado, no cambia nada salvo el origen
   const b = incubator('353').admit(seq);
   b.attrsMsg({ baby_sex: 1 });
-  assert.deepStrictEqual([b.panel.name, b.panel.sex], [before, 'm']);
+  assert.deepStrictEqual([b.attrs.itw_baby_alias, b.panel.sex], [before, 'm']);
   assert.strictEqual(b.attrs.itw_baby_sex_src, 'device');
 });
 
@@ -205,9 +209,10 @@ test('nombre real solo con itw_show_name; el sexo sigue saliendo del mismo sitio
   const b = incubator('353').admit(6, { baby_name: 'Amara', baby_weight_g: 1250 });
   assert.notStrictEqual(b.broker.name, 'Amara', 'sin consentimiento el nombre real no sale');
   assert.strictEqual(b.broker.sex, a.broker.sex);
-  // consentimiento pero la enfermera no escribió nombre: apodo
+  // consentimiento pero la enfermera no escribió nombre: sin nombre (el panel pregunta)
   const c = incubator('353', md).admit(6, { baby_name: '' });
-  assert.strictEqual(c.broker.name, b.broker.name);
+  assert.strictEqual(c.broker.name, undefined);
+  assert.ok(isName(c.broker.sex, c.attrs.itw_baby_alias));
 });
 
 test('el nombre real se recorta a 23 bytes UTF-8 sin partir caracteres', () => {
@@ -225,7 +230,7 @@ test('tras el alta, el nombre real de otro perfil no se cuela en el bebé que se
   a.attrsMsg({ baby_seq: 5, baby_name: 'Otro', baby_admission_epoch: 0 }); // la IncuNest muestra un perfil antiguo
   a.tele({ Control_active: false, Phototherapy_active: false });
   assert.strictEqual(a.panel.baby, 'out');
-  assert.strictEqual(a.panel.name, a.attrs.itw_baby_alias);
+  assert.strictEqual(a.panel.name, '', 'ni el nombre del otro perfil ni el apodo');
 });
 
 test('el sorteo es equilibrado y no alterna con baby_seq consecutivos', () => {
@@ -237,7 +242,7 @@ test('el sorteo es equilibrado y no alterna con baby_seq consecutivos', () => {
       const a = incubator(sn).admit(seq);
       if (a.broker.sex === 'f') f++;
       if (prev !== null && prev !== a.broker.sex) flips++;
-      prev = a.broker.sex; used.add(a.broker.name);
+      prev = a.broker.sex; used.add(a.attrs.itw_baby_alias);
     }
   }
   assert.ok(f > total * 0.42 && f < total * 0.58, 'niñas: ' + f + '/' + total);
@@ -279,7 +284,7 @@ test('webhook: si el sexo real corrige al sorteado, sale baby_identity y el brok
   const ev = a.events.find(e => e.event === 'baby_identity');
   assert.ok(ev, 'falta baby_identity');
   assert.deepStrictEqual([ev.payload.sex, ev.payload.sex_src, ev.payload.reason], ['f', 'device', 'device_sex']);
-  assert.strictEqual(ev.payload.alias, a.panel.name);
+  assert.strictEqual(ev.payload.alias, a.attrs.itw_baby_alias);
   assert.ok(a.broker.event_seq > seqBefore);
   assert.strictEqual(a.broker.last_event, 'baby_identity');
   assert.strictEqual(a.broker.sex, 'f');

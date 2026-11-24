@@ -27,8 +27,10 @@
 //                  conservan la identidad.
 //  - sexo        = el de la IncuNest si llega; si no, al azar. El "azar" es un hash del stay_id:
 //                  reproducible aunque se pierda itw_state, igual para todos los paneles.
-//  - nombre      = baby_name real solo con itw_show_name (consentimiento); si no, un apodo de la
-//                  lista del sexo elegido, también por hash del stay_id.
+//  - nombre      = baby_name real solo con itw_show_name (consentimiento); si no, ninguno: el
+//                  panel pregunta y guarda el suyo por stay_id (que va en el broker).
+//  - apodo       = de la lista del sexo elegido, por hash del stay_id; solo en itw_baby_alias y
+//                  en los eventos del webhook, nunca al panel.
 // Salida: [ITW_STATE, ITW_PANEL, ITW_EVENT*]
 
 var now = metadata.ts ? parseInt(metadata.ts) : new Date().getTime();
@@ -287,19 +289,20 @@ function mdWith(out) { var m = {}; for (var mk in metadata) m[mk] = metadata[mk]
 var out = [];
 var inStay = (st.baby_state === 'in' || st.baby_state === 'parents');
 var went_home = st.baby_state === 'out' && st.out_home === true;
-// Todo bebé visible (dentro, con sus papás o recién ido a casa) lleva nombre y sexo.
+// Todo bebé visible (dentro, con sus papás o recién ido a casa) lleva sexo. El nombre solo si
+// es el real con consentimiento: el apodo no va al panel, que sin nombre pregunta al usuario
+// (spec nombre-bebe-panel); se queda en itw_baby_alias y en los eventos del webhook.
 var shown = (inStay || went_home) && !!st.id;
 var name = '', sex = '', weight_g = 0, age_d = -1;
 if (shown) {
-  sex = st.id.sex; name = st.id.alias;
+  sex = st.id.sex;
   // Datos reales solo con consentimiento y solo si los client attributes siguen siendo de este
   // bebé (tras el alta la IncuNest los vacía o pasa al siguiente perfil).
   // (y nunca en una estancia anonima: sus cs_baby_* pueden ser de un bebe anterior)
   var babySeq = inStay ? st.stay_seq : st.out_seq;
   var sameBaby = babySeq > 0 && st.baby_seq === babySeq;
   if (metadata.ss_itw_show_name === 'true' && sameBaby) {
-    var real = clipUtf8(String(metadata.cs_baby_name || '').trim().substring(0, 20), 23);
-    if (real) name = real;
+    name = clipUtf8(String(metadata.cs_baby_name || '').trim().substring(0, 20), 23);
     weight_g = parseInt(metadata.cs_baby_weight_g) || 0;
     // sin fecha de nacimiento en TB: "edad" = días desde el ingreso
     if (st.admission_epoch > 0) age_d = Math.max(0, Math.floor((now - st.admission_epoch * 1000) / 86400000));
@@ -337,6 +340,7 @@ if (events.length > 0) {
     last_event: events[events.length - 1].event,
     thermo: st.heat, baby: babyExt };
   if (name) bp.name = name;
+  if (st.stay_id) bp.stay_id = st.stay_id; // el panel guarda su propio nombre por estancia
   if (sex) bp.sex = sex;
   if (weight_g > 0) bp.weight_g = weight_g;
   if (age_d >= 0) bp.age_d = age_d;
