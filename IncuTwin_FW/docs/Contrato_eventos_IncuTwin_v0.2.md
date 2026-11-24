@@ -59,7 +59,7 @@ Solo se listan las que afectan al contrato o son nuevas en `dev`. El resto (ener
 |---|---|---|
 | `baby_seq` | uint32 | **Identificador del episodio.** `0` = no hay ningún perfil en los 3 slots. ⚠️ El "ocupante" es el perfil bajo terapia activa **o, si no hay terapia, el más reciente creado**. Es decir, `baby_seq ≠ 0` no significa "bebé dentro"; hay que cruzarlo con `Control_active`/`Phototherapy_active` (§3.4). |
 | `baby_name` | string | **Dato personal. No sale de TB** (salvo `itw_show_name`, §0.4). |
-| `baby_sex` | uint / string | *Aún no la publica el firmware (§1.4.7).* ISO 5218: `1` niño, `2` niña, `0` no se sabe; también `"m"`/`"f"`. Si falta o es `0`, TB sortea el sexo (§3.4.1). |
+| `baby_sex` | uint / string | *Implementada en IncuNest, sin desplegar (§1.4.7).* ISO 5218: `1` niño, `2` niña, `0` no se sabe; también `"m"`/`"f"`. Si falta o es `0`, TB sortea el sexo (§3.4.1). |
 | `baby_gest_weeks`, `baby_weight_g` | uint | Clínicos. No salen de TB. |
 | `baby_admission_epoch` | uint32 s | `0` = reloj no sincronizado al crear el perfil. |
 | `baby_kangaroo_count`, `baby_phototherapy_min`, `baby_thermo_min`, `baby_humidity_min` | uint | Acumulados por bebé. Útiles para el resumen final al padrino ("N días de calor, M sesiones de luz"). |
@@ -122,6 +122,7 @@ Menos y más pequeños que en v0.1:
 5. Shared attribute `hand_hold_until` consumido por la incubadora (igual que v0.1).
 6. Opcional: `baby_present` por sonda/PPG como *cross-check* del asistente. Ya no bloquea nada.
 7. **Publicar `baby_sex`** junto a `baby_seq` en los client attributes (ISO 5218: `0` no se sabe, `1` niño, `2` niña), en el mismo mensaje y **siempre**, también con `0`: si no, TB lee el del bebé anterior. Mientras no exista, TB sortea el sexo (§3.4.1); no bloquea nada.
+   *Implementado (24-11-2026) en `medicalopenworld/incunest`, rama `claude/tender-fermat-tpve71` sobre `dev`, pendiente de revisión y prueba en hardware:* paso "Sexo" (NIÑO / NIÑA / NO CONSTA) en el asistente y en el registro desde Bebés; mensaje nuevo `HMI,PROFILE_SEX,seq,sex` (PROTOCOL v2.4.0, compatible en los dos sentidos); el sexo va en el byte de relleno del perfil, así que los bebés activos no se pierden al actualizar; `baby_sex` en atributos y en el evento de alta. Los bebés archivados no lo guardan.
 
 ### 1.5 Impacto del despliegue de `dev` en ThingsBoard (fuera del contrato pero urgente)
 
