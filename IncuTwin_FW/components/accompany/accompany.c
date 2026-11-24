@@ -13,7 +13,6 @@
 #include "freertos/semphr.h"
 #include "identity.h"
 #include "net_wifi.h"
-#include "quiet_hours.h"
 #include "settings.h"
 #include "sound.h"
 #include "storage.h"
@@ -236,7 +235,6 @@ void accompany_set_enabled(bool on)
     } else {
         storage_erase_key(STORAGE_NS_MQTT, KEY_MODE);
         s_acc.n_seen = 0;
-        sound_set_quiet(false);
         ESP_LOGI(TAG, "modo acompañar apagado");
     }
     publish_ui_locked();
@@ -288,8 +286,6 @@ void accompany_tick_1s(void)
     local_now(&day, &hour);
     twin_snapshot_t s = twin_model_get();
     bool shown = !s.demo && (s.show_baby || s.parents_view);
-    sound_set_quiet(quiet_hours_active(settings_local_hour(), settings_quiet_on(), settings_quiet_from(),
-                                       settings_quiet_to()));
     LOCK();
     uint32_t r = 0;
     if (s_gesture_pending && day != ACC_NO_DAY) {

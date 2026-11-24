@@ -13,20 +13,6 @@ void twin_incubator_reset(twin_incubator_t *inc, uint8_t default_skin)
     inc->age_d = -1;
 }
 
-uint32_t twin_transitions_between(twin_baby_t before, twin_baby_t after)
-{
-    uint32_t tr = 0;
-    if (after == TWIN_BABY_IN && before != TWIN_BABY_IN) {
-        tr |= TWIN_TR_BABY_IN;
-    }
-    bool after_parents = after == TWIN_BABY_PARENTS || after == TWIN_BABY_HOME;
-    bool before_parents = before == TWIN_BABY_PARENTS || before == TWIN_BABY_HOME;
-    if (after_parents && !before_parents) {
-        tr |= TWIN_TR_BABY_PARENTS;
-    }
-    return tr;
-}
-
 twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const twin_msg_t *m)
 {
     twin_apply_result_t r = { 0 };
@@ -71,7 +57,6 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
     inc->age_d = m->has_age ? m->age_d : -1;
 
     if (r.is_new) {
-        r.transitions = twin_transitions_between(before, inc->baby);
         if (m->has_seq) {
             *last_seq = m->seq;
         }

@@ -2,8 +2,8 @@
  *
  * Recibe el estado del enlace (WiFi, broker, emparejado), los mensajes de
  * incubators/<id>/state y el overlay del modo demo; publica
- * TWIN_EVT_STATE_CHANGED (twin_snapshot_t) y TWIN_EVT_TRANSITION
- * (twin_transition_t). Persiste event_seq y baby en NVS "twin".
+ * TWIN_EVT_STATE_CHANGED (twin_snapshot_t) y TWIN_EVT_NOTICE
+ * (app_evt_notice_t). Persiste event_seq y baby en NVS "twin".
  *
  * Todas las funciones son seguras desde cualquier tarea (mutex interno) y no
  * bloquean mas que lo que tarda un post al bus de eventos.

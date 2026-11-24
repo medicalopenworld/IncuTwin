@@ -119,12 +119,6 @@ typedef struct {
     bool parents_view;
 } twin_snapshot_t;
 
-/* Transiciones que suenan (TWIN_EVT_TRANSITION). */
-typedef enum {
-    TWIN_TR_BABY_IN = 1,      /* -> in desde otro valor */
-    TWIN_TR_BABY_PARENTS = 2, /* -> parents/home desde otro valor */
-} twin_transition_t;
-
 /* Linea de la barra de estado, por prioridad (spec twin-display). */
 typedef enum {
     TWIN_ST_HOME = 0,

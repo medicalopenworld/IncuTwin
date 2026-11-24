@@ -28,8 +28,6 @@ ESP_EVENT_DECLARE_BASE(TWIN_EVENTS);
 typedef enum {
     /* twin_model -> ui, sound, usage_stats. data: twin_snapshot_t */
     TWIN_EVT_STATE_CHANGED = 1,
-    /* twin_model -> sound. data: twin_transition_t */
-    TWIN_EVT_TRANSITION,
     /* net_wifi -> twin_model, cloud_status. data: app_evt_wifi_t */
     TWIN_EVT_WIFI,
     /* mqtt_link -> twin_model, cloud_status, ota_update. data: app_evt_mqtt_t */
