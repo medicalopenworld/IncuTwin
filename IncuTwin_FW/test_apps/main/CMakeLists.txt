@@ -2,7 +2,7 @@ set(COMP ${CMAKE_CURRENT_LIST_DIR}/../../components)
 
 idf_component_register(
     SRCS "test_main.c" "test_twin_logic.c" "test_twin_parse.c" "test_commands.c" "test_backoff_status.c"
-         "test_ota.c" "test_hand_hold.c" "test_twin_geo.c" "test_world_map.c" "test_accompany.c" "test_name_logic.c"
+         "test_ota.c" "test_hand_hold.c" "test_twin_geo.c" "test_world_map.c" "test_accompany.c" "test_name_logic.c" "test_twin_notify.c"
          "${COMP}/accompany/acc_logic.c"
          "${COMP}/baby_name/name_logic.c"
          # modulos puros de otros componentes, compilados aqui para no arrastrar LVGL ni la red
