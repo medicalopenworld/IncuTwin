@@ -25,6 +25,7 @@ extern "C" {
 #define STORAGE_NS_USAGE    "usage"
 #define STORAGE_NS_ACC      "acc"      /* modo Acompanar: historial (spec accompany) */
 #define STORAGE_NS_BNAME    "bname"    /* nombre local del bebe (spec nombre-bebe-panel) */
+#define STORAGE_NS_EVLOG    "evlog"    /* historial de avisos (event_log) */
 
 esp_err_t storage_init(void); /* nvs_flash_init con recuperacion si cambia la version */
 

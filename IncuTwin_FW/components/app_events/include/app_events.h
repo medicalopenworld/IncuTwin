@@ -48,6 +48,10 @@ typedef enum {
     TWIN_EVT_HAND_HOLD,
     /* ui -> accompany: gesto completado o toque en la despedida. data: app_evt_acc_input_t */
     TWIN_EVT_ACC_INPUT,
+    /* twin_model -> event_log, ui, sound. data: app_evt_notice_t */
+    TWIN_EVT_NOTICE,
+    /* event_log -> ui: cambio el historial de avisos o el contador de no vistos. data: ninguno */
+    TWIN_EVT_LOG_CHANGED,
 } app_event_id_t;
 
 typedef enum {
@@ -84,6 +88,13 @@ typedef struct {
 typedef struct {
     char incubator_id[TWIN_INCUBATOR_ID_LEN]; /* "" = desemparejado */
 } app_evt_pairing_t;
+
+/* Aviso de lo que vive el bebe: mask = bits de twin_notice_t; demo = viene de la demo (no se guarda). */
+typedef struct {
+    uint32_t mask;
+    bool demo;
+    char inc[TWIN_INCUBATOR_ID_LEN];
+} app_evt_notice_t;
 
 esp_err_t app_events_init(void);
 esp_err_t app_events_post(app_event_id_t id, const void *data, size_t size);

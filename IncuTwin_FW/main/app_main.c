@@ -11,6 +11,7 @@
 
 #include "accompany.h"
 #include "app_events.h"
+#include "event_log.h"
 #include "baby_name.h"
 #include "board.h"
 #include "bringup_screen.h"
@@ -88,6 +89,7 @@ void app_main(void)
 {
     ESP_ERROR_CHECK(storage_init());
     ESP_ERROR_CHECK(app_events_init());
+    event_log_init(); /* historial de avisos: tras storage y bus */
     ESP_ERROR_CHECK(board_init());
 
     identity_init();
