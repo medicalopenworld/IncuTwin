@@ -21,8 +21,11 @@ void baby_name_observe(const twin_snapshot_t *s);
 
 bool baby_name_should_ask(void);   /* estancia actual a la que aun no se ha preguntado */
 const char *baby_name_local(void); /* nombre local de la estancia actual; "" si no hay */
-void baby_name_dismiss(void);      /* AHORA NO: no vuelve a preguntar por esta estancia */
-bool baby_name_set(const char *raw); /* guarda; false si queda vacio o no hay estancia */
+const char *baby_name_key(void);   /* clave de la estancia actual ("" = ninguna); no se loguea */
+
+/* Sobre la estancia `key` que tenia el aviso o el teclado al abrirse, no sobre la actual. */
+void baby_name_dismiss(const char *key);          /* AHORA NO: no vuelve a preguntar */
+bool baby_name_set(const char *key, const char *raw); /* guarda; false si queda vacio */
 
 #ifdef __cplusplus
 }

@@ -2,20 +2,30 @@
  *
  * El nombre es solo del usuario de esta IncuTwin (baby_name, NVS). El teclado es una
  * lv_buttonmatrix propia: el lv_keyboard de LVGL usa simbolos (OK, borrar) que no estan en
- * nuestras fuentes, y aqui hace falta la Ñ. */
+ * nuestras fuentes, y aqui hace falta la Ñ.
+ *
+ * El aviso y el teclado trabajan sobre la estancia que habia al abrirse (s_key): si mientras
+ * tanto cambia el estado (alarma, demo, otro bebe), ui_home los cierra con ui_name_close() sin
+ * contar como preguntado. */
 #include "ui_name.h"
 
 #include <stddef.h>
+#include <stdio.h>
 
-#include "baby_name.h"
 #include "assets.h"
+#include "baby_name.h"
 #include "name_logic.h"
 #include "ui_internal.h"
 
+#define KB_IDLE_MS 60000 /* teclado sin tocar: se cierra (toques fantasma del tactil) */
+
 static lv_obj_t *s_mb;       /* aviso */
 static bool s_mb_yes;        /* el aviso se cierra porque se ha dicho SI */
+static bool s_mb_silent;     /* ... o porque lo cierra ui_name_close(): no cuenta como preguntado */
 static lv_obj_t *s_kb;       /* capa del teclado */
 static lv_obj_t *s_ta;
+static lv_timer_t *s_kb_timer;
+static char s_key[BN_KEY_LEN]; /* estancia del aviso o del teclado abiertos */
 static void (*s_done_cb)(void);
 
 /* Teclado espanol de ordenador, sin vocales con tilde (Pablo, 24-nov-2026): Q-P, A-Ñ, Z-M y
@@ -35,6 +45,8 @@ void ui_name_on_done(void (*cb)(void)) { s_done_cb = cb; }
 
 bool ui_name_open(void) { return s_mb || s_kb; }
 
+const char *ui_name_open_key(void) { return s_key; }
+
 static void done(void)
 {
     if (!ui_name_open() && s_done_cb) s_done_cb();
@@ -45,6 +57,10 @@ static void done(void)
 static void kb_close(void)
 {
     if (!s_kb) return;
+    if (s_kb_timer) {
+        lv_timer_delete(s_kb_timer);
+        s_kb_timer = NULL;
+    }
     lv_obj_delete_async(s_kb);
     s_kb = NULL;
     s_ta = NULL;
@@ -53,16 +69,23 @@ static void kb_close(void)
 
 static void kb_submit(void)
 {
-    baby_name_set(lv_textarea_get_text(s_ta)); /* vacio: no cambia nada */
-    baby_name_dismiss();                       /* en cualquier caso, ya se ha preguntado */
+    baby_name_set(s_key, lv_textarea_get_text(s_ta)); /* vacio: no cambia nada */
+    baby_name_dismiss(s_key);                         /* en cualquier caso, ya se ha preguntado */
     kb_close();
 }
 
 static void kb_cancel_cb(lv_event_t *e)
 {
     (void)e;
-    baby_name_dismiss();
+    baby_name_dismiss(s_key);
     kb_close();
+}
+
+static void kb_idle_cb(lv_timer_t *t)
+{
+    (void)t;
+    s_kb_timer = NULL; /* el timer de una vez se borra solo */
+    kb_close();        /* sin contar como preguntado: el aviso puede volver a salir */
 }
 
 static void kb_key_cb(lv_event_t *e)
@@ -70,6 +93,7 @@ static void kb_key_cb(lv_event_t *e)
     lv_obj_t *m = lv_event_get_target_obj(e);
     uint32_t id = lv_buttonmatrix_get_selected_button(m);
     if (id == LV_BUTTONMATRIX_BUTTON_NONE || !s_ta) return;
+    if (s_kb_timer) lv_timer_reset(s_kb_timer);
     if (id == KEY_DONE) { kb_submit(); return; }
     if (id == KEY_BACKSPACE) { lv_textarea_delete_char(s_ta); return; }
     if (id == KEY_SPACE) {
@@ -85,6 +109,7 @@ static void kb_key_cb(lv_event_t *e)
 void ui_name_edit(void)
 {
     if (s_kb) return;
+    if (!s_mb) snprintf(s_key, sizeof(s_key), "%s", baby_name_key()); /* desde el aviso ya esta */
     s_map[MAP_DONE_IDX] = tr(STR_NAME_DONE);
 
     s_kb = lv_obj_create(lv_layer_top());
@@ -124,7 +149,7 @@ void ui_name_edit(void)
 
     lv_obj_t *m = lv_buttonmatrix_create(s_kb);
     lv_buttonmatrix_set_map(m, s_map);
-    lv_buttonmatrix_set_button_width(m, 27, 3);       /* borrar */
+    lv_buttonmatrix_set_button_width(m, KEY_BACKSPACE, 3);
     lv_buttonmatrix_set_button_width(m, KEY_SPACE, 3);
     lv_buttonmatrix_set_button_width(m, KEY_DONE, 2);
     lv_buttonmatrix_set_button_ctrl(m, KEY_DONE, LV_BUTTONMATRIX_CTRL_CHECKED);
@@ -136,6 +161,9 @@ void ui_name_edit(void)
     lv_obj_set_style_bg_color(m, COL_CORAL, LV_PART_ITEMS | LV_STATE_CHECKED);
     lv_obj_add_flag(m, UI_FLAG_CLICK_SOUND);
     lv_obj_add_event_cb(m, kb_key_cb, LV_EVENT_VALUE_CHANGED, NULL);
+
+    s_kb_timer = lv_timer_create(kb_idle_cb, KB_IDLE_MS, NULL);
+    lv_timer_set_repeat_count(s_kb_timer, 1);
 }
 
 /* ------------------------------------------------------------------ aviso */
@@ -143,7 +171,7 @@ void ui_name_edit(void)
 static void mb_deleted_cb(lv_event_t *e)
 {
     (void)e;
-    if (!s_mb_yes) baby_name_dismiss(); /* AHORA NO o la X: no se vuelve a preguntar */
+    if (!s_mb_yes && !s_mb_silent) baby_name_dismiss(s_key); /* AHORA NO o la X */
     s_mb = NULL;
     done();
 }
@@ -165,7 +193,9 @@ static void mb_later_cb(lv_event_t *e)
 void ui_name_ask(void)
 {
     if (ui_name_open()) return;
+    snprintf(s_key, sizeof(s_key), "%s", baby_name_key());
     s_mb_yes = false;
+    s_mb_silent = false;
     s_mb = ui_msgbox(tr(STR_NAME_ARRIVED), tr(STR_NAME_ASK), tr(STR_NAME_YES), COL_CORAL, mb_yes_cb, NULL);
     lv_obj_t *later = lv_msgbox_add_footer_button(s_mb, tr(STR_NAME_LATER));
     lv_obj_add_flag(later, UI_FLAG_CLICK_SOUND);
@@ -173,4 +203,13 @@ void ui_name_ask(void)
     lv_obj_set_style_text_color(later, lv_color_white(), 0);
     lv_obj_add_event_cb(later, mb_later_cb, LV_EVENT_CLICKED, NULL);
     lv_obj_add_event_cb(s_mb, mb_deleted_cb, LV_EVENT_DELETE, NULL);
+}
+
+void ui_name_close(void)
+{
+    if (s_mb && !s_mb_yes) {
+        s_mb_silent = true;
+        lv_msgbox_close_async(s_mb);
+    }
+    kb_close();
 }

@@ -31,7 +31,7 @@ void baby_name_init(void)
 
 void baby_name_observe(const twin_snapshot_t *s)
 {
-    const char *inc = s->link.paired ? s->link.incubator_id : "";
+    const char *inc = bn_observed_inc(s); /* sin estado recibido no cuenta (cambio de emparejamiento) */
     char prev[BN_KEY_LEN];
     snprintf(prev, sizeof(prev), "%s", s_key);
     if (bn_observe(&s_st, inc, s->inc.stay_id, s->inc.baby, s_key)) save();
@@ -45,14 +45,16 @@ bool baby_name_should_ask(void) { return bn_should_ask(&s_st, s_key); }
 
 const char *baby_name_local(void) { return bn_name(&s_st, s_key); }
 
-void baby_name_dismiss(void)
+const char *baby_name_key(void) { return s_key; }
+
+void baby_name_dismiss(const char *key)
 {
-    if (bn_mark_asked(&s_st, s_key)) save();
+    if (bn_mark_asked(&s_st, key)) save();
 }
 
-bool baby_name_set(const char *raw)
+bool baby_name_set(const char *key, const char *raw)
 {
-    if (!bn_set_name(&s_st, s_key, raw)) return false;
+    if (!bn_set_name(&s_st, key, raw)) return false;
     save();
     ESP_LOGI(TAG, "nombre local: si");
     return true;

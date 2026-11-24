@@ -57,6 +57,15 @@ bool bn_mark_asked(bn_store_t *st, const char *key);        /* true si cambio */
 bool bn_set_name(bn_store_t *st, const char *key, const char *raw); /* limpia; vacio = no cambia */
 bool bn_clean_name(const char *raw, char out[BN_NAME_BYTES]);      /* false si queda vacio */
 
+/* Incubadora que cuenta para la estancia: "" sin emparejar o sin estado recibido (el snapshot
+ * reseteado de un cambio de emparejamiento no es una salida del bebe). */
+const char *bn_observed_inc(const twin_snapshot_t *s);
+/* Se puede preguntar: bebe dentro y a la vista, sin nombre real, sin alarma, fuera de la demo. */
+bool bn_can_ask(const twin_snapshot_t *s);
+/* El aviso o el teclado abiertos para `open_key` deben cerrarse (sin contar como preguntado):
+ * alarma, demo, bebe fuera de la vista, llega el nombre real u otra estancia. */
+bool bn_must_close(const twin_snapshot_t *s, const char *open_key, const char *key_now);
+
 /* Teclado: la tecla (mayuscula ASCII o Latin-1 de 2 bytes: Ñ, Á...) en mayuscula o minuscula. */
 void bn_key_case(const char *label, bool upper, char out[5]);
 /* Mayuscula al empezar el nombre y tras un espacio. */

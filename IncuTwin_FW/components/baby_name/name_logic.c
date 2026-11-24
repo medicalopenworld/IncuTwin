@@ -49,6 +49,12 @@ static bn_gen_t *gen_for(bn_store_t *st, const char *inc, bool *changed)
         for (int i = 1; i < BN_INCS; i++) {
             if (st->g[i].used < g->used) g = &st->g[i];
         }
+        /* sin su contador, sus claves "<inc>#<gen>" se repetirian al volver: fuera del anillo */
+        char prefix[TWIN_INCUBATOR_ID_LEN + 1];
+        size_t n = (size_t)snprintf(prefix, sizeof(prefix), "%s#", g->inc);
+        for (int i = 0; i < BN_RING; i++) {
+            if (strncmp(st->e[i].key, prefix, n) == 0) memset(&st->e[i], 0, sizeof(st->e[i]));
+        }
     }
     memset(g, 0, sizeof(*g));
     snprintf(g->inc, sizeof(g->inc), "%s", inc);
@@ -118,6 +124,23 @@ bool bn_set_name(bn_store_t *st, const char *key, const char *raw)
     e->asked = true;
     e->used = ++st->clock;
     return true;
+}
+
+const char *bn_observed_inc(const twin_snapshot_t *s)
+{
+    return s->link.paired && s->link.state_rx ? s->link.incubator_id : "";
+}
+
+bool bn_can_ask(const twin_snapshot_t *s)
+{
+    return !s->demo && s->show_baby && s->inc.baby == TWIN_BABY_IN && s->inc.name[0] == '\0' &&
+           s->inc.thermo != TWIN_THERMO_ALARM;
+}
+
+bool bn_must_close(const twin_snapshot_t *s, const char *open_key, const char *key_now)
+{
+    return s->demo || !s->show_baby || s->inc.thermo == TWIN_THERMO_ALARM || s->inc.name[0] != '\0' ||
+           !key_now[0] || strcmp(open_key, key_now) != 0;
 }
 
 void bn_key_case(const char *label, bool upper, char out[5])

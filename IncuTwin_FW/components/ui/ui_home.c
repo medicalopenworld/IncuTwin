@@ -17,6 +17,7 @@
 #include "baby_name.h"
 #include "baby_widget.h"
 #include "hand_hold.h"
+#include "name_logic.h"
 #include "sdkconfig.h"
 #include "sound.h"
 #include "storage.h"
@@ -961,10 +962,7 @@ static void ring_apply(uint32_t held_ms, bool grace)
 static void name_maybe_ask(void)
 {
     if (!s_have_last || ui_name_open() || !baby_name_should_ask()) return;
-    const twin_snapshot_t *s = &s_last;
-    if (s->demo || !s->show_baby || s->inc.baby != TWIN_BABY_IN || s->inc.name[0] != '\0') return;
-    if (s->inc.thermo == TWIN_THERMO_ALARM || hh_state(&s_hh) != HH_IDLE) return;
-    if (ui_pages_current() != 0) return;
+    if (!bn_can_ask(&s_last) || hh_state(&s_hh) != HH_IDLE || ui_pages_current() != 0) return;
     ui_name_ask();
 }
 
@@ -993,7 +991,7 @@ static void overlay_refresh(void)
     bool show_name = s->show_baby && name[0] != '\0' && !thanks;
     if (show_name) label_set(s_name, name);
     lv_obj_set_hidden(s_name, !show_name);
-    lv_obj_set_clickable(s_name, can_name);
+    lv_obj_set_clickable(s_name, can_name && hh_state(&s_hh) == HH_IDLE); /* no a mitad del gesto */
 
     /* encima del cuerpo: fuera mientras dura el gesto, que el dedo va justo ahi */
     bool show_country = (s->show_baby || s->parents_view) && s->inc.country[0] != '\0' &&
@@ -1119,6 +1117,9 @@ void ui_home_apply(const twin_snapshot_t *s)
     s_last = *s;
     s_have_last = true;
     if (!s->demo) baby_name_observe(s); /* la demo no es una estancia de verdad */
+    /* aviso o teclado abiertos y el estado ha cambiado (alarma, demo, otro bebe): se cierran
+     * sin contar como preguntado */
+    if (ui_name_open() && bn_must_close(s, ui_name_open_key(), baby_name_key())) ui_name_close();
     bool farewell = s->acc == TWIN_ACC_FAREWELL;
     if (farewell && !s_farewell) s_farewell_ms = lv_tick_get();
     s_farewell = farewell;

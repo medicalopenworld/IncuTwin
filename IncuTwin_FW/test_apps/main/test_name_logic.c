@@ -168,6 +168,88 @@ TEST_CASE("clean_name_trims_and_clips", "[baby_name]")
     TEST_ASSERT_FALSE(bn_clean_name("", out));
 }
 
+TEST_CASE("evicted_counter_never_reuses_key", "[baby_name]")
+{
+    /* revision final #1: el modo Acompanar recuerda mas incubadoras que contadores; al volver a
+     * una cuyo contador se expulso, el bebe nuevo no puede heredar el nombre de otro */
+    fresh();
+    obs("A", "", TWIN_BABY_IN);
+    bn_set_name(&st, key, "Lola");
+    obs("A", "", TWIN_BABY_NONE);
+    obs("A", "", TWIN_BABY_IN);
+    bn_set_name(&st, key, "Teo");
+    const char *others[] = { "B", "C", "D", "E" }; /* BN_INCS = 4: A se queda sin contador */
+    for (int i = 0; i < 4; i++) obs(others[i], "", TWIN_BABY_IN);
+    obs("A", "", TWIN_BABY_IN);
+    TEST_ASSERT_EQUAL_STRING("", bn_name(&st, key));
+    TEST_ASSERT_TRUE(bn_should_ask(&st, key));
+}
+
+static twin_snapshot_t snap(void)
+{
+    twin_snapshot_t s;
+    memset(&s, 0, sizeof(s));
+    s.link.paired = true;
+    s.link.state_rx = true;
+    strcpy(s.link.incubator_id, "297");
+    s.inc.online = true;
+    s.inc.baby = TWIN_BABY_IN;
+    s.inc.thermo = TWIN_THERMO_STABLE;
+    s.show_baby = true;
+    return s;
+}
+
+TEST_CASE("observed_inc_needs_fresh_state", "[baby_name]")
+{
+    /* revision final #2: el snapshot reseteado de un cambio de emparejamiento (state_rx=false,
+     * baby=none) no es una salida del bebe */
+    twin_snapshot_t s = snap();
+    TEST_ASSERT_EQUAL_STRING("297", bn_observed_inc(&s));
+    s.link.state_rx = false;
+    TEST_ASSERT_EQUAL_STRING("", bn_observed_inc(&s));
+    s = snap();
+    s.link.paired = false;
+    TEST_ASSERT_EQUAL_STRING("", bn_observed_inc(&s));
+
+    fresh();
+    obs("297", "", TWIN_BABY_IN);
+    bn_set_name(&st, key, "Lola");
+    s = snap();
+    s.link.state_rx = false;
+    s.inc.baby = TWIN_BABY_NONE;
+    obs(bn_observed_inc(&s), "", s.inc.baby);
+    TEST_ASSERT_EQUAL_STRING("297#1", obs("297", "", TWIN_BABY_IN));
+    TEST_ASSERT_EQUAL_STRING("Lola", bn_name(&st, key));
+}
+
+TEST_CASE("can_ask_only_when_it_does_not_bother", "[baby_name]")
+{
+    twin_snapshot_t s = snap();
+    TEST_ASSERT_TRUE(bn_can_ask(&s));
+    s = snap(); s.demo = true;                      TEST_ASSERT_FALSE(bn_can_ask(&s));
+    s = snap(); s.show_baby = false;                TEST_ASSERT_FALSE(bn_can_ask(&s));
+    s = snap(); s.inc.baby = TWIN_BABY_PARENTS;     TEST_ASSERT_FALSE(bn_can_ask(&s));
+    s = snap(); s.inc.thermo = TWIN_THERMO_ALARM;   TEST_ASSERT_FALSE(bn_can_ask(&s));
+    s = snap(); strcpy(s.inc.name, "Amara");        TEST_ASSERT_FALSE(bn_can_ask(&s));
+}
+
+TEST_CASE("open_dialog_closes_when_state_changes", "[baby_name]")
+{
+    /* revision final #3: el aviso o el teclado abiertos no tapan una alarma, no siguen en la
+     * demo y no guardan el nombre en otro bebe */
+    twin_snapshot_t s = snap();
+    TEST_ASSERT_FALSE(bn_must_close(&s, "297#1", "297#1"));
+    s.inc.baby = TWIN_BABY_PARENTS; /* canguro: el mismo bebe, se puede seguir escribiendo */
+    TEST_ASSERT_FALSE(bn_must_close(&s, "297#1", "297#1"));
+    s = snap(); s.inc.thermo = TWIN_THERMO_ALARM;   TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));
+    s = snap(); s.demo = true;                      TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));
+    s = snap(); s.show_baby = false;                TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));
+    s = snap(); strcpy(s.inc.name, "Amara");        TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));
+    s = snap();
+    TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "327#1")); /* otra estancia */
+    TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", ""));
+}
+
 TEST_CASE("key_case_capitalizes_words", "[baby_name]")
 {
     char out[5];
