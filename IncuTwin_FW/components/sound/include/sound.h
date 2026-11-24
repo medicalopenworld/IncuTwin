@@ -29,7 +29,7 @@ typedef enum {
 void sound_init(void);
 
 /* Pide una melodia; segura desde cualquier tarea. Sustituye a la que suene. Para lo que el
- * usuario provoca tocando la pantalla (clic, tono de prueba, arranque). */
+ * usuario provoca tocando la pantalla (clic, tono de prueba, botones de la demo) y para el arranque al enchufar. */
 void sound_request(sound_melody_t m);
 
 /* Igual, pero para melodias que nadie ha pedido tocando (avisos, recordatorios, comandos

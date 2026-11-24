@@ -6,6 +6,7 @@
 #include "baby_widget.h"
 #include "board.h"
 #include "esp_log.h"
+#include "esp_system.h"
 #include "esp_lvgl_port.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
@@ -179,6 +180,11 @@ void ui_init(void)
 
     app_events_subscribe(TWIN_EVT_STATE_CHANGED, on_state, NULL);
     app_events_subscribe(TWIN_EVT_SETTINGS_CHANGED, on_settings, NULL);
-    sound_request(SOUND_BOOT);
+    /* el jingle solo al enchufar: un reinicio sin nadie delante (OTA, comando, watchdog) no suena */
+    esp_reset_reason_t rr = esp_reset_reason();
+    if (rr == ESP_RST_POWERON) {
+        sound_request(SOUND_BOOT);
+    }
+    ESP_LOGI(TAG, "motivo de reinicio %d: %s", (int)rr, rr == ESP_RST_POWERON ? "suena el arranque" : "sin melodia de arranque");
     ESP_LOGI(TAG, "ui lista");
 }
