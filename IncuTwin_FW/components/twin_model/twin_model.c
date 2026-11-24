@@ -253,7 +253,8 @@ void twin_model_ingest(const char *json, size_t len)
     char inc_id[TWIN_INCUBATOR_ID_LEN];
     strncpy(inc_id, s_link.incubator_id, sizeof(inc_id));
     inc_id[sizeof(inc_id) - 1] = '\0';
-    if (ar.is_new && !s_demo) {
+    if (ar.is_new) {
+        /* avisos reales aunque la demo este en pantalla: la base no se congela */
         notice = twin_notices_update(&s_base, &s_inc);
     }
     publish_locked();
@@ -348,6 +349,8 @@ void twin_model_sim_link(bool linked)
     s_link.broker_lost = false;
     strcpy(s_link.incubator_id, "SIM");
     s_link.paired = true;
+    s_base.valid = false; /* el primer estado SIM tras arrancar no avisa */
+    s_last_seq = 0;
     publish_locked();
     UNLOCK();
 }

@@ -115,7 +115,7 @@ static void handle_locked(uint32_t r)
     if (r & ACC_R_SAVE) save_locked();
     if (r & ACC_R_REMIND) {
         ESP_LOGI(TAG, "recordatorio: hoy aun no le has dado la mano");
-        sound_request(SOUND_BABY); /* en horario de silencio lo descarta sound */
+        sound_request_auto(SOUND_BABY); /* en horario de silencio no suena */
     }
     if (r & (ACC_R_PHASE | ACC_R_SWITCH | ACC_R_REMIND)) {
         ESP_LOGI(TAG, "fase %d, actual '%s'", acc_phase(&s_acc), acc_current(&s_acc));

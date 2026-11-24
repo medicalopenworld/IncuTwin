@@ -107,6 +107,14 @@ static int cmd_sim_state(int argc, char **argv)
         printf("uso: sim_state \"<json de estado con incubator_id SIM>\"\n");
         return 1;
     }
+    if (!strcmp(argv[1], "demo-on")) { /* la demo de verdad se activa con pulsacion larga */
+        twin_model_demo_enter();
+        return 0;
+    }
+    if (!strcmp(argv[1], "demo-off")) {
+        twin_model_demo_exit();
+        return 0;
+    }
     twin_model_ingest(argv[1], strlen(argv[1]));
     return 0;
 }
@@ -138,7 +146,7 @@ void console_start(void)
         { .command = "wifi", .help = "wifi <ssid> [pass]: guarda la WiFi y salta el onboarding",
           .func = cmd_wifi },
 #if CONFIG_INCUTWIN_SIM
-        { .command = "sim_state", .help = "SOLO EXISTE EN EL BUILD SIM: sim_state \"<json>\" ingesta un estado",
+        { .command = "sim_state", .help = "SOLO EXISTE EN EL BUILD SIM: sim_state \"<json>\" ingesta un estado; demo-on/demo-off",
           .func = cmd_sim_state },
 #endif
     };

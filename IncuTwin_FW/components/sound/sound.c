@@ -206,7 +206,7 @@ static void on_notice(void *arg, esp_event_base_t base, int32_t id, void *data)
     if (m == SOUND_NONE) return;
     ESP_LOGI(TAG, "aviso 0x%02lx -> melodia %d%s", (unsigned long)n->mask, (int)m,
              atomic_load(&s_quiet) ? " (se silencia si es de noche)" : "");
-    sound_request(m);
+    sound_request_auto(m);
 }
 
 static void on_state(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -244,11 +244,16 @@ void sound_init(void)
 
 void sound_request(sound_melody_t m)
 {
-    if (atomic_load(&s_quiet) && (m == SOUND_BABY || m == SOUND_PARENTS)) {
+    atomic_store(&s_req, (int)m);
+}
+
+void sound_request_auto(sound_melody_t m)
+{
+    if (atomic_load(&s_quiet)) {
         ESP_LOGI(TAG, "melodia %d silenciada (horario nocturno)", (int)m);
         return;
     }
-    atomic_store(&s_req, (int)m);
+    sound_request(m);
 }
 
 void sound_heartbeat(bool on) { atomic_store(&s_hb_req, on ? 1 : 2); }

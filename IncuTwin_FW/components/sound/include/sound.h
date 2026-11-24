@@ -28,8 +28,13 @@ typedef enum {
 /* Llamar con la tarea de LVGL ya creada (tras board_init). */
 void sound_init(void);
 
-/* Pide una melodia; segura desde cualquier tarea. Sustituye a la que suene. */
+/* Pide una melodia; segura desde cualquier tarea. Sustituye a la que suene. Para lo que el
+ * usuario provoca tocando la pantalla (clic, tono de prueba, arranque). */
 void sound_request(sound_melody_t m);
+
+/* Igual, pero para melodias que nadie ha pedido tocando (avisos, recordatorios, comandos
+ * remotos): en horario nocturno se descartan. */
+void sound_request_auto(sound_melody_t m);
 
 /* Latido al ritmo real del bebe: on = suena 10 s (o hasta off); al tocar el icono del corazon.
  * Con bpm 0 o volumen Apagado no suena. */

@@ -52,7 +52,7 @@ static void cmd_test_melody(const char *payload, size_t len)
     if (!strcmp(m, "boot")) sel = SOUND_BOOT;
     else if (!strcmp(m, "parents")) sel = SOUND_PARENTS;
     else if (!strcmp(m, "test")) sel = SOUND_TEST;
-    sound_request(sel);
+    sound_request_auto(sel); /* comando remoto: de noche no suena */
 }
 
 static void cmd_brightness(const char *payload, size_t len)

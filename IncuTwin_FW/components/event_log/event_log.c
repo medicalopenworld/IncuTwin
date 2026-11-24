@@ -7,11 +7,17 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "sdkconfig.h"
 #include "storage.h"
 
 static const char *TAG = "evlog";
 
 #define KEY_RING     "ring"
+#if CONFIG_INCUTWIN_SIM
+#define EVLOG_NS     STORAGE_NS_EVLOG_SIM
+#else
+#define EVLOG_NS     STORAGE_NS_EVLOG
+#endif
 #define EPOCH_VALID  1700000000u /* antes de esto el reloj no esta en hora (SNTP pendiente) */
 
 static SemaphoreHandle_t s_mutex;
@@ -22,7 +28,7 @@ static event_ring_t s_ring;
 
 static void save_locked(void)
 {
-    if (!storage_set_blob(STORAGE_NS_EVLOG, KEY_RING, &s_ring, sizeof(s_ring))) {
+    if (!storage_set_blob(EVLOG_NS, KEY_RING, &s_ring, sizeof(s_ring))) {
         ESP_LOGW(TAG, "no se pudo guardar el historial");
     }
 }
@@ -40,9 +46,12 @@ static void on_notice(void *arg, esp_event_base_t base, int32_t id, void *data)
 void event_log_init(void)
 {
     if (!s_mutex) s_mutex = xSemaphoreCreateMutex();
+#if CONFIG_INCUTWIN_SIM
+    storage_erase_ns(STORAGE_NS_EVLOG); /* quita los avisos falsos que un sim anterior dejo en el espacio del producto */
+#endif
     LOCK();
     memset(&s_ring, 0, sizeof(s_ring));
-    if (!storage_get_blob(STORAGE_NS_EVLOG, KEY_RING, &s_ring, sizeof(s_ring))) {
+    if (!storage_get_blob(EVLOG_NS, KEY_RING, &s_ring, sizeof(s_ring))) {
         memset(&s_ring, 0, sizeof(s_ring)); /* no existe o de otro tamano */
     } else if (s_ring.head >= EVENT_LOG_MAX || s_ring.count > EVENT_LOG_MAX || s_ring.unseen > EVENT_LOG_MAX) {
         memset(&s_ring, 0, sizeof(s_ring)); /* blob corrupto */
