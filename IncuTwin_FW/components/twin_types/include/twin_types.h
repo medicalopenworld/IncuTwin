@@ -37,6 +37,15 @@ typedef enum {
     TWIN_THERMO_ALARM,   /* extension */
 } twin_thermo_t;
 
+/* Sexo del bebe. Lo decide ThingsBoard una vez por episodio (el de la IncuNest o, si no llega,
+ * sorteado) para que todos los paneles de la misma incubadora vean lo mismo: el panel nunca lo
+ * elige. */
+typedef enum {
+    TWIN_SEX_UNKNOWN = 0, /* no compartido */
+    TWIN_SEX_MALE,        /* "m" */
+    TWIN_SEX_FEMALE,      /* "f" */
+} twin_sex_t;
+
 /* Lo que dice la incubadora (ultimo estado aplicado). */
 typedef struct {
     bool online;          /* state != "offline" */
@@ -50,6 +59,7 @@ typedef struct {
     bool skin_set;        /* llego "skin" explicito: ya no se deduce del pais */
     char name[TWIN_NAME_LEN]; /* "" = no compartido */
     char country[TWIN_COUNTRY_LEN]; /* pais de la incubadora ("CM"); "" = no compartido */
+    twin_sex_t sex;       /* extension; UNKNOWN = no compartido */
     uint16_t weight_g;    /* 0 = no compartido */
     int16_t age_d;        /* -1 = no compartido */
 } twin_incubator_t;

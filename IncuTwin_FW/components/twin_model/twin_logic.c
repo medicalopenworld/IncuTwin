@@ -41,7 +41,7 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
     inc->pulseox = m->pulseox;
     inc->bpm = (m->pulseox && m->bpm >= TWIN_BPM_SHOW_MIN && m->bpm <= TWIN_BPM_SHOW_MAX) ? (uint16_t)m->bpm : 0;
 
-    /* extensiones: prevalecen si vienen; name/weight/age se borran si no vienen
+    /* extensiones: prevalecen si vienen; name/sex/weight/age se borran si no vienen
      * (ThingsBoard publica el estado completo cada vez) */
     if (m->has_thermo) inc->thermo = m->thermo;
     if (m->has_baby) inc->baby = m->baby;
@@ -64,6 +64,7 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
     } else if (!inc->skin_set) {
         inc->skin = twin_geo_skin(inc->country);
     }
+    inc->sex = m->has_sex ? m->sex : TWIN_SEX_UNKNOWN;
     inc->weight_g = m->has_weight ? m->weight_g : 0;
     inc->age_d = m->has_age ? m->age_d : -1;
 

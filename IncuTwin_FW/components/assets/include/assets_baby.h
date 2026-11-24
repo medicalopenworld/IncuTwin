@@ -11,6 +11,10 @@ extern const lv_image_dsc_t img_baby_sleep;
 extern const lv_image_dsc_t img_baby_yawn1;
 extern const lv_image_dsc_t img_baby_yawn2;
 extern const lv_image_dsc_t img_baby_awake;
+extern const lv_image_dsc_t img_baby_girl_sleep;
+extern const lv_image_dsc_t img_baby_girl_yawn1;
+extern const lv_image_dsc_t img_baby_girl_yawn2;
+extern const lv_image_dsc_t img_baby_girl_awake;
 extern const lv_image_dsc_t img_heart;
 extern const lv_image_dsc_t img_logo;
 

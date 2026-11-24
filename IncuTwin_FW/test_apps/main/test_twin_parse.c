@@ -1,4 +1,5 @@
 /* Spec twin-state-ingest: validacion del payload de incubators/<id>/state. */
+#include <stdio.h>
 #include <string.h>
 
 #include "twin_logic.h"
@@ -27,6 +28,7 @@ TEST_CASE("parse: payload del contrato", "[twin][parse]")
     TEST_ASSERT_EQUAL_STRING("treatment_changed", m.last_event);
     TEST_ASSERT_FALSE(m.has_thermo);
     TEST_ASSERT_FALSE(m.has_name);
+    TEST_ASSERT_FALSE(m.has_sex);
 }
 
 TEST_CASE("parse: bpm null y campos ausentes", "[twin][parse]")
@@ -125,6 +127,28 @@ TEST_CASE("parse: pais ISO alfa-2", "[twin][parse]")
     TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
                       parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"country\":\"C1\"}", "353", &m));
     TEST_ASSERT_FALSE(m.has_country);
+}
+
+TEST_CASE("parse: sexo del bebe m/f; cualquier otro valor se ignora", "[twin][parse]")
+{
+    twin_msg_t m;
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"name\":\"Hugo\",\"sex\":\"m\"}", "353", &m));
+    TEST_ASSERT_TRUE(m.has_sex);
+    TEST_ASSERT_EQUAL(TWIN_SEX_MALE, m.sex);
+    TEST_ASSERT_EQUAL_STRING("Hugo", m.name);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"sex\":\"f\"}", "353", &m));
+    TEST_ASSERT_TRUE(m.has_sex);
+    TEST_ASSERT_EQUAL(TWIN_SEX_FEMALE, m.sex);
+    /* invalido: no invalida el mensaje, solo no cuenta */
+    const char *bad[] = { "\"x\"", "\"\"", "\"M\"", "1", "true", "null" };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        char j[96];
+        snprintf(j, sizeof(j), "{\"incubator_id\":\"353\",\"state\":\"baby\",\"sex\":%s}", bad[i]);
+        TEST_ASSERT_EQUAL(TWIN_PARSE_OK, parse(j, "353", &m));
+        TEST_ASSERT_FALSE(m.has_sex);
+    }
 }
 
 TEST_CASE("parse: tratamientos desconocidos se ignoran", "[twin][parse]")

@@ -74,6 +74,9 @@ static void parse_extensions(const cJSON *root, twin_msg_t *m)
             m->country[2] = '\0';
         }
     }
+    it = cJSON_GetObjectItemCaseSensitive(root, "sex");
+    if (str_eq(it, "m")) { m->has_sex = true; m->sex = TWIN_SEX_MALE; }
+    else if (str_eq(it, "f")) { m->has_sex = true; m->sex = TWIN_SEX_FEMALE; }
 
     it = cJSON_GetObjectItemCaseSensitive(root, "weight_g");
     if (get_int(it, 0, 9999, &v)) { m->has_weight = v > 0; m->weight_g = (uint16_t)v; }

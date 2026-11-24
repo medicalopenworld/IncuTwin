@@ -20,6 +20,7 @@ extern const lv_image_dsc_t img_baby_parents;
 extern const lv_image_dsc_t img_baby_parents_black;
 extern const lv_image_dsc_t img_hand_thanks;
 extern const lv_image_dsc_t img_flag_cm;
+extern const lv_image_dsc_t img_baby_parents_girl;
 
 #ifdef __cplusplus
 }

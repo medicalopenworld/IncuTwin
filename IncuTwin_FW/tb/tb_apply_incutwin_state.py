@@ -74,7 +74,7 @@ def chain_metadata(rc_id, hist_id=None, mqtt=None):
            {"scriptLang": "JS", "jsScript": "return metadata.ss_incutwin_enabled === 'true';", "tbelScript": "return metadata.ss_incutwin_enabled == 'true';"}, 0, 400, 200),
       node("metadata.TbGetAttributesNode", "estado previo + SN",
            {"tellFailureIfAbsent": False,
-            "clientAttributeNames": ["baby_seq", "baby_admission_epoch", "baby_kangaroo_count", "baby_thermo_min", "baby_phototherapy_min", "baby_name", "baby_weight_g"],
+            "clientAttributeNames": ["baby_seq", "baby_admission_epoch", "baby_kangaroo_count", "baby_thermo_min", "baby_phototherapy_min", "baby_name", "baby_weight_g", "baby_sex"],
             "sharedAttributeNames": [],
             "serverAttributeNames": ["itw_state", "itw_t_parents_min", "itw_t_idle_min", "itw_show_name", "country",
                                      "itw_panel_count", "itw_panels"], "latestTsKeyNames": ["SN", "countryCode", "Control_active",

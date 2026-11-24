@@ -18,6 +18,17 @@
 //                                (geolocalización); se usa si no hay ss_country. "XX" = desconocido
 // metadata.cs_baby_*          -> client attributes del bebé ya guardados (sincroniza el
 //                                estado aunque la chain se despliegue con la incubadora ya en marcha)
+// metadata.cs_baby_sex        -> sexo del bebé si la IncuNest lo publica (ISO 5218: 1 niño, 2 niña;
+//                                también 'm'/'f'). Ausente o 0 = no se sabe: lo decide esta chain.
+//
+// Identidad del bebé (Contrato v0.2 §3.4.1). Todo bebé que se muestra lleva nombre y sexo, y se
+// deciden AQUÍ, una vez por episodio, para que todos los paneles de la incubadora reciban lo mismo:
+//  - bebé nuevo  = stay_id nuevo (SN:baby_seq). Canguro, reapertura, cortes de red y reinicios
+//                  conservan la identidad.
+//  - sexo        = el de la IncuNest si llega; si no, al azar. El "azar" es un hash del stay_id:
+//                  reproducible aunque se pierda itw_state, igual para todos los paneles.
+//  - nombre      = baby_name real solo con itw_show_name (consentimiento); si no, un apodo de la
+//                  lista del sexo elegido, también por hash del stay_id.
 // Salida: [ITW_STATE, ITW_PANEL, ITW_EVENT*]
 
 var now = metadata.ts ? parseInt(metadata.ts) : new Date().getTime();
@@ -84,10 +95,75 @@ function openStay(seq, ts) {
   if (seq > 0) st.stay_id = incubator + ':' + seq;
   else st.stay_id = (reopen && st.out_stay_id) ? st.out_stay_id : incubator + ':0-' + Math.floor(t / 1000);
   st.in_since = reopen && st.in_since ? st.in_since : t; st.idle_since = null; st.parents_since = null;
-  var p = tx();
+  syncIdentity();  // antes de emitir: baby_in ya lleva apodo y sexo
+  var p = idPayload(tx());
   if (reopen) { p.away_min = Math.round((t - st.out_since) / 60000); emit('baby_back', p, t); }
   else { p.admitted_at = (seq > 0 && st.admission_epoch) ? iso(st.admission_epoch * 1000) : null; emit('baby_in', p, t); }
   st.last_tx = JSON.stringify(tx()); st.last_tx_change = t;
+}
+
+// ---- identidad del bebé: sexo y nombre ----
+// Solo ASCII + áéíóúñü: son los glifos de las fuentes del panel (tools/gen_fonts.py). <= 23 bytes UTF-8.
+var NAMES = {
+  f: ['Lucía', 'Alma', 'Sara', 'Nora', 'Vera', 'Emma', 'Julia', 'Clara', 'Elena', 'Carla',
+      'Irene', 'Paula', 'Marta', 'Daniela', 'Valeria', 'Aitana', 'Noa', 'Mía', 'Zoe', 'Abril',
+      'Luna', 'Olivia', 'Martina', 'Sofía', 'Inés', 'Laia', 'Amina', 'Zuri', 'Nala', 'Amara',
+      'Aisha', 'Imani', 'Kira', 'Maya', 'Lía', 'Ana', 'Eva', 'Iris', 'Leila', 'Naima'],
+  m: ['Hugo', 'Leo', 'Mateo', 'Lucas', 'Martín', 'Daniel', 'Pablo', 'Adrián', 'Bruno', 'Enzo',
+      'Marco', 'Darío', 'Izan', 'Thiago', 'Gael', 'Nico', 'Samuel', 'David', 'Diego', 'Iván',
+      'Oliver', 'Liam', 'Noé', 'Omar', 'Amir', 'Kofi', 'Tariq', 'Malik', 'Idris', 'Samir',
+      'Elías', 'Tomás', 'Andrés', 'Luis', 'Juan', 'Raúl', 'Rubén', 'Simón', 'Jamal', 'Yusuf']
+};
+// FNV-1a de 32 bits + una vuelta de xorshift (ES5, sin Math.imul). El bit bajo de FNV solo depende
+// de la paridad de la entrada: sin la mezcla final, baby_seq consecutivos alternarían niño/niña.
+function hash32(s) {
+  var h = 0x811c9dc5;
+  for (var c = 0; c < s.length; c++) {
+    h ^= s.charCodeAt(c);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0;
+  h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0;
+  return h;
+}
+function parseSex(v) {
+  if (v === undefined || v === null) return null;
+  var s = String(v).trim().toLowerCase();
+  if (s === 'm' || s === 'male' || s === 'boy' || s === '1') return 'm';
+  if (s === 'f' || s === 'female' || s === 'girl' || s === '2') return 'f';
+  return null;
+}
+function identify(stayId, devSex) {
+  var prev = st.id, h = hash32(stayId);
+  var sex = devSex || (((h >>> 16) & 1) ? 'f' : 'm');
+  var list = NAMES[sex], idx = (h >>> 4) % list.length;
+  // dos bebés seguidos en la misma incubadora no comparten apodo
+  if (prev && prev.stay !== stayId && prev.alias === list[idx]) idx = (idx + 1) % list.length;
+  st.id = { stay: stayId, sex: sex, src: devSex ? 'device' : 'auto', alias: list[idx] };
+}
+// Fija la identidad del episodio abierto o la revisa. true = cambió una identidad ya publicada
+// (la IncuNest informa tarde de un sexo distinto del sorteado: el dato real manda).
+function syncIdentity() {
+  var devSex = (st.baby_seq === st.stay_seq) ? (st.baby_sex || null) : null;
+  if (!st.id || st.id.stay !== st.stay_id) { identify(st.stay_id, devSex); return false; }
+  if (devSex && devSex !== st.id.sex) { identify(st.stay_id, devSex); return true; }
+  if (devSex) st.id.src = 'device';
+  return false;
+}
+// Identidad en los eventos del webhook: SIEMPRE el apodo, nunca baby_name (§0.4), aunque el
+// panel muestre el nombre real con itw_show_name.
+function idPayload(p) { p.alias = st.id.alias; p.sex = st.id.sex; p.sex_src = st.id.src; return p; }
+// recorta a `max` bytes UTF-8 sin partir un carácter (el panel descarta nombres de más de 23)
+function clipUtf8(s, max) {
+  var out = '', n = 0;
+  for (var c = 0; c < s.length; c++) {
+    var code = s.charCodeAt(c), pair = code >= 0xD800 && code <= 0xDBFF && c + 1 < s.length;
+    var len = code < 0x80 ? 1 : code < 0x800 ? 2 : pair ? 4 : 3;
+    if (n + len > max) break;
+    out += pair ? s.substring(c, c + 2) : s.charAt(c);
+    n += len; if (pair) c++;
+  }
+  return out;
 }
 
 var THERMAL = ['air_temp_high_alarm','air_temp_low_alarm','skin_temp_high_alarm','skin_temp_low_alarm',
@@ -96,6 +172,7 @@ var THERMAL = ['air_temp_high_alarm','air_temp_low_alarm','skin_temp_high_alarm'
 // client attributes ya guardados: la fuente de verdad del episodio aunque el mensaje no los traiga
 if (metadata.cs_baby_seq !== undefined && msgType !== 'POST_ATTRIBUTES_REQUEST') {
   st.baby_seq = parseInt(metadata.cs_baby_seq) || 0;
+  st.baby_sex = parseSex(metadata.cs_baby_sex);
   if (metadata.cs_baby_admission_epoch !== undefined) st.admission_epoch = parseInt(metadata.cs_baby_admission_epoch) || 0;
   if (st.baby_state === 'in' || st.baby_state === 'parents') {
     if (metadata.cs_baby_kangaroo_count !== undefined) st.kangaroo_count = parseInt(metadata.cs_baby_kangaroo_count) || st.kangaroo_count;
@@ -110,12 +187,15 @@ if (msgType === 'INACTIVITY_EVENT') {
   if (!st.online) { st.online = true; var p0 = tx(); p0.offline_min = st.last_seen ? Math.round((now - st.last_seen) / 60000) : null; p0.baby_state = st.baby_state; emit('incubator_online', p0); }
 } else if (msgType === 'POST_ATTRIBUTES_REQUEST') {
   if (msg.baby_seq !== undefined) {
-    st.baby_seq = parseInt(msg.baby_seq) || 0;
+    var newSeq = parseInt(msg.baby_seq) || 0;
+    if (newSeq !== st.baby_seq) st.baby_sex = null;   // otro ocupante: su sexo llega con él o no se sabe
+    st.baby_seq = newSeq;
     if (msg.baby_admission_epoch !== undefined) st.admission_epoch = parseInt(msg.baby_admission_epoch) || 0;
     if (msg.baby_kangaroo_count !== undefined) st.kangaroo_count = parseInt(msg.baby_kangaroo_count) || 0;
     if (msg.baby_thermo_min !== undefined) st.thermo_min = parseInt(msg.baby_thermo_min) || 0;
     if (msg.baby_phototherapy_min !== undefined) st.photo_min = parseInt(msg.baby_phototherapy_min) || 0;
   }
+  if (msg.baby_sex !== undefined) st.baby_sex = parseSex(msg.baby_sex);
 } else if (msgType === 'POST_TELEMETRY_REQUEST') {
   st.last_seen = now;
   if (!st.online) { st.online = true; var p1 = tx(); p1.offline_min = null; p1.baby_state = st.baby_state; emit('incubator_online', p1); }
@@ -177,9 +257,14 @@ if (st.baby_state === 'none' || st.baby_state === 'out') {
     if (!care) { if (!st.idle_since) st.idle_since = now; else if (now - st.idle_since >= cfg.t_idle_ms) closeStay('session_ended', null); }
     else st.idle_since = null;
   } else if (st.baby_state === 'parents') {
-    if (care) { var away = Math.round((now - (st.parents_since || now)) / 60000); st.baby_state = 'in'; st.parents_since = null; var pb = tx(); pb.away_min = away; emit('baby_back', pb); st.last_tx = JSON.stringify(tx()); st.last_tx_change = now; }
+    if (care) { var away = Math.round((now - (st.parents_since || now)) / 60000); st.baby_state = 'in'; st.parents_since = null; var pb = idPayload(tx()); pb.away_min = away; emit('baby_back', pb); st.last_tx = JSON.stringify(tx()); st.last_tx_change = now; }
     else if (st.parents_since && now - st.parents_since >= cfg.t_parents_ms) closeStay('not_returned', null);
   }
+}
+// identidad: se fija al abrir el episodio (bebé nuevo = stay_id nuevo); si después cambia, la
+// app y los paneles se enteran con baby_identity
+if (st.baby_state === 'in' || st.baby_state === 'parents') {
+  if (syncIdentity()) emit('baby_identity', idPayload({ reason: 'device_sex' }));
 }
 // treatment_changed (solo con bebé dentro, debounce 30 s)
 if (st.baby_state === 'in' && msgType === 'POST_TELEMETRY_REQUEST') {
@@ -193,28 +278,40 @@ if (st.baby_state === 'in' && msgType === 'POST_TELEMETRY_REQUEST') {
 }
 // heartbeat
 if ((st.baby_state === 'in' || st.baby_state === 'parents') && st.online && now - st.last_hb >= cfg.hb_ms) {
-  var ph = tx(); ph.hr = st.hr; ph.hr_quality = st.hr_q; ph.baby_state = st.baby_state; emit('heartbeat', ph); st.last_hb = now;
+  var ph = idPayload(tx()); ph.hr = st.hr; ph.hr_quality = st.hr_q; ph.baby_state = st.baby_state; emit('heartbeat', ph); st.last_hb = now;
 }
 
 // ---- salidas ----
 // metadata.itw_out decide la rama en "switch salida"; msgType es el que exige cada nodo destino
 function mdWith(out) { var m = {}; for (var mk in metadata) m[mk] = metadata[mk]; m.itw_out = out; return m; }
 var out = [];
+var inStay = (st.baby_state === 'in' || st.baby_state === 'parents');
+var went_home = st.baby_state === 'out' && st.out_home === true;
+// Todo bebé visible (dentro, con sus papás o recién ido a casa) lleva nombre y sexo.
+var shown = (inStay || went_home) && !!st.id;
+var name = '', sex = '', weight_g = 0, age_d = -1;
+if (shown) {
+  sex = st.id.sex; name = st.id.alias;
+  // Datos reales solo con consentimiento y solo si los client attributes siguen siendo de este
+  // bebé (tras el alta la IncuNest los vacía o pasa al siguiente perfil).
+  // (y nunca en una estancia anonima: sus cs_baby_* pueden ser de un bebe anterior)
+  var babySeq = inStay ? st.stay_seq : st.out_seq;
+  var sameBaby = babySeq > 0 && st.baby_seq === babySeq;
+  if (metadata.ss_itw_show_name === 'true' && sameBaby) {
+    var real = clipUtf8(String(metadata.cs_baby_name || '').trim().substring(0, 20), 23);
+    if (real) name = real;
+    weight_g = parseInt(metadata.cs_baby_weight_g) || 0;
+    // sin fecha de nacimiento en TB: "edad" = días desde el ingreso
+    if (st.admission_epoch > 0) age_d = Math.max(0, Math.floor((now - st.admission_epoch * 1000) / 86400000));
+  }
+}
 out.push({ msg: { itw_state: JSON.stringify(st), itw_baby_state: st.baby_state, itw_heat: st.heat, itw_photo: st.photo,
   itw_spo2: st.spo2, itw_hr: st.hr === null ? 0 : st.hr, itw_online: st.online,
-  itw_stay_id: st.stay_id === null ? '' : st.stay_id, itw_seq: st.seq },  // TB rechaza atributos null
+  itw_stay_id: st.stay_id === null ? '' : st.stay_id, itw_seq: st.seq,  // TB rechaza atributos null
+  itw_baby_sex: sex, itw_baby_sex_src: shown ? st.id.src : '', itw_baby_alias: shown ? st.id.alias : '' },
   metadata: mdWith('ITW_STATE'), msgType: 'POST_ATTRIBUTES_REQUEST' });
-var went_home = st.baby_state === 'out' && st.out_home === true;
-var name = '', weight_g = 0, age_d = -1;
-// solo con bebé registrado: en una estancia anónima los cs_baby_* pueden ser de un bebé anterior
-if (metadata.ss_itw_show_name === 'true' && st.stay_seq > 0 && (st.baby_state === 'in' || st.baby_state === 'parents' || went_home)) {
-  name = String(metadata.cs_baby_name || '').trim().substring(0, 20);
-  weight_g = parseInt(metadata.cs_baby_weight_g) || 0;
-  // sin fecha de nacimiento en TB: "edad" = días desde el ingreso
-  if (st.admission_epoch > 0) age_d = Math.max(0, Math.floor((now - st.admission_epoch * 1000) / 86400000));
-}
 out.push({ msg: { online: st.online, thermo: st.heat, photo: st.photo, hr: st.hr === null ? 0 : st.hr,
-  baby: st.baby_state, home: went_home, name: name, weight_g: weight_g, age_d: age_d, updated: now },
+  baby: st.baby_state, home: went_home, name: name, sex: sex, weight_g: weight_g, age_d: age_d, updated: now },
   metadata: mdWith('ITW_PANEL'), msgType: 'POST_ATTRIBUTES_REQUEST' });
 for (var e = 0; e < events.length; e++) {
   var md = mdWith('ITW_EVENT');
@@ -225,9 +322,9 @@ for (var e = 0; e < events.length; e++) {
 // Solo cuando hay evento (baby_in/out, treatment_changed, heartbeat <= 1/60 s, offline/online):
 // asi 353 incubadoras a 5 s no inundan el broker. event_seq = st.seq (monotono) para la dedup
 // del panel. Ademas de los campos del contrato van las extensiones que el firmware acepta
-// (thermo, baby, name, weight_g, age_d) para canguro, alta a casa, alarma y nombre consentido.
+// (thermo, baby, name, sex, weight_g, age_d) para canguro, alta a casa, alarma e identidad del bebé.
 if (events.length > 0) {
-  var inBaby = (st.baby_state === 'in' || st.baby_state === 'parents');
+  var inBaby = inStay;
   var tr = [];
   if (st.heat !== 'off') tr.push('heat');
   if (st.photo) tr.push('phototherapy');
@@ -240,6 +337,7 @@ if (events.length > 0) {
     last_event: events[events.length - 1].event,
     thermo: st.heat, baby: babyExt };
   if (name) bp.name = name;
+  if (sex) bp.sex = sex;
   if (weight_g > 0) bp.weight_g = weight_g;
   if (age_d >= 0) bp.age_d = age_d;
   var cc = countryOf(); // spec tb-stay-history

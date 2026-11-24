@@ -67,7 +67,6 @@ static hand_hold_t s_hh;
 static lv_obj_t *s_ring, *s_target, *s_lbl_hold, *s_name, *s_hearts[N_HEARTS];
 static lv_obj_t *s_thanks_img, *s_country, *s_country_flag, *s_country_lbl;
 static int32_t s_ring_lap = -1; /* vuelta pintada; -1 = forzar colores */
-static bool s_parents_dark;
 static bool s_super_sent; /* super corazon ya avisado en este gesto */
 static lv_timer_t *s_hb_timer; /* latido sonando tras tocar el icono del corazon */
 
@@ -855,13 +854,15 @@ static void home_set_view(home_view_t view)
     lv_obj_set_hidden(s_parents_img, view != VIEW_PARENTS);
 }
 
-/* Con sus papas: la familia de piel oscura para los tonos oscuros (3..4) */
-static void parents_img_apply(uint8_t skin)
+/* Con sus papas: la familia de piel oscura para los tonos oscuros (3..4); con piel clara,
+ * la escena de nina si el bebe es nina. Aun no hay familia oscura con nina: los tonos
+ * oscuros usan la de siempre aunque sea nina (el bebe animado si cambia). */
+static void parents_img_apply(uint8_t skin, bool girl)
 {
-    bool dark = skin >= TWIN_SKIN_DARK_MIN;
-    if (dark == s_parents_dark) return;
-    s_parents_dark = dark;
-    lv_image_set_src(s_parents_img, dark ? &img_baby_parents_black : &img_baby_parents);
+    const void *src = skin >= TWIN_SKIN_DARK_MIN ? &img_baby_parents_black
+                    : girl                       ? &img_baby_parents_girl
+                                                 : &img_baby_parents;
+    if (lv_image_get_src(s_parents_img) != src) lv_image_set_src(s_parents_img, src);
 }
 
 static void wifi_icon_apply(const twin_snapshot_t *s)
@@ -1092,7 +1093,10 @@ void ui_home_apply(const twin_snapshot_t *s)
     if (hh_idle) status_bar_apply(s);
 
     overlay_refresh();
-    parents_img_apply(inc->skin);
+    /* El sexo lo decide ThingsBoard (Contrato v0.2 §3.4.1); desconocido = nino, el dibujo
+     * de siempre. Afecta al bebe animado y a la escena "con sus papas" / "en casa". */
+    bool girl = inc->sex == TWIN_SEX_FEMALE;
+    parents_img_apply(inc->skin, girl);
 
     lv_color_t tcol = inc->thermo == TWIN_THERMO_HEATING ? COL_WARM
                     : inc->thermo == TWIN_THERMO_ALARM   ? COL_RED : COL_OK;
@@ -1102,6 +1106,7 @@ void ui_home_apply(const twin_snapshot_t *s)
     row_apply(s_row_shown); /* el tratamiento puede haber cambiado */
 
     baby_set_skin_tone(inc->skin);
+    baby_set_girl(girl);
     if (hh_idle) baby_set_awake(inc->awake); /* durante el gesto los ojos los pone el gesto */
     baby_set_heart_rate(s->show_baby ? inc->bpm : 0);
 

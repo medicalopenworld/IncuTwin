@@ -29,6 +29,7 @@ Consecuencia: la heurística de presencia de v0.1 desaparece del contrato. `baby
 3. **El desenlace existe como dato** (`baby_outcome`: 0 desconocido, 1 sobrevive, 2 fallece, 3 traslado). La decisión pendiente de v0.1 ya no es "si se puede saber" sino "qué se cuenta al padrino". Propuesta abajo (§3.4, `baby_out`).
 4. **Datos que nunca salen de TB**: `baby_name`, `baby_weight_g`, `baby_gest_weeks`, `baby_discharge_cause`, temperaturas, SpO2, alarmas. El webhook lleva categorías, no medidas.
    *Excepción (24-09-2026, rama `feat/baby-name`):* con el server attribute `itw_show_name = true` en la incubadora —solo con consentimiento de la familia—, `baby_name`, `baby_weight_g` (peso de ingreso) y los días desde `baby_admission_epoch` viajan como shared attributes `name`, `weight_g`, `age_d` a los paneles emparejados mientras el bebé está `in`/`parents` o se ha ido a casa. Nunca va en los eventos del webhook ni en `itw_event`. Pendiente de decisión de producto para ir más allá de la demo.
+   *Identidad del bebé (24-11-2026):* todo bebé que se muestra lleva **nombre y sexo**, decididos una vez por episodio en ThingsBoard (§3.4.1). Sin consentimiento el nombre es un **apodo inventado**, no un dato del bebé; el sexo es el real solo si la IncuNest lo publica (`baby_sex`), y si no, sorteado.
 5. **Firmware IncuTwin**: sin cambios respecto a v0.1 (quitar Firebase, shared attributes, `hand_hold`, TLS). La pantalla "con sus papás" pasa a dispararse por evento canguro real, no por pérdida de señal.
 6. **ThingsBoard**: la rama "estado del gemelo" se cuelga de la rule chain raíz de IncuNest con un filtro `incutwin_enabled == true` por incubadora. Los 72 devices `IncuNest_HMI` hay que planificar retirarlos con el despliegue de `dev`.
 
@@ -57,7 +58,8 @@ Solo se listan las que afectan al contrato o son nuevas en `dev`. El resto (ener
 | Clave | Tipo | Notas |
 |---|---|---|
 | `baby_seq` | uint32 | **Identificador del episodio.** `0` = no hay ningún perfil en los 3 slots. ⚠️ El "ocupante" es el perfil bajo terapia activa **o, si no hay terapia, el más reciente creado**. Es decir, `baby_seq ≠ 0` no significa "bebé dentro"; hay que cruzarlo con `Control_active`/`Phototherapy_active` (§3.4). |
-| `baby_name` | string | **Dato personal. No sale de TB.** |
+| `baby_name` | string | **Dato personal. No sale de TB** (salvo `itw_show_name`, §0.4). |
+| `baby_sex` | uint / string | *Implementada en IncuNest, sin desplegar (§1.4.7).* ISO 5218: `1` niño, `2` niña, `0` no se sabe; también `"m"`/`"f"`. Si falta o es `0`, TB sortea el sexo (§3.4.1). |
 | `baby_gest_weeks`, `baby_weight_g` | uint | Clínicos. No salen de TB. |
 | `baby_admission_epoch` | uint32 s | `0` = reloj no sincronizado al crear el perfil. |
 | `baby_kangaroo_count`, `baby_phototherapy_min`, `baby_thermo_min`, `baby_humidity_min` | uint | Acumulados por bebé. Útiles para el resumen final al padrino ("N días de calor, M sesiones de luz"). |
@@ -119,6 +121,8 @@ Menos y más pequeños que en v0.1:
 4. `Control_mode` como estado en cada payload (igual que v0.1, sigue pendiente).
 5. Shared attribute `hand_hold_until` consumido por la incubadora (igual que v0.1).
 6. Opcional: `baby_present` por sonda/PPG como *cross-check* del asistente. Ya no bloquea nada.
+7. **Publicar `baby_sex`** junto a `baby_seq` en los client attributes (ISO 5218: `0` no se sabe, `1` niño, `2` niña), en el mismo mensaje y **siempre**, también con `0`: si no, TB lee el del bebé anterior. Mientras no exista, TB sortea el sexo (§3.4.1); no bloquea nada.
+   *Implementado (24-11-2026) en `medicalopenworld/incunest`, rama `claude/tender-fermat-tpve71` sobre `dev`, pendiente de revisión y prueba en hardware:* paso "Sexo" (NIÑO / NIÑA / NO CONSTA) en el asistente y en el registro desde Bebés; mensaje nuevo `HMI,PROFILE_SEX,seq,sex` (PROTOCOL v2.4.0, compatible en los dos sentidos); el sexo va en el byte de relleno del perfil, así que los bebés activos no se pierden al actualizar; `baby_sex` en atributos y en el evento de alta. Los bebés archivados no lo guardan.
 
 ### 1.5 Impacto del despliegue de `dev` en ThingsBoard (fuera del contrato pero urgente)
 
@@ -210,11 +214,12 @@ out  ──[baby_seq = N mismo ∧ care_active en < 24 h]───────�
 
 | Evento | Disparo | `payload` |
 |---|---|---|
-| **`baby_in`** | `none→in`, o `out→in` con seq nuevo | `{ "heat", "photo", "spo2", "admitted_at": ts \| null }` — `admitted_at` = `baby_admission_epoch` si ≠ 0 |
+| **`baby_in`** | `none→in`, o `out→in` con seq nuevo | `{ "heat", "photo", "spo2", "admitted_at": ts \| null, "alias", "sex", "sex_src" }` — `admitted_at` = `baby_admission_epoch` si ≠ 0; identidad en §3.4.1 |
 | **`baby_parents`** *(nuevo)* | `in→parents` | `{ "kangaroo_count": n }` |
-| **`baby_back`** *(nuevo)* | `parents→in`, o reapertura de stay | `{ "away_min": 42, "heat", "photo", "spo2" }` |
+| **`baby_back`** *(nuevo)* | `parents→in`, o reapertura de stay | `{ "away_min": 42, "heat", "photo", "spo2", "alias", "sex", "sex_src" }` |
+| **`baby_identity`** *(nuevo)* | La IncuNest informa de un sexo distinto del sorteado durante el episodio | `{ "alias", "sex", "sex_src": "device", "reason": "device_sex" }` |
 | **`treatment_changed`** | Cambio de `heat`/`photo`/`spo2` en `in` (no en `parents`) | `{ "heat", "photo", "spo2", "changed": [...] }` |
-| **`heartbeat`** | Cada 60 s en `in`/`parents` con `online` | `{ "hr", "hr_quality", "heat", "photo", "spo2", "baby_state" }` |
+| **`heartbeat`** | Cada 60 s en `in`/`parents` con `online` | `{ "hr", "hr_quality", "heat", "photo", "spo2", "baby_state", "alias", "sex", "sex_src" }` |
 | **`baby_out`** | Cualquier transición a `out` | `{ "reason": "discharged" \| "session_ended" \| "not_returned" \| "replaced", "duration_days": n, "summary": { "thermo_h": …, "photo_h": …, "kangaroo": n }, "outcome": ver abajo }` |
 | **`incubator_offline` / `incubator_online`** | Igual que v0.1 | Igual que v0.1 |
 
@@ -225,6 +230,28 @@ out  ──[baby_seq = N mismo ∧ care_active en < 24 h]───────�
 - **C. Enviar la categoría** (`home`, `transferred`, `deceased`, `unknown`). Requiere decidir con el hospital y con asesoría legal/psicológica cómo se comunica. No para v0.2.
 
 `baby_discharge_cause` **nunca** sale de TB con ninguna opción.
+
+### 3.4.1 Identidad del bebé: nombre y sexo
+
+Todo bebé que se muestra (`in`, `parents` o recién ido a casa) lleva un **nombre** y un **sexo**. Los decide ThingsBoard, **una vez por episodio**, y viajan en el estado retenido del broker (`name`, `sex`) y en los shared attributes de los paneles legados: todas las IncuTwin de una incubadora, y cualquier consumidor futuro, ven lo mismo. El panel nunca elige ninguno de los dos.
+
+**Criterio de bebé nuevo: `stay_id` nuevo.** Un bebé es nuevo cuando se abre un episodio cuyo `stay_id` (`SN:baby_seq`) es distinto del anterior, es decir, cuando la enfermera crea un perfil en el asistente y enciende una terapia con él.
+
+| Caso | ¿Bebé nuevo? | Evento |
+|---|---|---|
+| `none → in`, o `out → in` con otro `baby_seq` | **Sí**: estrena identidad | `baby_in` |
+| `baby_seq` distinto bajo terapia sin alta del anterior | **Sí** | `baby_out` (`replaced`) + `baby_in` |
+| Vuelve del canguro | No | `baby_back` |
+| Se reabre el mismo `baby_seq` (alta por error, o sesión cerrada por `T_idle`) | No: es el mismo perfil | `baby_back` / `baby_in` |
+| Corte de red, `incubator_offline/online`, cambio de tratamiento | No | — |
+| Reinicio de un panel, de TB, o pérdida de `itw_state` | No (ver "azar" abajo) | — |
+| Perfil creado en el asistente pero sin encender terapia | No hay bebé todavía | — |
+
+**Sexo.** Si la IncuNest publica `baby_sex` (§1.2) se usa ese. Si no llega (hoy, siempre), TB lo **sortea**. El "azar" es un hash del `stay_id`, no `Math.random()`: equilibrado (≈ 50 %), pero reproducible. Si TB se reinicia o pierde `itw_state` a mitad del episodio, el bebé no cambia de sexo ni de nombre. Si el sexo real llega más tarde y contradice al sorteado, manda el real (y cambia el apodo, que va con el sexo).
+
+**Nombre.** Por orden: (1) `baby_name` real, solo con `itw_show_name = true` y si la enfermera lo escribió (recortado a 20 caracteres y 23 bytes UTF-8); (2) un **apodo** de la lista del sexo elegido (40 por sexo, en `tb/itw_state_machine.js`, solo con las letras que tienen las fuentes del panel), también por hash del `stay_id`. Dos bebés seguidos en la misma incubadora no comparten apodo. Peso y días siguen saliendo solo con `itw_show_name`.
+
+Server attributes para dashboards y soporte: `itw_baby_sex` (`m`/`f`/`""`), `itw_baby_sex_src` (`device` = lo dijo la IncuNest, `auto` = sorteado) e `itw_baby_alias` (el apodo, aunque el panel esté mostrando el nombre real). En el webhook (`baby_in`, `baby_back`, `heartbeat`, `baby_identity`) van `alias` (siempre el apodo, **nunca** `baby_name`), `sex` (`m`/`f`) y `sex_src` (`device`/`auto`), para que la app diga lo mismo que el panel. Si la IncuNest corrige el sexo a mitad del episodio, TB emite `baby_identity` y republica el estado del broker en el acto. Con `itw_show_name` el panel muestra el nombre real y la app sigue con el apodo: el nombre real no sale nunca hacia Firebase.
 
 ### 3.5 Canal inverso ("Coge mi mano")
 
@@ -265,6 +292,7 @@ Hito de integración: **una alta con `baby_outcome = 1` en `TEST-incubadora` lle
 5. Micrófono: si §5.4 basta, se cierra.
 6. Titularidad del proyecto Firebase `incutwinapp`; purga del historial de IncuTwin (parche listo, `push --force` pendiente); tenant `Demo`.
 7. Apple/Google: donaciones vs IAP (igual que v0.1).
+8. **Identidad del bebé (§3.4.1)**: (a) el padrino ve un apodo y un sexo que pueden no ser los del bebé; decidir cómo se le cuenta ("le hemos puesto de apodo…"). (b) ¿El sexo real puede salir de TB sin `itw_show_name`? Hoy sí, en cuanto la IncuNest lo publique. (c) ~~¿Apodo y sexo en `baby_in`?~~ Sí (24-11-2026): `alias`/`sex`/`sex_src` en los eventos del webhook. (d) Listas de apodos por país de la incubadora.
 
 ### 3.8 Historial del panel *(v0.3, spec `tb-stay-history`, 10-nov-2026)*
 

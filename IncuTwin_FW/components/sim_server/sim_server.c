@@ -56,6 +56,8 @@ static const char PAGE[] =
     "<input type='range' id='hr' min='0' max='220' oninput=\"document.getElementById('hrv').textContent=this.value\">"
     "<label>Tono de piel: <span id='skinv'></span></label>"
     "<input type='range' id='skin' min='0' max='5' oninput=\"document.getElementById('skinv').textContent=this.value\">"
+    "<label>Sexo</label><select id='sex'><option value='m'>Niño</option><option value='f'>Niña</option>"
+    "<option value=''>Sin dato (dibujo de niño)</option></select>"
     "<label>Nombre (vacío = no compartido)</label><input type='text' id='name' maxlength='23' style='width:100%;padding:8px'>"
     "<button style='width:100%;margin-top:14px' onclick='apply()'>Aplicar</button>"
     "<h2>Payload real (incubators/SIM/state)</h2>"
@@ -73,13 +75,13 @@ static const char PAGE[] =
     "function g(i){return document.getElementById(i);}"
     "function apply(){post('/state',{thermo:g('thermo').value,baby:g('baby').value,photo:g('photo').checked,"
     "awake:g('awake').checked,online:g('online').checked,linked:g('linked').checked,hr:+g('hr').value,"
-    "skin:+g('skin').value,name:g('name').value}).then(()=>msg('Aplicado')).catch(e=>msg('Error '+e));}"
+    "skin:+g('skin').value,sex:g('sex').value,name:g('name').value}).then(()=>msg('Aplicado')).catch(e=>msg('Error '+e));}"
     "function inc(){post('/incubator',g('inc').value).then(()=>msg('Payload aplicado')).catch(e=>msg('Error '+e));}"
     "function demo(run){post('/demo',{run:run,interval_s:+g('ival').value})"
     ".then(()=>msg(run?'Demo en marcha':'Demo parada')).catch(e=>msg('Error '+e));}"
     "function load(){return fetch('/state').then(r=>r.json()).then(s=>{g('thermo').value=s.thermo;g('baby').value=s.baby;"
     "g('photo').checked=s.photo;g('awake').checked=s.awake;g('online').checked=s.online;g('linked').checked=s.linked;"
-    "g('hr').value=s.hr;g('hrv').textContent=s.hr;g('skin').value=s.skin;g('skinv').textContent=s.skin;g('name').value=s.name;});}"
+    "g('hr').value=s.hr;g('hrv').textContent=s.hr;g('skin').value=s.skin;g('skinv').textContent=s.skin;g('sex').value=s.sex;g('name').value=s.name;});}"
     "load();</script></body></html>";
 
 /* ------------------------------------------------------------------ helpers */
@@ -135,13 +137,15 @@ static int read_body(httpd_req_t *req, char *buf, size_t max)
 
 static esp_err_t send_state(httpd_req_t *req)
 {
-    char out[320];
+    char out[384]; /* peor caso con nombre de 23 bytes y sex: ~250 */
     snprintf(out, sizeof(out),
              "{\"online\":%s,\"linked\":%s,\"thermo\":\"%s\",\"baby\":\"%s\",\"photo\":%s,\"hr\":%u,"
-             "\"skin\":%u,\"awake\":%s,\"name\":\"%s\",\"weight_g\":%u,\"age_d\":%d}",
+             "\"skin\":%u,\"awake\":%s,\"sex\":\"%s\",\"name\":\"%s\",\"weight_g\":%u,\"age_d\":%d}",
              s_inc.online ? "true" : "false", s_linked ? "true" : "false", thermo_str(s_inc.thermo),
              baby_str(s_inc.baby), s_inc.photo ? "true" : "false", s_inc.bpm, s_inc.skin,
-             s_inc.awake ? "true" : "false", s_inc.name, s_inc.weight_g, s_inc.age_d);
+             s_inc.awake ? "true" : "false",
+             s_inc.sex == TWIN_SEX_FEMALE ? "f" : s_inc.sex == TWIN_SEX_MALE ? "m" : "",
+             s_inc.name, s_inc.weight_g, s_inc.age_d);
     httpd_resp_set_type(req, "application/json");
     return httpd_resp_sendstr(req, out);
 }
@@ -199,6 +203,10 @@ static esp_err_t state_post(httpd_req_t *req)
         int v = (int)it->valuedouble;
         if (v >= 0 && v < TWIN_SKIN_COUNT) s_inc.skin = (uint8_t)v;
     }
+    it = cJSON_GetObjectItemCaseSensitive(root, "sex");
+    if (str_eq(it, "m")) s_inc.sex = TWIN_SEX_MALE;
+    else if (str_eq(it, "f")) s_inc.sex = TWIN_SEX_FEMALE;
+    else if (str_eq(it, "")) s_inc.sex = TWIN_SEX_UNKNOWN;
     it = cJSON_GetObjectItemCaseSensitive(root, "name");
     if (cJSON_IsString(it) && it->valuestring && strlen(it->valuestring) < TWIN_NAME_LEN) {
         strcpy(s_inc.name, it->valuestring);

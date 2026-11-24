@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Assets adicionales (LVGL 9): marca IncuTwin (del logo), iconos de estado (termometro,
-lampara), iconos de cobertura WiFi (0..3 barras + sin WiFi) y las dos imagenes a pantalla
-completa (incubadora vacia, bebe con sus padres en dos tonos de piel, corazon de IncuNest
-al terminar "Coge mi mano") en vertical 240x320.
+lampara), iconos de cobertura WiFi (0..3 barras + sin WiFi) y las imagenes a pantalla
+completa en vertical 240x320: incubadora vacia, bebe con sus padres (nino y nina, y en
+piel oscura), corazon de IncuNest al terminar "Coge mi mano".
 Uso: python tools/gen_extra.py"""
+import colorsys
 import os
 import sys
+from collections import deque
 
 from PIL import Image, ImageChops, ImageDraw, ImageOps
 
@@ -13,7 +15,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 IMAGES = os.path.join(ROOT, "Images")
 sys.path.insert(0, HERE)
-from gen_assets import ASSETS, PREVIEW, load_logo  # noqa: E402
+from gen_assets import (ASSETS, GIRL_HUE, GIRL_SAT_GAIN, PREVIEW, draw_bow,  # noqa: E402
+                        load_logo)
 from lvgl9_c import c_header, emit_argb8888, emit_rgb565, write_header  # noqa: E402
 
 NAVY = (30, 62, 110)
@@ -129,11 +132,51 @@ def make_flag_cm():
     return out.resize((W, H), Image.LANCZOS)
 
 
-def fullscreen_from(png):
-    """Imagen derecha en la pantalla vertical: recorta margenes blancos y rellena a 240x320."""
-    im = Image.open(os.path.join(IMAGES, png)).convert("RGB")
-    bg = Image.new("RGB", im.size, (255, 255, 255))
-    diff = ImageChops.difference(im, bg).convert("L")
+# Nina en Baby_with_parents.png (coordenadas del PNG original, 896x1199). El padre lleva
+# camiseta azul y la madre una casi blanca pegadas al bebe: en vez de recolorear por zona se
+# rellena desde semillas dentro del gorro y la manta, y el contorno marino del dibujo hace de
+# frontera (comprobado: ninguna de las dos camisetas cambia).
+PARENTS_GIRL_SEEDS = ((470, 665), (440, 660), (500, 650), (520, 680), (480, 630), (460, 640),
+                      (340, 810), (430, 810), (480, 860), (380, 900), (450, 760), (300, 900))
+PARENTS_GIRL_BOX = (200, 540, 640, 1040)
+PARENTS_GIRL_VMIN = 0.40
+PARENTS_BOW = (522, 598, 5)   # centro x, arriba y, celda: tapa el pompon (~523, 615)
+
+
+def parents_girl(im):
+    """Baby_with_parents.png -> la misma escena con la bebe en version nina (propuesta B)."""
+    im = im.copy()
+    px = im.load()
+    x0, y0, x1, y1 = PARENTS_GIRL_BOX
+
+    def bluish(p):
+        hh, ss, vv = colorsys.rgb_to_hsv(*(c / 255 for c in p[:3]))
+        return 0.50 <= hh <= 0.68 and ss > 0.06 and vv > PARENTS_GIRL_VMIN
+
+    seen = set()
+    dq = deque(PARENTS_GIRL_SEEDS)
+    while dq:
+        x, y = dq.popleft()
+        if (x, y) in seen or not (x0 <= x < x1 and y0 <= y < y1) or not bluish(px[x, y]):
+            continue
+        seen.add((x, y))
+        dq.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+    for x, y in seen:
+        hh, ss, vv = colorsys.rgb_to_hsv(*(c / 255 for c in px[x, y][:3]))
+        r, g, b = colorsys.hsv_to_rgb(GIRL_HUE / 360, min(1, ss * GIRL_SAT_GAIN), vv)
+        px[x, y] = (round(r * 255), round(g * 255), round(b * 255))
+    cx, top, k = PARENTS_BOW
+    draw_bow(ImageDraw.Draw(im), cx, top, k)
+    return im
+
+
+def fullscreen_from(png, transform=None):
+    """Imagen derecha en la pantalla vertical: recorta margenes blancos y rellena a 240x320.
+    `transform` se aplica al PNG original antes de recortar (la caja sale del original)."""
+    src = Image.open(os.path.join(IMAGES, png)).convert("RGB")
+    im = transform(src) if transform else src
+    bg = Image.new("RGB", src.size, (255, 255, 255))
+    diff = ImageChops.difference(src, bg).convert("L")
     bbox = diff.point(lambda v: 255 if v > 16 else 0).getbbox()
     im = im.crop(bbox)
     return ImageOps.pad(im, (SCREEN_W, SCREEN_H), Image.LANCZOS, color=(255, 255, 255))
@@ -152,6 +195,7 @@ def main():
     parents_black = fullscreen_from("Baby_with_parents_black.jpg")  # tonos de piel 3..5
     thanks = fullscreen_from("Corazon_IncuNest.png")  # fin de "Coge mi mano"
     flag_cm = make_flag_cm()  # pagina del pais en la demo
+    parents_g = fullscreen_from("Baby_with_parents.png", parents_girl)
 
     wm.save(os.path.join(PREVIEW, "wordmark.png"))
     th.save(os.path.join(PREVIEW, "icon_thermo.png"))
@@ -164,6 +208,7 @@ def main():
     parents_black.save(os.path.join(PREVIEW, "baby_parents_black.png"))
     thanks.save(os.path.join(PREVIEW, "hand_thanks.png"))
     flag_cm.save(os.path.join(PREVIEW, "flag_cm.png"))
+    parents_g.save(os.path.join(PREVIEW, "baby_parents_girl.png"))
     print("wordmark:", wm.size, " empty:", empty.size)
 
     with open(os.path.join(ASSETS, "img_extra.c"), "w", encoding="utf-8", newline="\n") as f:
@@ -179,6 +224,7 @@ def main():
         emit_rgb565(f, "img_baby_parents_black", parents_black)
         emit_rgb565(f, "img_hand_thanks", thanks)
         emit_argb8888(f, "img_flag_cm", flag_cm)
+        emit_rgb565(f, "img_baby_parents_girl", parents_g)
 
     write_header(
         os.path.join(ASSETS, "include", "assets_extra.h"),
@@ -186,7 +232,7 @@ def main():
         ["img_wordmark", "img_icon_thermo", "img_icon_lamp", "img_wifi_off",
          "img_wifi_0", "img_wifi_1", "img_wifi_2", "img_wifi_3",
          "img_incunest_empty", "img_baby_parents", "img_baby_parents_black", "img_hand_thanks",
-         "img_flag_cm"],
+         "img_flag_cm", "img_baby_parents_girl"],
     )
     print("img_extra.c escrito")
 
