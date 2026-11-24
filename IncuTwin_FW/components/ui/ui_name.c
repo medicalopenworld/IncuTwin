@@ -2,7 +2,7 @@
  *
  * El nombre es solo del usuario de esta IncuTwin (baby_name, NVS). El teclado es una
  * lv_buttonmatrix propia: el lv_keyboard de LVGL usa simbolos (OK, borrar) que no estan en
- * nuestras fuentes, y aqui hace falta Ñ y vocales con tilde. */
+ * nuestras fuentes, y aqui hace falta la Ñ. */
 #include "ui_name.h"
 
 #include <stddef.h>
@@ -18,17 +18,17 @@ static lv_obj_t *s_kb;       /* capa del teclado */
 static lv_obj_t *s_ta;
 static void (*s_done_cb)(void);
 
-/* Ids de la matriz: 0..9 Q-P, 10..19 A-Ñ, 20..26 Z-M, 27 borrar, 28..32 vocales, 33 espacio,
- * 34 LISTO. */
-enum { KEY_BACKSPACE = 27, KEY_SPACE = 33, KEY_DONE = 34 };
+/* Teclado espanol de ordenador, sin vocales con tilde (Pablo, 24-nov-2026): Q-P, A-Ñ, Z-M y
+ * borrar, espacio y LISTO. Ids de la matriz: 0..9 Q-P, 10..19 A-Ñ, 20..26 Z-M, 27 borrar,
+ * 28 espacio, 29 LISTO. */
+enum { KEY_BACKSPACE = 27, KEY_SPACE = 28, KEY_DONE = 29 };
 static const char *s_map[] = {
     "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "\n",
     "A", "S", "D", "F", "G", "H", "J", "K", "L", "Ñ", "\n",
     "Z", "X", "C", "V", "B", "N", "M", "<", "\n",
-    "Á", "É", "Í", "Ó", "Ú", "\n",
     " ", "LISTO", "",
 };
-#define MAP_DONE_IDX 38 /* posicion de "LISTO" en s_map (cuenta los "\n") */
+#define MAP_DONE_IDX 32 /* posicion de "LISTO" en s_map (cuenta los "\n") */
 _Static_assert(sizeof(s_map) / sizeof(s_map[0]) == MAP_DONE_IDX + 2, "s_map y MAP_DONE_IDX");
 
 void ui_name_on_done(void (*cb)(void)) { s_done_cb = cb; }

@@ -13,7 +13,8 @@ sale del panel. Sirve para que el vínculo con "tu" bebé sea personal.
 
 - Aviso al llegar un bebé sin nombre: «Ha llegado un bebé. ¿Quieres ponerle nombre?»
   [SÍ] [AHORA NO].
-- Teclado en pantalla para nombres cortos, con Ñ y vocales con tilde.
+- Teclado en pantalla para nombres cortos, con la disposición de un teclado español de ordenador
+  (Q-P, A-Ñ, Z-M) y sin vocales con tilde (Pablo, 24-nov-2026).
 - El nombre sale donde hoy sale el nombre (la etiqueta sobre el bebé).
 - Se puede poner más tarde o cambiar tocando la etiqueta.
 
