@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Assets adicionales (LVGL 9): marca IncuTwin (del logo), iconos de estado (termometro,
-lampara), iconos de cobertura WiFi (0..3 barras + sin WiFi) y las imagenes a pantalla
+lampara), pollito del historial, iconos de cobertura WiFi (0..3 barras + sin WiFi) y las imagenes a pantalla
 completa en vertical 240x320: incubadora vacia, bebe con sus padres (nino y nina, y en
 piel oscura), corazon de IncuNest al terminar "Coge mi mano".
 Uso: python tools/gen_extra.py"""
@@ -9,7 +9,7 @@ import os
 import sys
 from collections import deque
 
-from PIL import Image, ImageChops, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -71,6 +71,53 @@ def make_lamp():
         x0 = cx + dx * w
         d.line((x0, h * 0.5, x0 + dx * w * 0.4, h * 0.92), fill=blue, width=6)
     return im.resize((W, H), Image.LANCZOS)
+
+
+def make_chick(size):
+    """Pollito amarillo asomando de media cascara blanca con borde en zigzag, ojo y pico
+    naranja. Se dibuja en una cuadricula de 128 y se reduce con antialiasing; formas gruesas
+    y simples para que se lea a 28 px, con contorno marron para separarlo del fondo claro."""
+    k = 8
+    big = 128 * k
+    u = float(k)
+    yellow, orange = (246, 196, 67, 255), (242, 140, 40, 255)
+    shell, edge, ink = (255, 255, 255, 255), (140, 104, 56, 255), (40, 30, 20, 255)
+    ow = 5 * u
+
+    def silueta(draw, fill, grow=0.0):
+        """Cabeza (circulo + copete) y cuenco de cascara; `grow` engorda para el contorno."""
+        g = grow
+        draw.ellipse((64 * u - 46 * u - g, 8 * u - g, 64 * u + 46 * u + g, 100 * u + g), fill=fill)
+        draw.polygon([(54 * u - g, 14 * u), (62 * u, 0 - g), (74 * u + g, 14 * u)], fill=fill)
+
+    # mascara de la cascara: elipse inferior recortada por arriba con zigzag
+    top, n, x0, x1 = 86, 6, 4, 124
+    zig = [(x0, 140)]
+    for i in range(n):
+        xa = x0 + (x1 - x0) * i / n
+        xb = x0 + (x1 - x0) * (i + 0.5) / n
+        zig += [(xa, top + 8), (xb, top - 8)]
+    zig += [(x1, top + 8), (x1, 140)]
+    keep = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(keep).polygon([(x * u, y * u) for x, y in zig], fill=255)
+    bowl = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(bowl).ellipse((x0 * u, 58 * u, x1 * u, 126 * u), fill=255)
+    shell_mask = ImageChops.multiply(keep, bowl)
+    ring = shell_mask.filter(ImageFilter.MaxFilter(2 * int(ow) + 1))
+
+    im = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    silueta(d, edge, grow=ow)           # contorno del pollito
+    im.paste(Image.new("RGBA", im.size, edge), mask=ring)   # contorno de la cascara
+    silueta(d, yellow)
+    # pico (por encima de la cascara) y ojos
+    d.polygon([(50 * u, 56 * u), (78 * u, 56 * u), (64 * u, 78 * u)], fill=orange,
+              outline=edge, width=int(2 * u))
+    for ex in (42 * u, 86 * u):
+        d.ellipse((ex - 7 * u, 38 * u, ex + 7 * u, 52 * u), fill=ink)
+        d.ellipse((ex - 3 * u, 40 * u, ex + 1 * u, 44 * u), fill=(255, 255, 255, 255))
+    im.paste(Image.new("RGBA", im.size, shell), mask=shell_mask)
+    return im.resize((size, size), Image.LANCZOS)
 
 
 def make_wifi(level):
@@ -182,12 +229,29 @@ def fullscreen_from(png, transform=None):
     return ImageOps.pad(im, (SCREEN_W, SCREEN_H), Image.LANCZOS, color=(255, 255, 255))
 
 
+def save_chick_preview(c28, c64):
+    """tools/preview/chick.png: ambos tamanos sobre el fondo claro de la UI, 28 px a x1 y x4
+    (como se vera en pantalla y ampliado) y a 50 % de opacidad (pestana inactiva)."""
+    bg = (244, 247, 251, 255)
+    sheet = Image.new("RGBA", (420, 140), bg)
+    sheet.alpha_composite(c28, (10, 10))
+    faded = c28.copy()
+    faded.putalpha(faded.getchannel("A").point(lambda v: v // 2))
+    sheet.alpha_composite(faded, (50, 10))
+    sheet.alpha_composite(c28.resize((112, 112), Image.NEAREST), (100, 14))
+    sheet.alpha_composite(c64, (230, 10))
+    sheet.alpha_composite(c64.resize((128, 128), Image.LANCZOS), (290, 6))
+    sheet.save(os.path.join(PREVIEW, "chick.png"))
+
+
 def main():
     os.makedirs(PREVIEW, exist_ok=True)
     os.makedirs(os.path.join(ASSETS, "include"), exist_ok=True)
     wm = make_wordmark()
     th = make_thermo()
     lp = make_lamp()
+    chick28 = make_chick(28)
+    chick64 = make_chick(64)
     wifis = [make_wifi(i) for i in range(4)]
     wifi_off = make_wifi_off()
     empty = fullscreen_from("IncuNest_empty.png")
@@ -201,6 +265,9 @@ def main():
     th.save(os.path.join(PREVIEW, "icon_thermo.png"))
     lp.save(os.path.join(PREVIEW, "icon_lamp.png"))
     wifi_off.save(os.path.join(PREVIEW, "wifi_off.png"))
+    chick28.save(os.path.join(PREVIEW, "chick_28.png"))
+    chick64.save(os.path.join(PREVIEW, "chick_64.png"))
+    save_chick_preview(chick28, chick64)
     for i, w in enumerate(wifis):
         w.save(os.path.join(PREVIEW, f"wifi_{i}.png"))
     empty.save(os.path.join(PREVIEW, "incunest_empty.png"))
@@ -217,6 +284,8 @@ def main():
         emit_argb8888(f, "img_icon_thermo", th)
         emit_argb8888(f, "img_icon_lamp", lp)
         emit_argb8888(f, "img_wifi_off", wifi_off)
+        emit_argb8888(f, "img_chick_28", chick28)
+        emit_argb8888(f, "img_chick_64", chick64)
         for i, w in enumerate(wifis):
             emit_argb8888(f, f"img_wifi_{i}", w)
         emit_rgb565(f, "img_incunest_empty", empty)
@@ -230,6 +299,7 @@ def main():
         os.path.join(ASSETS, "include", "assets_extra.h"),
         "Assets adicionales (gen_extra.py)",
         ["img_wordmark", "img_icon_thermo", "img_icon_lamp", "img_wifi_off",
+         "img_chick_28", "img_chick_64",
          "img_wifi_0", "img_wifi_1", "img_wifi_2", "img_wifi_3",
          "img_incunest_empty", "img_baby_parents", "img_baby_parents_black", "img_hand_thanks",
          "img_flag_cm", "img_baby_parents_girl"],
