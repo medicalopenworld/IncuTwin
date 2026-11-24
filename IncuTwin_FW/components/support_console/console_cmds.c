@@ -12,6 +12,7 @@
 #include "esp_ota_ops.h"
 #include "esp_system.h"
 #include "identity.h"
+#include "sdkconfig.h"
 #include "storage.h"
 #include "twin_model.h"
 #include "usage_stats.h"
@@ -97,12 +98,30 @@ static int cmd_wifi(int argc, char **argv)
     return 0;
 }
 
+#if CONFIG_INCUTWIN_SIM
+/* Solo build sim: mete un JSON de estado por el mismo camino que POST /incubator del servidor
+ * sim, para probar avisos y sonido por serie cuando la placa no es alcanzable por HTTP. */
+static int cmd_sim_state(int argc, char **argv)
+{
+    if (argc != 2) {
+        printf("uso: sim_state \"<json de estado con incubator_id SIM>\"\n");
+        return 1;
+    }
+    twin_model_ingest(argv[1], strlen(argv[1]));
+    return 0;
+}
+#endif
+
 void console_start(void)
 {
     esp_console_repl_t *repl = NULL;
     esp_console_repl_config_t repl_cfg = ESP_CONSOLE_REPL_CONFIG_DEFAULT();
     repl_cfg.prompt = "incutwin>";
+#if CONFIG_INCUTWIN_SIM
+    repl_cfg.max_cmdline_length = 256; /* cabe un JSON de sim_state */
+#else
     repl_cfg.max_cmdline_length = 64;
+#endif
     esp_console_dev_uart_config_t uart_cfg = ESP_CONSOLE_DEV_UART_CONFIG_DEFAULT();
     if (esp_console_new_repl_uart(&uart_cfg, &repl_cfg, &repl) != ESP_OK) {
         ESP_LOGW(TAG, "sin consola");
@@ -118,6 +137,10 @@ void console_start(void)
           .func = cmd_factory_reset },
         { .command = "wifi", .help = "wifi <ssid> [pass]: guarda la WiFi y salta el onboarding",
           .func = cmd_wifi },
+#if CONFIG_INCUTWIN_SIM
+        { .command = "sim_state", .help = "SOLO EXISTE EN EL BUILD SIM: sim_state \"<json>\" ingesta un estado",
+          .func = cmd_sim_state },
+#endif
     };
     for (size_t i = 0; i < sizeof(cmds) / sizeof(cmds[0]); i++) {
         esp_console_cmd_register(&cmds[i]);
