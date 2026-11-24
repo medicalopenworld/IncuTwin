@@ -14,7 +14,8 @@ publica `TWIN_EVT_NOTICE` (sustituye a `TWIN_EVT_TRANSITION`). Tres consumidores
 
 **Spec:** `IncuTwin_FW/docs/superpowers/specs/2026-11-24-hmi-navegacion-avisos-design.md`
 
-Todas las rutas son relativas a `IncuTwin_FW/`. Entorno: `. C:\esp\v6.0.1\esp-idf\export.ps1` en PowerShell.
+Todas las rutas son relativas a `IncuTwin_FW/`. Entorno: en PowerShell, `. C:\Espressif\tools\Microsoft.v6.0.1.PowerShell_profile.ps1` (el `export.ps1` del
+README falla en este equipo: no encuentra el venv de Python).
 **La placa de pruebas está en COM6** (no COM12 como dice el README).
 
 ## Global Constraints
@@ -292,7 +293,7 @@ TEST_CASE("rel_time: tramos", "[ui]") {
 
 **Interfaces:**
 - Consumes: `TWIN_EVT_NOTICE`, `ui_notice_text`, `ui_go`
-- Produces: `void ui_notice_init(void)` (crea la franja en `lv_layer_top()`, oculta); `void ui_notice_push(uint32_t mask)` (encola un aviso por bit, en orden de bit, cola de 8; se llama desde `refresh_cb` con lo copiado del evento). Franja de 224×44 en `x = 8`, baja de `y = -48` a `y = 4` en 200 ms, se queda 4 s y sube; tocarla → `ui_go(UI_TAB_HISTORY)` y vacía la cola. No aparece en el splash, el onboarding ni la despedida (se encola y sale al volver a Inicio, Historial o Ajustes).
+- Produces: `void ui_notice_init(void)` (crea la franja en `lv_layer_top()`, oculta); `void ui_notice_push(uint32_t mask)` (encola un aviso por bit, en orden de bit, cola de 8; se llama desde `refresh_cb` con lo copiado del evento). Franja de 224×44 en `x = 8`, baja de `y = -48` a `y = 4` en 200 ms, se queda 4 s y sube; tocarla → `ui_go(UI_TAB_HISTORY)` y vacía la cola. No aparece en el splash, el onboarding, la despedida ni mientras está abierto el aviso o el teclado del nombre del bebé (`ui_name_open()`, `components/ui/ui_name.c`): se encola y sale al cerrarse.
 
 - [ ] **Step 1: Implement** lo de *Produces* (sin test unitario: es LVGL).
 - [ ] **Step 2: Run** `idf.py build`.
