@@ -74,7 +74,8 @@ function openStay(seq, ts) {
   if (!reopen) { st.thermo_min = 0; st.photo_min = 0; st.kangaroo_count = 0; }
   st.stay_seq = seq; st.stay_id = incubator + ':' + seq; st.baby_state = 'in'; st.out_home = false;
   st.in_since = reopen && st.in_since ? st.in_since : t; st.idle_since = null; st.parents_since = null;
-  var p = tx();
+  syncIdentity();  // antes de emitir: baby_in ya lleva apodo y sexo
+  var p = idPayload(tx());
   if (reopen) { p.away_min = Math.round((t - st.out_since) / 60000); emit('baby_back', p, t); }
   else { p.admitted_at = st.admission_epoch ? iso(st.admission_epoch * 1000) : null; emit('baby_in', p, t); }
   st.last_tx = JSON.stringify(tx()); st.last_tx_change = t;
@@ -119,6 +120,18 @@ function identify(stayId, devSex) {
   if (prev && prev.stay !== stayId && prev.alias === list[idx]) idx = (idx + 1) % list.length;
   st.id = { stay: stayId, sex: sex, src: devSex ? 'device' : 'auto', alias: list[idx] };
 }
+// Fija la identidad del episodio abierto o la revisa. true = cambió una identidad ya publicada
+// (la IncuNest informa tarde de un sexo distinto del sorteado: el dato real manda).
+function syncIdentity() {
+  var devSex = (st.baby_seq === st.stay_seq) ? (st.baby_sex || null) : null;
+  if (!st.id || st.id.stay !== st.stay_id) { identify(st.stay_id, devSex); return false; }
+  if (devSex && devSex !== st.id.sex) { identify(st.stay_id, devSex); return true; }
+  if (devSex) st.id.src = 'device';
+  return false;
+}
+// Identidad en los eventos del webhook: SIEMPRE el apodo, nunca baby_name (§0.4), aunque el
+// panel muestre el nombre real con itw_show_name.
+function idPayload(p) { p.alias = st.id.alias; p.sex = st.id.sex; p.sex_src = st.id.src; return p; }
 // recorta a `max` bytes UTF-8 sin partir un carácter (el panel descarta nombres de más de 23)
 function clipUtf8(s, max) {
   var out = '', n = 0;
@@ -217,17 +230,14 @@ if (st.baby_state === 'none' || st.baby_state === 'out') {
     if (!care) { if (!st.idle_since) st.idle_since = now; else if (now - st.idle_since >= cfg.t_idle_ms) closeStay('session_ended', null); }
     else st.idle_since = null;
   } else if (st.baby_state === 'parents') {
-    if (care) { var away = Math.round((now - (st.parents_since || now)) / 60000); st.baby_state = 'in'; st.parents_since = null; var pb = tx(); pb.away_min = away; emit('baby_back', pb); st.last_tx = JSON.stringify(tx()); st.last_tx_change = now; }
+    if (care) { var away = Math.round((now - (st.parents_since || now)) / 60000); st.baby_state = 'in'; st.parents_since = null; var pb = idPayload(tx()); pb.away_min = away; emit('baby_back', pb); st.last_tx = JSON.stringify(tx()); st.last_tx_change = now; }
     else if (st.parents_since && now - st.parents_since >= cfg.t_parents_ms) closeStay('not_returned', null);
   }
 }
-// identidad: se fija al abrir el episodio (bebé nuevo = stay_id nuevo) y solo se revisa si la
-// IncuNest informa después de un sexo distinto del sorteado (el dato real manda)
+// identidad: se fija al abrir el episodio (bebé nuevo = stay_id nuevo); si después cambia, la
+// app y los paneles se enteran con baby_identity
 if (st.baby_state === 'in' || st.baby_state === 'parents') {
-  var devSex = (st.baby_seq === st.stay_seq) ? (st.baby_sex || null) : null;
-  if (!st.id || st.id.stay !== st.stay_id) identify(st.stay_id, devSex);
-  else if (devSex && devSex !== st.id.sex) identify(st.stay_id, devSex);
-  else if (devSex) st.id.src = 'device';
+  if (syncIdentity()) emit('baby_identity', idPayload({ reason: 'device_sex' }));
 }
 // treatment_changed (solo con bebé dentro, debounce 30 s)
 if (st.baby_state === 'in' && msgType === 'POST_TELEMETRY_REQUEST') {
@@ -241,7 +251,7 @@ if (st.baby_state === 'in' && msgType === 'POST_TELEMETRY_REQUEST') {
 }
 // heartbeat
 if ((st.baby_state === 'in' || st.baby_state === 'parents') && st.online && now - st.last_hb >= cfg.hb_ms) {
-  var ph = tx(); ph.hr = st.hr; ph.hr_quality = st.hr_q; ph.baby_state = st.baby_state; emit('heartbeat', ph); st.last_hb = now;
+  var ph = idPayload(tx()); ph.hr = st.hr; ph.hr_quality = st.hr_q; ph.baby_state = st.baby_state; emit('heartbeat', ph); st.last_hb = now;
 }
 
 // ---- salidas ----

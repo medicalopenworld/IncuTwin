@@ -252,4 +252,40 @@ test('el payload del broker sigue cabiendo en 512 bytes', () => {
   assert.ok(Buffer.byteLength(JSON.stringify(a.broker), 'utf8') <= 512);
 });
 
+test('webhook: baby_in, baby_back y heartbeat llevan apodo y sexo; nunca el nombre real', () => {
+  const a = incubator('353', { ss_itw_show_name: 'true' }).admit(6, { baby_name: 'Amara' });
+  const bi = a.events.find(e => e.event === 'baby_in');
+  assert.strictEqual(bi.payload.alias, a.attrs.itw_baby_alias);
+  assert.strictEqual(bi.payload.sex, a.attrs.itw_baby_sex);
+  assert.strictEqual(bi.payload.sex_src, 'auto');
+  assert.strictEqual(a.broker.name, 'Amara', 'el panel sí muestra el nombre real');
+  const hb = a.events.find(e => e.event === 'heartbeat');
+  assert.strictEqual(hb.payload.alias, bi.payload.alias);
+  a.tele({ Control_active: false, Phototherapy_active: false }, 10 * M);
+  a.tele({ baby_seq: 6, baby_kangaroo_event: 1, baby_kangaroo_count: 1 });
+  a.tele({ Control_active: true, Air_temp: 34 }, 1 * H);
+  const bb = a.events.find(e => e.event === 'baby_back');
+  assert.deepStrictEqual([bb.payload.alias, bb.payload.sex], [bi.payload.alias, bi.payload.sex]);
+  // ningún evento lleva el nombre real
+  assert.ok(!JSON.stringify(a.events).includes('Amara'));
+  assert.ok(!JSON.stringify(bi).includes('Amara'));
+});
+
+test('webhook: si el sexo real corrige al sorteado, sale baby_identity y el broker se actualiza ya', () => {
+  let seq = 1, a;
+  for (;; seq++) { a = incubator('353').admit(seq); if (a.broker.sex === 'm') break; }
+  const seqBefore = a.broker.event_seq;
+  a.attrsMsg({ baby_sex: 2 });
+  const ev = a.events.find(e => e.event === 'baby_identity');
+  assert.ok(ev, 'falta baby_identity');
+  assert.deepStrictEqual([ev.payload.sex, ev.payload.sex_src, ev.payload.reason], ['f', 'device', 'device_sex']);
+  assert.strictEqual(ev.payload.alias, a.panel.name);
+  assert.ok(a.broker.event_seq > seqBefore);
+  assert.strictEqual(a.broker.last_event, 'baby_identity');
+  assert.strictEqual(a.broker.sex, 'f');
+  // confirmar el mismo sexo no genera evento
+  a.attrsMsg({ baby_sex: 2 });
+  assert.ok(!a.events.some(e => e.event === 'baby_identity'));
+});
+
 console.log('\n' + n + ' pruebas OK');

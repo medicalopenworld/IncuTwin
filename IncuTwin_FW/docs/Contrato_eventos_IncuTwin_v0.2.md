@@ -213,11 +213,12 @@ out  ──[baby_seq = N mismo ∧ care_active en < 24 h]───────�
 
 | Evento | Disparo | `payload` |
 |---|---|---|
-| **`baby_in`** | `none→in`, o `out→in` con seq nuevo | `{ "heat", "photo", "spo2", "admitted_at": ts \| null }` — `admitted_at` = `baby_admission_epoch` si ≠ 0 |
+| **`baby_in`** | `none→in`, o `out→in` con seq nuevo | `{ "heat", "photo", "spo2", "admitted_at": ts \| null, "alias", "sex", "sex_src" }` — `admitted_at` = `baby_admission_epoch` si ≠ 0; identidad en §3.4.1 |
 | **`baby_parents`** *(nuevo)* | `in→parents` | `{ "kangaroo_count": n }` |
-| **`baby_back`** *(nuevo)* | `parents→in`, o reapertura de stay | `{ "away_min": 42, "heat", "photo", "spo2" }` |
+| **`baby_back`** *(nuevo)* | `parents→in`, o reapertura de stay | `{ "away_min": 42, "heat", "photo", "spo2", "alias", "sex", "sex_src" }` |
+| **`baby_identity`** *(nuevo)* | La IncuNest informa de un sexo distinto del sorteado durante el episodio | `{ "alias", "sex", "sex_src": "device", "reason": "device_sex" }` |
 | **`treatment_changed`** | Cambio de `heat`/`photo`/`spo2` en `in` (no en `parents`) | `{ "heat", "photo", "spo2", "changed": [...] }` |
-| **`heartbeat`** | Cada 60 s en `in`/`parents` con `online` | `{ "hr", "hr_quality", "heat", "photo", "spo2", "baby_state" }` |
+| **`heartbeat`** | Cada 60 s en `in`/`parents` con `online` | `{ "hr", "hr_quality", "heat", "photo", "spo2", "baby_state", "alias", "sex", "sex_src" }` |
 | **`baby_out`** | Cualquier transición a `out` | `{ "reason": "discharged" \| "session_ended" \| "not_returned" \| "replaced", "duration_days": n, "summary": { "thermo_h": …, "photo_h": …, "kangaroo": n }, "outcome": ver abajo }` |
 | **`incubator_offline` / `incubator_online`** | Igual que v0.1 | Igual que v0.1 |
 
@@ -249,7 +250,7 @@ Todo bebé que se muestra (`in`, `parents` o recién ido a casa) lleva un **nomb
 
 **Nombre.** Por orden: (1) `baby_name` real, solo con `itw_show_name = true` y si la enfermera lo escribió (recortado a 20 caracteres y 23 bytes UTF-8); (2) un **apodo** de la lista del sexo elegido (40 por sexo, en `tb/itw_state_machine.js`, solo con las letras que tienen las fuentes del panel), también por hash del `stay_id`. Dos bebés seguidos en la misma incubadora no comparten apodo. Peso y días siguen saliendo solo con `itw_show_name`.
 
-Server attributes para dashboards y soporte: `itw_baby_sex` (`m`/`f`/`""`), `itw_baby_sex_src` (`device` = lo dijo la IncuNest, `auto` = sorteado) e `itw_baby_alias` (el apodo, aunque el panel esté mostrando el nombre real). El envelope de eventos del webhook **no cambia**: ni nombre ni sexo van en `baby_in` (§5.8).
+Server attributes para dashboards y soporte: `itw_baby_sex` (`m`/`f`/`""`), `itw_baby_sex_src` (`device` = lo dijo la IncuNest, `auto` = sorteado) e `itw_baby_alias` (el apodo, aunque el panel esté mostrando el nombre real). En el webhook (`baby_in`, `baby_back`, `heartbeat`, `baby_identity`) van `alias` (siempre el apodo, **nunca** `baby_name`), `sex` (`m`/`f`) y `sex_src` (`device`/`auto`), para que la app diga lo mismo que el panel. Si la IncuNest corrige el sexo a mitad del episodio, TB emite `baby_identity` y republica el estado del broker en el acto. Con `itw_show_name` el panel muestra el nombre real y la app sigue con el apodo: el nombre real no sale nunca hacia Firebase.
 
 ### 3.5 Canal inverso ("Coge mi mano")
 
@@ -290,4 +291,4 @@ Hito de integración: **una alta con `baby_outcome = 1` en `TEST-incubadora` lle
 5. Micrófono: si §5.4 basta, se cierra.
 6. Titularidad del proyecto Firebase `incutwinapp`; purga del historial de IncuTwin (parche listo, `push --force` pendiente); tenant `Demo`.
 7. Apple/Google: donaciones vs IAP (igual que v0.1).
-8. **Identidad del bebé (§3.4.1)**: (a) el padrino ve un apodo y un sexo que pueden no ser los del bebé; decidir cómo se le cuenta ("le hemos puesto de apodo…"). (b) ¿El sexo real puede salir de TB sin `itw_show_name`? Hoy sí, en cuanto la IncuNest lo publique. (c) ¿Apodo y sexo en el payload de `baby_in` para que la app diga lo mismo que el panel? (d) Listas de apodos por país de la incubadora.
+8. **Identidad del bebé (§3.4.1)**: (a) el padrino ve un apodo y un sexo que pueden no ser los del bebé; decidir cómo se le cuenta ("le hemos puesto de apodo…"). (b) ¿El sexo real puede salir de TB sin `itw_show_name`? Hoy sí, en cuanto la IncuNest lo publique. (c) ~~¿Apodo y sexo en `baby_in`?~~ Sí (24-11-2026): `alias`/`sex`/`sex_src` en los eventos del webhook. (d) Listas de apodos por país de la incubadora.
