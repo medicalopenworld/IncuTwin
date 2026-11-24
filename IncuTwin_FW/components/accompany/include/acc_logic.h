@@ -46,6 +46,12 @@ typedef struct {
     /* bit i = dia mask_day - i con super corazon (3 min de mano). Ocupa el relleno que habia
      * tras cur (a 0 en los blobs guardados antes): mismo tamaño, sin cambiar de version. */
     uint8_t super_mask;
+    /* Dias sin bebes, para que no rompan la racha (mismos bits; tambien en el relleno):
+     * avail = algun momento con un bebe al que acompañar (esperando o con el);
+     * idle  = encendido sin bebe (buscando, fin de estancia o despedida).
+     * Dia de descanso = idle y nunca avail ni corazon. Apagado todo el dia no cuenta. */
+    uint8_t avail_mask;
+    uint8_t idle_mask;
     int32_t gesture_day;    /* ultimo dia con gesto */
     int32_t mask_day;
     int32_t remind_day;     /* ultimo dia con llamada */
@@ -91,8 +97,12 @@ typedef enum {
     ACC_SM_WEEK,   /* los 7 */
     ACC_SM_KEEP1,  /* ayer si, hoy aun no */
     ACC_SM_KEEP,   /* n dias hasta ayer, hoy aun no */
+    ACC_SM_REST,   /* hoy (de momento) no hay bebes: la racha de n dias no se rompe */
 } acc_streak_msg_t;
-acc_streak_msg_t acc_streak_msg(uint8_t mask, int *n);
+/* rest = dias sin bebes (acc_rest_mask): no suman a la racha pero tampoco la rompen */
+acc_streak_msg_t acc_streak_msg(uint8_t mask, uint8_t rest, int *n);
+/* Dias de descanso (sin bebes en todo el dia y sin corazon), bit 0 = hoy */
+uint8_t acc_rest_mask(const acc_t *a, int32_t day);
 
 /* Pais que se puede acompañar: ISO alfa-2 conocido y que no sea España (en España solo hay
  * IncuNest de muestra o de fabrica). Sin pais o "XX" tampoco: podria ser una de aqui. */

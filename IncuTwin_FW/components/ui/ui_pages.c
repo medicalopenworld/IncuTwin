@@ -66,6 +66,7 @@ static lv_obj_t *s_streak_box, *s_lbl_streak_t, *s_week[WEEK_N], *s_week_day[WEE
 static bool s_acc_on;
 static int s_week_mask = -1; /* pintado; -1 = forzar */
 static uint8_t s_super_mask;  /* super corazones, mismos bits */
+static uint8_t s_rest_mask;   /* dias sin bebes (no rompen la racha), mismos bits */
 static int32_t s_week_day_drawn = -1; /* dia (tm_yday) de las iniciales pintadas */
 
 /* ------------------------------------------------------------- helpers */
@@ -249,8 +250,8 @@ static void chip_clicked(lv_event_t *e)
 
 /* La racha, semana de lunes (izquierda) a domingo: se rellena de izquierda a derecha segun pasan
  * los dias. Las mascaras son de los ultimos 7 dias (bit 0 = hoy), que cubren la semana en curso.
- * Corazon lleno = dia con "Coge mi mano"; dorado = super corazon (3 min); los dias que aun no
- * han llegado, casi transparentes. Debajo, la inicial del dia (hoy en coral) y una frase. */
+ * Corazon lleno = dia con "Coge mi mano"; dorado = super corazon (3 min); azul claro = dia sin
+ * bebes (no rompe la racha); los dias que aun no han llegado, casi transparentes. Debajo, la inicial del dia (hoy en coral) y una frase. */
 static void streak_draw(void)
 {
     bool valid = net_wifi_time_valid();
@@ -267,10 +268,11 @@ static void streak_draw(void)
         int off = today - i; /* dias atras; < 0 = aun no ha llegado */
         bool on = valid && off >= 0 && (mask & (1u << off));
         bool super = on && (s_super_mask & (1u << off));
+        bool rest = valid && !on && off >= 0 && (s_rest_mask & (1u << off));
         lv_obj_t *h = s_week[i];
-        lv_obj_set_style_image_recolor(h, super ? COL_SUPER : COL_OFFLINE, 0);
+        lv_obj_set_style_image_recolor(h, super ? COL_SUPER : rest ? COL_REST : COL_OFFLINE, 0);
         lv_obj_set_style_image_recolor_opa(h, on && !super ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
-        lv_obj_set_style_image_opa(h, on ? LV_OPA_COVER : (valid && off < 0) ? LV_OPA_20 : LV_OPA_40, 0);
+        lv_obj_set_style_image_opa(h, on || rest ? LV_OPA_COVER : (valid && off < 0) ? LV_OPA_20 : LV_OPA_40, 0);
         char s[2] = { valid && strlen(ini) == 7 ? ini[(i + 1) % 7] : '\0', '\0' };
         lv_label_set_text(s_week_day[i], s);
         lv_obj_set_style_text_color(s_week_day[i], valid && off == 0 ? COL_CORAL : COL_OFFLINE, 0);
@@ -285,9 +287,9 @@ static void streak_draw(void)
             [ACC_SM_NONE] = STR_STREAK_NONE,     [ACC_SM_START] = STR_STREAK_START,
             [ACC_SM_TODAY1] = STR_STREAK_TODAY1, [ACC_SM_RUN] = STR_STREAK_RUN,
             [ACC_SM_WEEK] = STR_STREAK_WEEK,     [ACC_SM_KEEP1] = STR_STREAK_KEEP1,
-            [ACC_SM_KEEP] = STR_STREAK_KEEP,
+            [ACC_SM_KEEP] = STR_STREAK_KEEP,     [ACC_SM_REST] = STR_STREAK_REST,
         };
-        id = BY_MSG[acc_streak_msg(mask, &n)];
+        id = BY_MSG[acc_streak_msg(mask, s_rest_mask, &n)];
     }
     lv_label_set_text_fmt(s_lbl_streak, tr(id), n);
 }
@@ -554,11 +556,12 @@ void ui_pages_retranslate(void)
 }
 
 /* Corazones nuevos del modelo (bit 0 = hoy) */
-static void week_refresh(uint8_t mask, uint8_t super)
+static void week_refresh(uint8_t mask, uint8_t super, uint8_t rest)
 {
-    if ((int)mask == s_week_mask && super == s_super_mask) return;
+    if ((int)mask == s_week_mask && super == s_super_mask && rest == s_rest_mask) return;
     s_week_mask = mask;
     s_super_mask = super;
+    s_rest_mask = rest;
     streak_draw();
 }
 
@@ -587,7 +590,7 @@ void ui_pages_apply(const twin_snapshot_t *s)
     s_acc_on = acc_on;
     lv_obj_set_hidden(s_ach_box, acc_on);
     lv_obj_set_hidden(s_streak_box, !acc_on);
-    if (acc_on) week_refresh(s->acc_week, s->acc_super);
+    if (acc_on) week_refresh(s->acc_week, s->acc_super, s->acc_rest);
     if (acc_changed) streak_draw();
     if (known && (strcmp(cc, s_country) != 0 || demo_changed)) {
         memcpy(s_country, cc, TWIN_COUNTRY_LEN);

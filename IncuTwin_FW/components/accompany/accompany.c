@@ -85,14 +85,14 @@ static void save_locked(void)
 static void publish_ui_locked(void)
 {
     if (!s_enabled) {
-        twin_model_set_acc(TWIN_ACC_OFF, false, 0, 0);
+        twin_model_set_acc(TWIN_ACC_OFF, false, 0, 0, 0);
         return;
     }
     int32_t day;
     int hour;
     local_now(&day, &hour);
     twin_model_set_acc(acc_phase(&s_acc), acc_remind_active(&s_acc, day, hour), acc_week_mask(&s_acc, day),
-                       acc_super_mask(&s_acc, day));
+                       acc_super_mask(&s_acc, day), acc_rest_mask(&s_acc, day));
 }
 
 /* La IncuNest actual ha cambiado: el gemelo pasa a ella con su ultimo estado guardado. */

@@ -306,7 +306,7 @@ TEST_CASE("acc: guarda cada 10 min mientras cuenta", "[acc]")
     for (uint32_t t = 1; t <= ACC_SAVE_S * 2; t++) {
         if (acc_tick(&a, t, DAY, 10, true) & ACC_R_SAVE) saves++;
     }
-    TEST_ASSERT_EQUAL(2, saves);
+    TEST_ASSERT_EQUAL(3, saves); /* 2 periodicos + "hoy hay bebe" (dias sin bebes), una vez */
 }
 
 TEST_CASE("acc: historial lleno descarta la de menos tiempo", "[acc]")
@@ -384,18 +384,56 @@ TEST_CASE("acc: corazones de los ultimos 7 dias", "[acc]")
 TEST_CASE("acc: texto de la racha segun los corazones", "[acc]")
 {
     int n = -1;
-    TEST_ASSERT_EQUAL(ACC_SM_NONE, acc_streak_msg(0x00, &n));
-    TEST_ASSERT_EQUAL(ACC_SM_TODAY1, acc_streak_msg(0x01, &n));
+    TEST_ASSERT_EQUAL(ACC_SM_NONE, acc_streak_msg(0x00, 0, &n));
+    TEST_ASSERT_EQUAL(ACC_SM_TODAY1, acc_streak_msg(0x01, 0, &n));
     TEST_ASSERT_EQUAL(1, n);
-    TEST_ASSERT_EQUAL(ACC_SM_TODAY1, acc_streak_msg(0x05, &n)); /* hoy, ayer no, antier si */
-    TEST_ASSERT_EQUAL(ACC_SM_RUN, acc_streak_msg(0x07, &n));
+    TEST_ASSERT_EQUAL(ACC_SM_TODAY1, acc_streak_msg(0x05, 0, &n)); /* hoy, ayer no, antier si */
+    TEST_ASSERT_EQUAL(ACC_SM_RUN, acc_streak_msg(0x07, 0, &n));
     TEST_ASSERT_EQUAL(3, n);
-    TEST_ASSERT_EQUAL(ACC_SM_WEEK, acc_streak_msg(0x7F, &n));
+    TEST_ASSERT_EQUAL(ACC_SM_WEEK, acc_streak_msg(0x7F, 0, &n));
     TEST_ASSERT_EQUAL(7, n);
-    TEST_ASSERT_EQUAL(ACC_SM_KEEP1, acc_streak_msg(0x02, &n)); /* ayer si, hoy aun no */
-    TEST_ASSERT_EQUAL(ACC_SM_KEEP, acc_streak_msg(0x0E, &n));
+    TEST_ASSERT_EQUAL(ACC_SM_KEEP1, acc_streak_msg(0x02, 0, &n)); /* ayer si, hoy aun no */
+    TEST_ASSERT_EQUAL(ACC_SM_KEEP, acc_streak_msg(0x0E, 0, &n));
     TEST_ASSERT_EQUAL(3, n);
-    TEST_ASSERT_EQUAL(ACC_SM_START, acc_streak_msg(0x14, &n)); /* ni hoy ni ayer */
+    TEST_ASSERT_EQUAL(ACC_SM_START, acc_streak_msg(0x14, 0, &n)); /* ni hoy ni ayer */
+}
+
+TEST_CASE("acc: un dia sin bebes no rompe la racha", "[acc]")
+{
+    int n = -1;
+    /* hoy si, ayer sin bebes, antier y el anterior si: 3 seguidos (el de descanso no suma) */
+    TEST_ASSERT_EQUAL(ACC_SM_RUN, acc_streak_msg(0x0D, 0x02, &n));
+    TEST_ASSERT_EQUAL(3, n);
+    /* hoy aun sin bebes, ayer si: no se rompe */
+    TEST_ASSERT_EQUAL(ACC_SM_REST, acc_streak_msg(0x02, 0x01, &n));
+    TEST_ASSERT_EQUAL(1, n);
+    /* un dia sin nada (ni corazon ni descanso) si la rompe */
+    TEST_ASSERT_EQUAL(ACC_SM_TODAY1, acc_streak_msg(0x05, 0x00, &n));
+}
+
+TEST_CASE("acc: dia sin bebes = encendido buscando y nunca con bebe", "[acc]")
+{
+    fresh();
+    baby("297", 0);
+    acc_gesture(&a, DAY);                        /* DAY: corazon */
+    free_("297", 10);                            /* DAY+1: su bebe se fue, nadie mas */
+    acc_tick(&a, 10 + ACC_ENDING_S, DAY + 1, 10, false);
+    TEST_ASSERT_EQUAL(TWIN_ACC_SEARCHING, acc_phase(&a));
+    acc_tick(&a, 10 + ACC_ENDING_S + 1, DAY + 1, 11, false);
+    /* DAY+2: aparece un bebe pero no hay gesto ese dia; DAY+3 apagado; DAY+4 hoy */
+    baby("353", 20000);
+    acc_tick(&a, 20001, DAY + 2, 12, false);
+    TEST_ASSERT_EQUAL(TWIN_ACC_WAITING, acc_phase(&a));
+    uint8_t rest = acc_rest_mask(&a, DAY + 4);
+    TEST_ASSERT_EQUAL_HEX8(0x08, rest);          /* solo DAY+1 (hace 3 dias) */
+    TEST_ASSERT_EQUAL_HEX8(0x10, acc_week_mask(&a, DAY + 4));
+
+    /* un dia con bebe disponible un rato no es de descanso aunque tambien buscara */
+    fresh();
+    acc_tick(&a, 1, DAY, 9, false);              /* buscando */
+    baby("297", 2);
+    acc_tick(&a, 3, DAY, 23, false);             /* a ultima hora, un bebe */
+    TEST_ASSERT_EQUAL_HEX8(0x00, acc_rest_mask(&a, DAY));
 }
 
 TEST_CASE("acc: super corazon con 3 minutos de mano", "[acc]")

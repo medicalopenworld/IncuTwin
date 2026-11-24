@@ -43,6 +43,7 @@ typedef enum {
     STR_STREAK_SUPER,
     STR_HH_BACK,
     STR_HH_ST_AGAIN,
+    STR_STREAK_REST,
     STR_DAY,
     STR_DAYS,
     /* pantalla principal */

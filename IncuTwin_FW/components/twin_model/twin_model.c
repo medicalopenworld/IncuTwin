@@ -29,6 +29,7 @@ static twin_acc_t s_acc;     /* modo Acompañar */
 static bool s_acc_remind;
 static uint8_t s_acc_week;
 static uint8_t s_acc_super;
+static uint8_t s_acc_rest;
 
 #define LOCK()   xSemaphoreTake(s_mutex, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_mutex)
@@ -56,6 +57,7 @@ static twin_snapshot_t build_snapshot(void)
         s.acc_remind = s_acc_remind;
         s.acc_week = s_acc_week;
         s.acc_super = s_acc_super;
+        s.acc_rest = s_acc_rest;
     }
     twin_derive(&s);
     return s;
@@ -314,10 +316,12 @@ void twin_model_demo_set_skin(uint8_t skin)
     UNLOCK();
 }
 
-void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week, uint8_t super)
+void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week, uint8_t super, uint8_t rest)
 {
     LOCK();
-    if (acc != s_acc || remind != s_acc_remind || week != s_acc_week || super != s_acc_super) {
+    if (acc != s_acc || remind != s_acc_remind || week != s_acc_week || super != s_acc_super ||
+        rest != s_acc_rest) {
+        s_acc_rest = rest;
         s_acc = acc;
         s_acc_remind = remind;
         s_acc_week = week;

@@ -1,6 +1,10 @@
 #include "acc_logic.h"
 
+#include <stddef.h>
 #include <string.h>
+
+/* super/avail/idle ocupan el relleno que habia tras cur: el blob guardado no cambia de tamaño */
+_Static_assert(offsetof(acc_persist_t, gesture_day) == 24, "acc_persist_t ha cambiado de forma");
 
 /* Diferencias en uint32_t: correctas aunque el reloj desborde. */
 static inline uint32_t since(uint32_t now, uint32_t t) { return now - t; }
@@ -219,22 +223,36 @@ uint32_t acc_seen_update(acc_t *a, const char *id, bool present, bool home, uint
     return r;
 }
 
-static void mark_day(acc_t *a, int32_t day)
+static uint8_t shift7(uint8_t m, int32_t diff) { return diff >= 7 ? 0 : (uint8_t)((m << diff) & 0x7F); }
+
+/* Lleva las mascaras de dias hasta `day` (bit 0 = day) */
+static void advance(acc_t *a, int32_t day)
 {
-    if (day == ACC_NO_DAY) return;
     if (a->p.mask_day == ACC_NO_DAY) {
         a->p.mask_day = day;
-        a->p.days_mask = 0;
-        a->p.super_mask = 0;
+        a->p.days_mask = a->p.super_mask = a->p.avail_mask = a->p.idle_mask = 0;
     } else if (day > a->p.mask_day) {
         int32_t diff = day - a->p.mask_day;
-        a->p.days_mask = diff >= 7 ? 0 : (uint8_t)((a->p.days_mask << diff) & 0x7F);
-        a->p.super_mask = diff >= 7 ? 0 : (uint8_t)((a->p.super_mask << diff) & 0x7F);
+        a->p.days_mask = shift7(a->p.days_mask, diff);
+        a->p.super_mask = shift7(a->p.super_mask, diff);
+        a->p.avail_mask = shift7(a->p.avail_mask, diff);
+        a->p.idle_mask = shift7(a->p.idle_mask, diff);
         a->p.mask_day = day;
     }
-    int32_t off = a->p.mask_day - day; /* un dia anterior (reloj corregido) cae en su bit */
-    if (off >= 0 && off < 7) a->p.days_mask |= (uint8_t)(1u << off);
 }
+
+/* Pone el bit de `day` en *m; true si no estaba (hay que guardar) */
+static bool mark(acc_t *a, uint8_t *m, int32_t day)
+{
+    if (day == ACC_NO_DAY) return false;
+    advance(a, day);
+    int32_t off = a->p.mask_day - day; /* un dia anterior (reloj corregido) cae en su bit */
+    if (off < 0 || off >= 7 || (*m & (1u << off))) return false;
+    *m |= (uint8_t)(1u << off);
+    return true;
+}
+
+static void mark_day(acc_t *a, int32_t day) { mark(a, &a->p.days_mask, day); }
 
 uint32_t acc_gesture(acc_t *a, int32_t day)
 {
@@ -250,9 +268,7 @@ uint32_t acc_gesture(acc_t *a, int32_t day)
 uint32_t acc_super(acc_t *a, int32_t day)
 {
     uint32_t r = acc_gesture(a, day);
-    if (!r || day == ACC_NO_DAY) return r;
-    int32_t off = a->p.mask_day - day;
-    if (off >= 0 && off < 7) a->p.super_mask |= (uint8_t)(1u << off);
+    if (r) mark(a, &a->p.super_mask, day);
     return r;
 }
 
@@ -313,6 +329,9 @@ uint32_t acc_tick(acc_t *a, uint32_t now_s, int32_t day, int hour, bool shown)
         break;
     }
     ph = (twin_acc_t)a->p.phase;
+    /* para los dias sin bebes: ¿hoy ha habido a quien acompañar? */
+    bool avail = ph == TWIN_ACC_WAITING || ph == TWIN_ACC_WITH;
+    if (mark(a, avail ? &a->p.avail_mask : &a->p.idle_mask, day)) r |= ACC_R_SAVE;
     if (day != ACC_NO_DAY && hour >= ACC_REMIND_HOUR && (ph == TWIN_ACC_WAITING || ph == TWIN_ACC_WITH) &&
         a->p.gesture_day != day && a->p.remind_day != day) {
         a->p.remind_day = day;
@@ -330,15 +349,28 @@ bool acc_remind_active(const acc_t *a, int32_t day, int hour)
 
 uint8_t acc_week_mask(const acc_t *a, int32_t day) { return shifted(a->p.days_mask, a->p.mask_day, day); }
 
-acc_streak_msg_t acc_streak_msg(uint8_t mask, int *n)
+uint8_t acc_rest_mask(const acc_t *a, int32_t day)
+{
+    uint8_t idle = shifted(a->p.idle_mask, a->p.mask_day, day);
+    uint8_t avail = shifted(a->p.avail_mask, a->p.mask_day, day);
+    return (uint8_t)(idle & ~avail & ~acc_week_mask(a, day) & 0x7F);
+}
+
+acc_streak_msg_t acc_streak_msg(uint8_t mask, uint8_t rest, int *n)
 {
     mask &= 0x7F;
+    rest &= (uint8_t)~mask;
     bool today = mask & 1u;
+    /* dias seguidos hasta hoy (o hasta ayer si hoy aun no); los de descanso se saltan */
     int run = 0;
-    for (int b = today ? 0 : 1; b < 7 && (mask & (1u << b)); b++) run++;
+    for (int b = today ? 0 : 1; b < 7; b++) {
+        if (mask & (1u << b)) run++;
+        else if (!(rest & (1u << b))) break;
+    }
     if (n) *n = run;
-    if (!mask) return ACC_SM_NONE;
     if (today) return run >= 7 ? ACC_SM_WEEK : run >= 2 ? ACC_SM_RUN : ACC_SM_TODAY1;
+    if (rest & 1u) return ACC_SM_REST;
+    if (!mask) return ACC_SM_NONE;
     if (run == 0) return ACC_SM_START;
     return run == 1 ? ACC_SM_KEEP1 : ACC_SM_KEEP;
 }

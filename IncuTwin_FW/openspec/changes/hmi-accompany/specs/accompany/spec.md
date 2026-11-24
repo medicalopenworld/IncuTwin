@@ -13,6 +13,21 @@ empate, la de mayor `hash(client_id) ^ hash(id)`. Sin ninguna, SHALL quedarse bu
 - **WHEN** todas las IncuNest conocidas están libres o desconectadas
 - **THEN** la barra dice "Ahora no hay bebés. Te avisaré" y, al llegar un bebé a cualquiera, la elige
 
+### Requirement: Días sin bebés [test-unity]
+Un día en que el panel estuvo encendido sin ningún bebé al que acompañar (buscando, en fin de
+estancia o en la despedida) y en ningún momento tuvo uno (esperando o con él) SHALL ser un día de
+descanso: no suma a la racha pero tampoco la rompe, y se pinta en azul claro. Un día con el panel
+apagado todo el día NO SHALL serlo.
+
+#### Scenario: Sin bebés en medio de la racha
+- **WHEN** hay corazón el lunes, el martes no hay ningún bebé en todo el día y el miércoles hay
+  corazón
+- **THEN** el martes sale azul claro y la frase dice "¡2 días seguidos! Vuelve mañana"
+
+#### Scenario: Hoy no hay bebés
+- **WHEN** hoy el panel solo ha estado buscando
+- **THEN** la frase dice "Hoy no hay bebés: tu racha sigue a salvo"
+
 ### Requirement: Súper corazón [test-unity]
 En modo Acompañar, "Coge mi mano" SHALL completarse con 20 s de dedo (`CONFIG_INCUTWIN_HAND_MIN_S`,
 antes 60 s). Si en el mismo gesto se llega a 3 min de dedo, ese día SHALL ser un súper corazón:
