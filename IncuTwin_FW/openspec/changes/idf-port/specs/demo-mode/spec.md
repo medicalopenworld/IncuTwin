@@ -34,15 +34,18 @@ La pulsación corta en demo SHALL pasar al siguiente escenario, en bucle, en est
 | # | id | Lo que se ve |
 |---|---|---|
 | 1 | sleep | bebé durmiendo, 120 lpm, calor estable |
-| 2 | awake | bebé despierto, 140 lpm |
+| 2 | awake | bebé despierto, 140 lpm (niña) |
 | 3 | heating | calentando (halo ámbar), 130 lpm |
 | 4 | alarm | ¡Alarma! (halo rojo rápido), 180 lpm |
-| 5 | photo | fototerapia (halo azul), 130 lpm |
+| 5 | photo | fototerapia (halo azul), 130 lpm (niña) |
 | 6 | parents | con sus papás |
-| 7 | home | ¡ya está en casa! |
+| 7 | home | ¡ya está en casa! (niña) |
 | 8 | empty | IncuNest sin bebé |
 | 9 | off | IncuNest apagada |
 | 10 | unlinked | sin IncuNest vinculada |
+
+Los marcados "(niña)" usan el dibujo de niña (`sex = female`); el resto, el de niño, para que la
+demo enseñe los dos.
 
 Cada escenario SHALL producir las mismas transiciones sonoras que si llegara por red (entrar en
 `sleep` desde `unlinked` suena "Bebé detectado"; entrar en `parents` suena la fanfarria).

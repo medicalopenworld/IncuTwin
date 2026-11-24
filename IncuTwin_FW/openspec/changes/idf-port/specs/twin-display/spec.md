@@ -15,7 +15,7 @@ Vocabulario del modelo del gemelo usado en esta spec:
 - `link_ok` = `wifi` ∧ `broker_once` ∧ ¬`broker_lost` ∧ `paired` ∧ `state_rx` ∧ `online`.
 - `baby` ∈ {none, in, parents, home}; `thermo` ∈ {off, heating, stable, alarm}; `photo`;
   `bpm` (0 = sin pulso); `awake`; `skin` 0..5; `name`, `weight_g`, `age_d` (opcionales);
-  `sex` ∈ {desconocido, male, female} (opcional; hoy no cambia nada en pantalla).
+  `sex` ∈ {desconocido, male, female} (opcional; elige el dibujo del bebé, ver "Bebé animado").
 - `show_baby` = `link_ok` ∧ `baby` = in. `parents_view` = `link_ok` ∧ `baby` ∈ {parents, home}.
 
 ## ADDED Requirements
@@ -148,6 +148,11 @@ El bebé SHALL animarse de forma continua:
   250 ms): opacidad 40 %→100 % en un tercio del periodo y vuelta en los dos tercios restantes.
   Con `bpm = 0` el corazón SHALL ocultarse. Nunca se muestra el número.
 - Tono de piel: uno de 6 (`skin` 0..5) aplicado por intercambio de paleta, cambio instantáneo.
+- Dibujo: con `sex = female`, la versión niña (gorro y manta rosas, lazo rojo en lugar del
+  pompón, pestañas); con `male` o desconocido, el niño (gorro y manta azules, pompón). Son la
+  misma figura en la misma caja: respiración, bostezos, corazón, Zzz y tono de piel funcionan
+  igual, y el cambio es instantáneo, también a mitad de un bostezo. La vista CON SUS PAPÁS (y
+  "en casa") usa la escena con el bebé del mismo dibujo.
 
 #### Scenario: Cambio de ritmo
 - **WHEN** `bpm` pasa de 120 a 180
@@ -156,6 +161,15 @@ El bebé SHALL animarse de forma continua:
 #### Scenario: Cambio de tono
 - **WHEN** llega `skin = 4`
 - **THEN** el bebé cambia de tono en < 100 ms y los demás colores (manta, contorno) no varían
+
+#### Scenario: Niña
+- **WHEN** `show_baby` con `sex = female` y `skin = 5`
+- **THEN** se ve la bebé de gorro rosa con lazo y pestañas, con piel de tono 5 y la manta rosa
+  intacta; al pasar a `parents` la escena con sus papás muestra la bebé de rosa
+
+#### Scenario: Sexo desconocido
+- **WHEN** `show_baby` sin `sex`
+- **THEN** se ve el niño de siempre
 
 ### Requirement: Agarra mi mano [manual]
 Tocar al bebé o pulsar el botón "Agarra mi mano" / "Hold my hand" SHALL, mientras dure el toque:

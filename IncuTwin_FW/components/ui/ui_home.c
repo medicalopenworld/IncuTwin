@@ -361,6 +361,12 @@ void ui_home_apply(const twin_snapshot_t *s)
     state_icon_set(s_icon_heart, s->show_baby && inc->bpm > 0 ? COL_CORAL : COL_OFFLINE);
 
     baby_set_skin_tone(inc->skin);
+    /* El sexo lo decide ThingsBoard (Contrato v0.2 §3.4.1); desconocido = nino, el dibujo
+     * de siempre. Afecta al bebe animado y a la escena "con sus papas" / "en casa". */
+    bool girl = inc->sex == TWIN_SEX_FEMALE;
+    baby_set_girl(girl);
+    const void *parents_src = girl ? &img_baby_parents_girl : &img_baby_parents;
+    if (lv_image_get_src(s_parents_img) != parents_src) lv_image_set_src(s_parents_img, parents_src);
     baby_set_awake(inc->awake);
     baby_set_heart_rate(s->show_baby ? inc->bpm : 0);
 

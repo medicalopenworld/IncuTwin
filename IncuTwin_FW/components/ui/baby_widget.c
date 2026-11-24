@@ -11,15 +11,22 @@ static const char *TAG = "baby";
 
 typedef enum { FR_SLEEP = 0, FR_YAWN1, FR_YAWN2, FR_AWAKE, FR_COUNT } frame_t;
 
-/* Copias en PSRAM para poder reescribir la paleta (tono de piel) en caliente. */
-static lv_image_dsc_t s_frames[FR_COUNT];
-static const lv_image_dsc_t *const S_SRC[FR_COUNT] = { &img_baby_sleep, &img_baby_yawn1,
-                                                       &img_baby_yawn2, &img_baby_awake };
+/* Dos dibujos, nino y nina (misma figura y caja: los fotogramas encajan pixel a pixel).
+ * Comparten paleta, asi que el tono de piel se aplica igual a los dos. Copias en PSRAM
+ * para poder reescribir la paleta en caliente (~180 KB los ocho). */
+enum { DRAW_BOY = 0, DRAW_GIRL, DRAW_COUNT };
+static lv_image_dsc_t s_frames[DRAW_COUNT][FR_COUNT];
+static const lv_image_dsc_t *const S_SRC[DRAW_COUNT][FR_COUNT] = {
+    { &img_baby_sleep, &img_baby_yawn1, &img_baby_yawn2, &img_baby_awake },
+    { &img_baby_girl_sleep, &img_baby_girl_yawn1, &img_baby_girl_yawn2, &img_baby_girl_awake },
+};
 
 static lv_obj_t *s_img;
 static lv_obj_t *s_heart;
 static lv_obj_t *s_zzz[3];
 static uint8_t s_tone;
+static uint8_t s_draw = DRAW_BOY;
+static frame_t s_cur = FR_SLEEP;
 static bool s_awake;
 static uint16_t s_bpm;
 static bool s_yawning;
@@ -30,34 +37,39 @@ static int s_seq_step;
 
 static void frames_init(void)
 {
-    for (int i = 0; i < FR_COUNT; i++) {
-        s_frames[i] = *S_SRC[i];
-        uint8_t *buf = heap_caps_malloc(S_SRC[i]->data_size, MALLOC_CAP_SPIRAM);
-        if (!buf) { /* sin PSRAM: se queda en flash, tono fijo */
-            ESP_LOGW(TAG, "sin PSRAM para el fotograma %d", i);
-            continue;
+    for (int d = 0; d < DRAW_COUNT; d++) {
+        for (int i = 0; i < FR_COUNT; i++) {
+            s_frames[d][i] = *S_SRC[d][i];
+            uint8_t *buf = heap_caps_malloc(S_SRC[d][i]->data_size, MALLOC_CAP_SPIRAM);
+            if (!buf) { /* sin PSRAM: se queda en flash, tono fijo */
+                ESP_LOGW(TAG, "sin PSRAM para el fotograma %d/%d", d, i);
+                continue;
+            }
+            memcpy(buf, S_SRC[d][i]->data, S_SRC[d][i]->data_size);
+            s_frames[d][i].data = buf;
         }
-        memcpy(buf, S_SRC[i]->data, S_SRC[i]->data_size);
-        s_frames[i].data = buf;
     }
 }
 
 static void apply_palette(uint8_t tone)
 {
     if (tone >= BABY_SKIN_TONE_COUNT) tone = 0;
-    for (int i = 0; i < FR_COUNT; i++) {
-        if (s_frames[i].data == S_SRC[i]->data) continue; /* copia en flash */
-        memcpy((void *)s_frames[i].data, baby_skin_palettes[tone], BABY_PALETTE_BYTES);
+    for (int d = 0; d < DRAW_COUNT; d++) {
+        for (int i = 0; i < FR_COUNT; i++) {
+            if (s_frames[d][i].data == S_SRC[d][i]->data) continue; /* copia en flash */
+            memcpy((void *)s_frames[d][i].data, baby_skin_palettes[tone], BABY_PALETTE_BYTES);
 #if LV_CACHE_DEF_SIZE > 0
-        lv_image_cache_drop(&s_frames[i]); /* la cache guardaria la paleta vieja */
+            lv_image_cache_drop(&s_frames[d][i]); /* la cache guardaria la paleta vieja */
 #endif
+        }
     }
     if (s_img) lv_obj_invalidate(s_img);
 }
 
 static void show_frame(frame_t f)
 {
-    if (s_img) lv_image_set_src(s_img, &s_frames[f]);
+    s_cur = f;
+    if (s_img) lv_image_set_src(s_img, &s_frames[s_draw][f]);
 }
 
 static frame_t rest_frame(void) { return s_awake ? FR_AWAKE : FR_SLEEP; }
@@ -185,7 +197,7 @@ lv_obj_t *baby_widget_create(lv_obj_t *parent, int32_t x, int32_t y)
     frames_init();
 
     s_img = lv_image_create(parent);
-    lv_image_set_src(s_img, &s_frames[FR_SLEEP]);
+    lv_image_set_src(s_img, &s_frames[s_draw][FR_SLEEP]);
     lv_obj_set_pos(s_img, x, y);
 
     s_heart = lv_image_create(parent);
@@ -208,6 +220,14 @@ void baby_set_skin_tone(uint8_t tone)
 }
 
 uint8_t baby_get_skin_tone(void) { return s_tone; }
+
+void baby_set_girl(bool girl)
+{
+    uint8_t d = girl ? DRAW_GIRL : DRAW_BOY;
+    if (d == s_draw) return;
+    s_draw = d;
+    show_frame(s_cur); /* el mismo fotograma (tambien a mitad de bostezo) del otro dibujo */
+}
 
 void baby_set_awake(bool awake)
 {
