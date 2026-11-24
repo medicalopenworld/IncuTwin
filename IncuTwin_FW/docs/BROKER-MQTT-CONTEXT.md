@@ -71,6 +71,10 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 }
 ```
 
+Claves opcionales que ThingsBoard añade y el firmware acepta (spec `twin-state-ingest`): `thermo`,
+`baby`, `name`, `sex` (`"m"`/`"f"`), `weight_g`, `age_d`. Con bebé visible siempre van `name` y
+`sex`: los fija ThingsBoard una vez por episodio, iguales para todas las IncuTwin de la incubadora.
+
 Reglas: ThingsBoard publica el estado **completo** en cada evento y, si hay `bpm`, como máximo
 una vez cada 60 s. Retenido: una IncuTwin que arranca recibe el último estado al suscribirse,
 sin pedir nada. El `event_seq` evita reaccionar dos veces (melodía) al mismo evento.
