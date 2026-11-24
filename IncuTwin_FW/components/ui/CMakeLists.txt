@@ -6,5 +6,6 @@ idf_component_register(
     REQUIRES lvgl__lvgl
     PRIV_REQUIRES espressif__esp_lvgl_port assets twin_types twin_model settings identity
                   usage_stats sound app_events board storage captive_portal net_wifi hand_hold world_map accompany
+                  baby_name
                   esp_app_format esp_system esp_timer heap
 )

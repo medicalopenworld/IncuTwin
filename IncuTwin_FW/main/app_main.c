@@ -11,6 +11,7 @@
 
 #include "accompany.h"
 #include "app_events.h"
+#include "baby_name.h"
 #include "board.h"
 #include "bringup_screen.h"
 #include "cloud_status.h"
@@ -95,6 +96,7 @@ void app_main(void)
     usage_init();
 
     accompany_init();
+    baby_name_init(); /* nombre local del bebe: antes de la UI */
     char inc_id[TWIN_INCUBATOR_ID_LEN] = "";
     if (accompany_enabled()) accompany_current(inc_id); /* la que acompañaba antes de reiniciar */
     else identity_incubator_id(inc_id);
