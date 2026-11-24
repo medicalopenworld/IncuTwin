@@ -14,7 +14,8 @@ Vocabulario del modelo del gemelo usado en esta spec:
 - `online`: el último estado recibido no es `offline`.
 - `link_ok` = `wifi` ∧ `broker_once` ∧ ¬`broker_lost` ∧ `paired` ∧ `state_rx` ∧ `online`.
 - `baby` ∈ {none, in, parents, home}; `thermo` ∈ {off, heating, stable, alarm}; `photo`;
-  `bpm` (0 = sin pulso); `awake`; `skin` 0..5; `name`, `weight_g`, `age_d` (opcionales).
+  `bpm` (0 = sin pulso); `awake`; `skin` 0..5; `name`, `weight_g`, `age_d` (opcionales);
+  `sex` ∈ {desconocido, male, female} (opcional; hoy no cambia nada en pantalla).
 - `show_baby` = `link_ok` ∧ `baby` = in. `parents_view` = `link_ok` ∧ `baby` ∈ {parents, home}.
 
 ## ADDED Requirements
