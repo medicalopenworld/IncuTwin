@@ -114,6 +114,12 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_OB_CANCEL      */ { "Cancelar",                          "Cancel" },
     /* STR_WIFI_CHANGE_Q  */ { "¿Cambiar la red WiFi?",             "Change the WiFi network?" },
     /* STR_WIFI_CHANGE    */ { "Cambiar",                           "Change" },
+    /* STR_NAME_ARRIVED   */ { "Ha llegado un bebé",                "A baby has arrived" },
+    /* STR_NAME_ASK       */ { "¿Quieres ponerle nombre?",          "Would you like to name them?" },
+    /* STR_NAME_YES       */ { "SÍ",                                "YES" },
+    /* STR_NAME_LATER     */ { "AHORA NO",                          "NOT NOW" },
+    /* STR_NAME_PLACEHOLDER*/ { "Ponle nombre",                     "Give a name" },
+    /* STR_NAME_DONE      */ { "LISTO",                             "DONE" },
 };
 
 /* Paises de la barra del pais (ISO 3166-1 alfa-2). Solo caracteres de las fuentes

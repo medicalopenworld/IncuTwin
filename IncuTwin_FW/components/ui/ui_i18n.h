@@ -109,6 +109,13 @@ typedef enum {
     STR_OB_CANCEL,
     STR_WIFI_CHANGE_Q,
     STR_WIFI_CHANGE,
+    /* nombre local del bebe (spec nombre-bebe-panel) */
+    STR_NAME_ARRIVED,
+    STR_NAME_ASK,
+    STR_NAME_YES,
+    STR_NAME_LATER,
+    STR_NAME_PLACEHOLDER,
+    STR_NAME_DONE,
     STR_COUNT
 } ui_str_t;
 

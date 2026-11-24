@@ -14,6 +14,7 @@
 
 #include "acc_logic.h"
 #include "assets.h"
+#include "baby_name.h"
 #include "baby_widget.h"
 #include "hand_hold.h"
 #include "sdkconfig.h"
@@ -21,6 +22,7 @@
 #include "storage.h"
 #include "twin_logic.h"
 #include "ui_internal.h"
+#include "ui_name.h"
 #include "ui_onboarding.h"
 #include "ui_pages.h"
 #include "usage_stats.h"
@@ -83,6 +85,9 @@ static bool s_farewell;
 
 static void hold_refresh(bool force);
 static void overlay_refresh(void);
+static void name_clicked_cb(lv_event_t *e);
+static void name_done(void);
+static void name_maybe_ask(void);
 
 /* ------------------------------------------------------------------ halo */
 
@@ -511,6 +516,9 @@ static void hold_create_above_baby(void)
     lv_label_set_long_mode(s_name, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_align(s_name, LV_ALIGN_TOP_MID, 0, NAME_Y);
     lv_obj_set_hidden(s_name, true);
+    lv_obj_add_flag(s_name, UI_FLAG_CLICK_SOUND); /* clicable solo sin nombre real (overlay_refresh) */
+    lv_obj_add_event_cb(s_name, name_clicked_cb, LV_EVENT_CLICKED, NULL);
+    ui_name_on_done(name_done);
 
     /* pais: bandera + nombre sobre el cuerpo del bebe; es un boton que lleva a la pagina del pais */
     s_country = lv_obj_create(s_scr);
@@ -947,15 +955,45 @@ static void ring_apply(uint32_t held_ms, bool grace)
     lv_arc_set_value(s_ring, (int32_t)((uint64_t)in * 1000u / min));
 }
 
+/* Pregunta por el nombre del bebe recien llegado cuando no molesta: bebe dentro y a la vista,
+ * sin nombre real, fuera de la demo, "Coge mi mano" en reposo, sin alarma y en la pagina del
+ * bebe (spec nombre-bebe-panel). */
+static void name_maybe_ask(void)
+{
+    if (!s_have_last || ui_name_open() || !baby_name_should_ask()) return;
+    const twin_snapshot_t *s = &s_last;
+    if (s->demo || !s->show_baby || s->inc.baby != TWIN_BABY_IN || s->inc.name[0] != '\0') return;
+    if (s->inc.thermo == TWIN_THERMO_ALARM || hh_state(&s_hh) != HH_IDLE) return;
+    if (ui_pages_current() != 0) return;
+    ui_name_ask();
+}
+
+static void name_clicked_cb(lv_event_t *e)
+{
+    (void)e;
+    ui_name_edit(); /* la etiqueta solo es clicable sin nombre real y fuera de la demo */
+}
+
+static void name_done(void) { overlay_refresh(); }
+
 /* Nombre y pais: con el bebe a la vista, salvo mientras se agradece (imagen final) */
 static void overlay_refresh(void)
 {
     if (!s_have_last) return;
     const twin_snapshot_t *s = &s_last;
     bool thanks = hh_state(&s_hh) == HH_THANKS;
-    bool show_name = s->show_baby && s->inc.name[0] != '\0' && !thanks;
-    if (show_name) label_set(s_name, s->inc.name);
+    /* nombre real (con consentimiento) > el que le ha puesto el usuario > invitacion a ponerlo
+     * (spec nombre-bebe-panel); en la demo solo el real */
+    const char *name = s->inc.name;
+    bool can_name = !s->demo && s->inc.name[0] == '\0';
+    if (can_name) {
+        name = baby_name_local();
+        if (!name[0] && s->inc.baby == TWIN_BABY_IN) name = tr(STR_NAME_PLACEHOLDER);
+    }
+    bool show_name = s->show_baby && name[0] != '\0' && !thanks;
+    if (show_name) label_set(s_name, name);
     lv_obj_set_hidden(s_name, !show_name);
+    lv_obj_set_clickable(s_name, can_name);
 
     /* encima del cuerpo: fuera mientras dura el gesto, que el dedo va justo ahi */
     bool show_country = (s->show_baby || s->parents_view) && s->inc.country[0] != '\0' &&
@@ -1010,6 +1048,7 @@ static void hold_refresh(bool force)
         if (idle) {
             s_ring_lap = -1;
             s_super_sent = false;
+            name_maybe_ask(); /* si llego un bebe durante el gesto, se pregunta al acabar */
         }
 
         bool boxed = st == HH_READY || st == HH_THANKS;
@@ -1079,6 +1118,7 @@ void ui_home_apply(const twin_snapshot_t *s)
     s_awake_real = inc->awake;
     s_last = *s;
     s_have_last = true;
+    if (!s->demo) baby_name_observe(s); /* la demo no es una estancia de verdad */
     bool farewell = s->acc == TWIN_ACC_FAREWELL;
     if (farewell && !s_farewell) s_farewell_ms = lv_tick_get();
     s_farewell = farewell;
@@ -1123,4 +1163,5 @@ void ui_home_apply(const twin_snapshot_t *s)
     if (!hh_idle && s->show_baby && (hh_state(&s_hh) == HH_DONE || hh_state(&s_hh) == HH_THANKS)) {
         lv_obj_set_style_bg_color(s_scr, COL_BG_THANKS, 0);
     }
+    name_maybe_ask();
 }

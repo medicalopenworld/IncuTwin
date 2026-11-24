@@ -120,6 +120,21 @@ bool bn_set_name(bn_store_t *st, const char *key, const char *raw)
     return true;
 }
 
+void bn_key_case(const char *label, bool upper, char out[5])
+{
+    snprintf(out, 5, "%s", label);
+    if (upper) return;
+    unsigned char *p = (unsigned char *)out;
+    if (p[0] >= 'A' && p[0] <= 'Z') p[0] += 0x20;
+    else if (p[0] == 0xC3 && p[1] >= 0x80 && p[1] <= 0x9E && p[1] != 0x97) p[1] += 0x20; /* U+00C0..DE */
+}
+
+bool bn_upper_next(const char *text)
+{
+    size_t n = strlen(text);
+    return n == 0 || text[n - 1] == ' ';
+}
+
 /* Longitud en bytes del caracter UTF-8 que empieza en `c` (1 si el byte no es valido). */
 static int u8_len(unsigned char c)
 {

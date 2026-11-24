@@ -168,6 +168,28 @@ TEST_CASE("clean_name_trims_and_clips", "[baby_name]")
     TEST_ASSERT_FALSE(bn_clean_name("", out));
 }
 
+TEST_CASE("key_case_capitalizes_words", "[baby_name]")
+{
+    char out[5];
+    bn_key_case("L", true, out);
+    TEST_ASSERT_EQUAL_STRING("L", out);
+    bn_key_case("L", false, out);
+    TEST_ASSERT_EQUAL_STRING("l", out);
+    bn_key_case("Ñ", false, out);
+    TEST_ASSERT_EQUAL_STRING("ñ", out);
+    bn_key_case("Á", false, out);
+    TEST_ASSERT_EQUAL_STRING("á", out);
+    bn_key_case("Ú", false, out);
+    TEST_ASSERT_EQUAL_STRING("ú", out);
+    bn_key_case("É", true, out);
+    TEST_ASSERT_EQUAL_STRING("É", out);
+    /* mayuscula al empezar y tras un espacio */
+    TEST_ASSERT_TRUE(bn_upper_next(""));
+    TEST_ASSERT_FALSE(bn_upper_next("Mar"));
+    TEST_ASSERT_TRUE(bn_upper_next("José "));
+    TEST_ASSERT_FALSE(bn_upper_next("José M"));
+}
+
 TEST_CASE("set_name_empty_keeps_previous", "[baby_name]")
 {
     fresh();

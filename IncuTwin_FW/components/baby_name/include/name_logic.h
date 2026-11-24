@@ -57,6 +57,11 @@ bool bn_mark_asked(bn_store_t *st, const char *key);        /* true si cambio */
 bool bn_set_name(bn_store_t *st, const char *key, const char *raw); /* limpia; vacio = no cambia */
 bool bn_clean_name(const char *raw, char out[BN_NAME_BYTES]);      /* false si queda vacio */
 
+/* Teclado: la tecla (mayuscula ASCII o Latin-1 de 2 bytes: Ñ, Á...) en mayuscula o minuscula. */
+void bn_key_case(const char *label, bool upper, char out[5]);
+/* Mayuscula al empezar el nombre y tras un espacio. */
+bool bn_upper_next(const char *text);
+
 #ifdef __cplusplus
 }
 #endif
