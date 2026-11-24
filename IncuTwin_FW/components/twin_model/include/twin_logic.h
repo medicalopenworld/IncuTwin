@@ -40,6 +40,7 @@ typedef struct {
     bool has_name;    char name[TWIN_NAME_LEN];
     bool has_country; char country[TWIN_COUNTRY_LEN];
     bool has_sex;     twin_sex_t sex;
+    bool has_stay;    char stay_id[TWIN_STAY_LEN];
     bool has_weight;  uint16_t weight_g;
     bool has_age;     int16_t age_d;
 } twin_msg_t;

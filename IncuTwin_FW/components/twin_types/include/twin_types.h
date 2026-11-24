@@ -22,6 +22,7 @@ extern "C" {
 #define TWIN_SKIN_COUNT 5
 #define TWIN_SKIN_DARK_MIN 3 /* tonos 3..4: familia de piel oscura en "con sus papas" */
 #define TWIN_COUNTRY_LEN 3      /* ISO 3166-1 alfa-2 en mayusculas + 0 */
+#define TWIN_STAY_LEN 40        /* stay_id de ThingsBoard ("297:4", "297:0-<epoch>") + 0 */
 
 typedef enum {
     TWIN_BABY_NONE = 0, /* incubadora libre */
@@ -60,6 +61,7 @@ typedef struct {
     char name[TWIN_NAME_LEN]; /* "" = no compartido */
     char country[TWIN_COUNTRY_LEN]; /* pais de la incubadora ("CM"); "" = no compartido */
     twin_sex_t sex;       /* extension; UNKNOWN = no compartido */
+    char stay_id[TWIN_STAY_LEN]; /* estancia (extension); "" = no llega */
     uint16_t weight_g;    /* 0 = no compartido */
     int16_t age_d;        /* -1 = no compartido */
 } twin_incubator_t;

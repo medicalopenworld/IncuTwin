@@ -160,3 +160,25 @@ TEST_CASE("parse: tratamientos desconocidos se ignoran", "[twin][parse]")
     TEST_ASSERT_FALSE(m.photo);
     TEST_ASSERT_FALSE(m.pulseox);
 }
+
+TEST_CASE("parse: stay_id", "[twin][parse]")
+{
+    twin_msg_t m;
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"297\",\"state\":\"baby\",\"stay_id\":\"297:4\"}", "297", &m));
+    TEST_ASSERT_TRUE(m.has_stay);
+    TEST_ASSERT_EQUAL_STRING("297:4", m.stay_id);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"297\",\"state\":\"baby\",\"stay_id\":\"297:0-1794260594\"}", "297", &m));
+    TEST_ASSERT_TRUE(m.has_stay);
+    TEST_ASSERT_EQUAL_STRING("297:0-1794260594", m.stay_id);
+    /* invalidos: no invalidan el mensaje, solo no cuentan */
+    const char *bad[] = { "\"\"", "7", "null", "\"297:4 x\"", "\"297/4\"",
+                          "\"0123456789012345678901234567890123456789\"" /* 40 */ };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        char j[128];
+        snprintf(j, sizeof(j), "{\"incubator_id\":\"297\",\"state\":\"baby\",\"stay_id\":%s}", bad[i]);
+        TEST_ASSERT_EQUAL(TWIN_PARSE_OK, parse(j, "297", &m));
+        TEST_ASSERT_FALSE_MESSAGE(m.has_stay, bad[i]);
+    }
+}

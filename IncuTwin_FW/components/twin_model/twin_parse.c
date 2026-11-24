@@ -74,6 +74,22 @@ static void parse_extensions(const cJSON *root, twin_msg_t *m)
             m->country[2] = '\0';
         }
     }
+    /* estancia: 1..39 caracteres [A-Za-z0-9:_-]; cualquier otra cosa se ignora */
+    it = cJSON_GetObjectItemCaseSensitive(root, "stay_id");
+    if (cJSON_IsString(it) && it->valuestring) {
+        size_t n = strlen(it->valuestring);
+        bool ok = n > 0 && n < TWIN_STAY_LEN;
+        for (size_t i = 0; ok && i < n; i++) {
+            char c = it->valuestring[i];
+            ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                 c == ':' || c == '_' || c == '-';
+        }
+        if (ok) {
+            m->has_stay = true;
+            memcpy(m->stay_id, it->valuestring, n + 1);
+        }
+    }
+
     it = cJSON_GetObjectItemCaseSensitive(root, "sex");
     if (str_eq(it, "m")) { m->has_sex = true; m->sex = TWIN_SEX_MALE; }
     else if (str_eq(it, "f")) { m->has_sex = true; m->sex = TWIN_SEX_FEMALE; }

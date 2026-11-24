@@ -65,6 +65,8 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
         inc->skin = twin_geo_skin(inc->country);
     }
     inc->sex = m->has_sex ? m->sex : TWIN_SEX_UNKNOWN;
+    if (m->has_stay) memcpy(inc->stay_id, m->stay_id, TWIN_STAY_LEN);
+    else inc->stay_id[0] = '\0';
     inc->weight_g = m->has_weight ? m->weight_g : 0;
     inc->age_d = m->has_age ? m->age_d : -1;
 

@@ -197,6 +197,7 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
     m.has_skin = true; m.skin = 4;
     m.has_name = true; strcpy(m.name, "Lucía");
     m.has_sex = true; m.sex = TWIN_SEX_FEMALE;
+    m.has_stay = true; strcpy(m.stay_id, "297:4");
     m.has_weight = true; m.weight_g = 1250;
     m.has_age = true; m.age_d = 3;
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
@@ -206,6 +207,7 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
     TEST_ASSERT_EQUAL(4, inc.skin);
     TEST_ASSERT_EQUAL_STRING("Lucía", inc.name);
     TEST_ASSERT_EQUAL(TWIN_SEX_FEMALE, inc.sex);
+    TEST_ASSERT_EQUAL_STRING("297:4", inc.stay_id);
     TEST_ASSERT_EQUAL(1250, inc.weight_g);
     TEST_ASSERT_EQUAL(3, inc.age_d);
     TEST_ASSERT_EQUAL(TWIN_TR_BABY_PARENTS, r.transitions);
@@ -215,6 +217,7 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
     twin_apply(&inc, &seq, &m2);
     TEST_ASSERT_EQUAL_STRING("", inc.name);
     TEST_ASSERT_EQUAL(TWIN_SEX_UNKNOWN, inc.sex);
+    TEST_ASSERT_EQUAL_STRING("", inc.stay_id);
     TEST_ASSERT_EQUAL(0, inc.weight_g);
     TEST_ASSERT_EQUAL(-1, inc.age_d);
     TEST_ASSERT_FALSE(inc.awake);
@@ -326,6 +329,7 @@ TEST_CASE("reset: estado inicial de la incubadora", "[twin]")
     TEST_ASSERT_EQUAL(-1, inc.age_d);
     TEST_ASSERT_EQUAL(TWIN_SEX_UNKNOWN, inc.sex);
     TEST_ASSERT_EQUAL_STRING("", inc.name);
+    TEST_ASSERT_EQUAL_STRING("", inc.stay_id);
     twin_incubator_reset(&inc, 9);
     TEST_ASSERT_EQUAL(0, inc.skin); /* fuera de rango -> 0 */
 }
