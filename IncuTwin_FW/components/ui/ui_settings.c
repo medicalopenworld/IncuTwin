@@ -144,7 +144,9 @@ lv_obj_t *ui_settings_create(void)
 
     ui_settings_retranslate();
     app_evt_settings_t st = { .lang = settings_lang(), .volume = settings_volume(),
-                              .brightness = settings_brightness() };
+                              .brightness = settings_brightness(),
+                              .quiet_on = settings_quiet_on(), .quiet_from = settings_quiet_from(),
+                              .quiet_to = settings_quiet_to() };
     ui_settings_update(&st);
     return s_scr;
 }

@@ -374,8 +374,3 @@ acc_streak_msg_t acc_streak_msg(uint8_t mask, uint8_t rest, int *n)
     if (run == 0) return ACC_SM_START;
     return run == 1 ? ACC_SM_KEEP1 : ACC_SM_KEEP;
 }
-
-bool acc_quiet(int hour)
-{
-    return hour >= 0 && (hour >= ACC_QUIET_FROM || hour < ACC_QUIET_TO);
-}

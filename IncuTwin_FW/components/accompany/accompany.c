@@ -13,6 +13,8 @@
 #include "freertos/semphr.h"
 #include "identity.h"
 #include "net_wifi.h"
+#include "quiet_hours.h"
+#include "settings.h"
 #include "sound.h"
 #include "storage.h"
 #include "twin_logic.h"
@@ -20,7 +22,6 @@
 
 static const char *TAG = "acc";
 
-#define TZ_SPAIN       "CET-1CEST,M3.5.0,M10.5.0/3"
 #define PICK_WAIT_S    5 /* tras conectar: dejar llegar todos los retenidos antes de elegir */
 #define KEY_MODE       "acc_mode"
 #define KEY_STATE      "state"
@@ -172,8 +173,6 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
 void accompany_init(void)
 {
     s_mutex = xSemaphoreCreateMutex();
-    setenv("TZ", TZ_SPAIN, 1);
-    tzset();
     uint8_t mode = 0;
     s_enabled = storage_get_u8(STORAGE_NS_MQTT, KEY_MODE, &mode) && mode == 1;
     uint32_t seed = acc_hash(identity_mqtt_user());
@@ -289,7 +288,8 @@ void accompany_tick_1s(void)
     local_now(&day, &hour);
     twin_snapshot_t s = twin_model_get();
     bool shown = !s.demo && (s.show_baby || s.parents_view);
-    sound_set_quiet(acc_quiet(hour));
+    sound_set_quiet(quiet_hours_active(settings_local_hour(), settings_quiet_on(), settings_quiet_from(),
+                                       settings_quiet_to()));
     LOCK();
     uint32_t r = 0;
     if (s_gesture_pending && day != ACC_NO_DAY) {

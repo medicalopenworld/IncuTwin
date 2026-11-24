@@ -83,6 +83,9 @@ typedef struct {
     uint8_t lang;       /* 0 ES, 1 EN */
     uint8_t volume;     /* 0..3 */
     uint8_t brightness; /* 10..100 */
+    uint8_t quiet_on;   /* horario nocturno activo (0/1) */
+    uint8_t quiet_from; /* 0..23 */
+    uint8_t quiet_to;   /* 0..23 */
 } app_evt_settings_t;
 
 typedef struct {

@@ -7,7 +7,9 @@
  */
 
 #include <inttypes.h>
+#include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "accompany.h"
 #include "app_events.h"
@@ -87,6 +89,8 @@ static void start_wifi_station(void)
 
 void app_main(void)
 {
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); /* hora de España: antes de que nada lea la hora local */
+    tzset();
     ESP_ERROR_CHECK(storage_init());
     ESP_ERROR_CHECK(app_events_init());
     event_log_init(); /* historial de avisos: tras storage y bus */
