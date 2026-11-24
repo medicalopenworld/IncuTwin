@@ -3,8 +3,10 @@
 Generador de assets del bebe para IncuTwin (LVGL 9).
 
 A partir de Images/Baby.png e Images/IncuTwin_logo.png genera en components/assets/:
-  - img_baby.c  : fotogramas sleep, yawn1, yawn2, awake como I8 con paleta comun,
-                  y las 6 paletas de tono de piel (solo cambian las entradas de piel).
+  - img_baby.c  : fotogramas sleep, yawn1, yawn2, awake del bebe nino (Baby.png tal cual) y
+                  girl_* de la nina (misma figura: gorro y manta rosas, lazo en lugar del
+                  pompon y pestanas; ver girlify()), todos I8 con UNA paleta comun, y las 6
+                  paletas de tono de piel (solo cambian las entradas de piel, valen para los dos).
   - img_heart.c : corazon (ARGB8888).
   - img_logo.c  : logo del splash (ARGB8888).
   - include/assets_baby.h
@@ -15,6 +17,8 @@ Previsualizaciones en tools/preview/.
 import os
 import sys
 from collections import deque
+
+import colorsys
 
 from PIL import Image, ImageDraw
 
@@ -44,6 +48,74 @@ SKIN_TONES = [
 ]
 
 
+# --------------------------------------------------------------- nina
+# Coordenadas sobre Images/Baby.png (896x1200, un pixel del dibujo ~ 6 px).
+GIRL_HUE = 345                # rosa
+GIRL_SAT_GAIN = 1.5
+BOW_FILL = (224, 67, 84)      # el rojo del pompon del nino
+BOW_DARK = (170, 40, 60)
+BOW = [".NN.......NN.",       # lazo 13x6, N = contorno marino, F = relleno, D = sombra
+       "NFFNN...NNFFN",
+       "NFFFFNNNFFFFN",
+       "NFFFDNDNDFFFN",
+       "NFFFFNNNFFFFN",
+       "NFFNN...NNFFN",
+       ".NN.......NN."]
+
+
+def girl_recolor(im, box=None, vmin=0.62):
+    """Azules claros (gorro y manta) -> rosa conservando la luz. El contorno marino (V baja)
+    y lo que no es azul (piel, lunas, blanco) no se tocan."""
+    px = im.load()
+    w, h = im.size
+    x0, y0, x1, y1 = box or (0, 0, w, h)
+    for y in range(y0, y1):
+        for x in range(x0, x1):
+            r, g, b = px[x, y][:3]
+            hh, ss, vv = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            if 0.50 <= hh <= 0.68 and ss > 0.06 and vv > vmin:
+                nr, ng, nb = colorsys.hsv_to_rgb(GIRL_HUE / 360, min(1, ss * GIRL_SAT_GAIN), vv)
+                px[x, y] = (round(nr * 255), round(ng * 255), round(nb * 255)) + tuple(px[x, y][3:])
+
+
+def draw_bow(d, cx, top, k):
+    """Lazo pixel-art centrado en cx, con celdas de k px."""
+    pal = {"N": NAVY, "F": BOW_FILL, "D": BOW_DARK}
+    ox = cx - len(BOW[0]) * k // 2
+    for cy, row in enumerate(BOW):
+        for col, ch in enumerate(row):
+            if ch in pal:
+                x, y = ox + col * k, top + cy * k
+                d.rectangle((x, y, x + k - 1, y + k - 1), fill=pal[ch])
+
+
+def girlify(im):
+    """Baby.png -> la misma bebe en version nina (propuesta B aprobada el 24-11-2026).
+    Las pestanas se anaden despues, a tamano de sprite (add_lashes)."""
+    im = im.copy()
+    girl_recolor(im)
+    d = ImageDraw.Draw(im)
+    draw_bow(d, 447, 380, 8)                       # tapa el pompon (434..461 x 390..411)
+    return im
+
+
+LASHES = ((386, 558, -1), (504, 558, 1))  # punta exterior de cada ojo en Baby.png, y sentido
+
+
+def add_lashes(frame, bbox):
+    """Pestanas en la punta exterior de cada ojo, dibujadas YA a tamano de sprite: pixeles
+    marinos nitidos sin antialias, para que la piel de alrededor siga siendo identica a la
+    del nino y comparta sus indices (un halo mezclado no cambiaria con el tono de piel)."""
+    ratio = BABY_H / (bbox[3] - bbox[1])
+    k = max(1, round(6 * ratio))
+    d = ImageDraw.Draw(frame)
+    for x, y, sx in LASHES:
+        px, py = round((x - bbox[0]) * ratio), round((y - bbox[1]) * ratio)
+        for cx, cy in ((0, 0), (sx, -1)):
+            x0, y0 = px + cx * k, py + cy * k
+            d.rectangle((x0, y0, x0 + k - 1, y0 + k - 1), fill=NAVY + (255,))
+
+
 def is_skin(p):
     r, g, b = p[:3]
     # piel = calida Y claramente r>g (las lunas amarillentas de la manta tienen r~g)
@@ -56,8 +128,12 @@ def is_blush(p):
     return r > 200 and g < 185 and b < 185 and r - g > 55 and abs(g - b) < 30
 
 
-def load_baby():
+def load_baby(girl=False, bbox=None):
+    """Sprite del bebe. bbox: caja de recorte a reutilizar (la nina usa la del nino para que
+    los dos fotogramas queden alineados pixel a pixel). Devuelve (sprite, bbox)."""
     im = Image.open(os.path.join(IMAGES, "Baby.png")).convert("RGBA")
+    if girl:
+        im = girlify(im)
     w, h = im.size
     px = im.load()
 
@@ -81,10 +157,10 @@ def load_baby():
         px[x, y] = (255, 255, 255, 0)
         dq.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
 
-    bbox = im.getbbox()
+    bbox = bbox or im.getbbox()
     im = im.crop(bbox)
     ratio = BABY_H / im.height
-    return im.resize((round(im.width * ratio), BABY_H), Image.LANCZOS)
+    return im.resize((round(im.width * ratio), BABY_H), Image.LANCZOS), bbox
 
 
 def face_regions(im):
@@ -187,10 +263,50 @@ def quantize_frames(frames, ncolors=48):
     return palette, out, (w, h)
 
 
-def skin_indices(palette):
+def merge_quantized(a, b):
+    """Une dos cuantizaciones (paleta, indices) en una sola paleta: la de `a` intacta (el
+    nino no cambia ni un byte) y la de `b` a continuacion, sin repetir el transparente."""
+    pal_a, idx_a, size = a
+    pal_b, idx_b, _ = b
+    off = len(pal_a) - 1
+    idx = dict(idx_a)
+    for n, v in idx_b.items():
+        idx[n] = [0 if i == 0 else i + off for i in v]
+    return pal_a + pal_b[1:], idx, size
+
+
+def share_skin(idxmaps, frames, boy_skin):
+    """La piel de la nina es la del nino pixel a pixel (girlify solo recolorea azules), pero
+    su cuantizacion mezcla piel y rosas de la manta en las mismas entradas: un tono de piel
+    teniria la manta. Donde el nino tiene piel y la nina el mismo color exacto, la nina usa
+    el indice del nino; asi las paletas de tono valen para los dos sin tocar nada mas."""
+    skin = {i for i, _ in boy_skin}
+    for n in [k for k in idxmaps if not k.startswith("girl_")]:
+        boy, girl = idxmaps[n], idxmaps["girl_" + n]
+        bpx, gpx = frames[n].load(), frames["girl_" + n].load()
+        w = frames[n].width
+        for pos, bi in enumerate(boy):
+            if bi in skin and bpx[pos % w, pos // w] == gpx[pos % w, pos // w]:
+                girl[pos] = bi
+
+
+def face_index_set(idxmaps, size, box):
+    """Indices de paleta que aparecen dentro de la caja de la cara en algun fotograma."""
+    w, _ = size
+    x0, x1, y0, y1 = box
+    used = set()
+    for v in idxmaps.values():
+        for y in range(y0, y1 + 1):
+            used.update(v[y * w + x0:y * w + x1 + 1])
+    return used
+
+
+def skin_indices(palette, only=None):
+    """Entradas de piel/rubor. `only`: limitar a esos indices (los de la cara), para que
+    rojos y rosas de fuera de la cara (pompon, lazo, manta) no cambien con el tono."""
     res = []
     for i, (r, g, b, a) in enumerate(palette):
-        if a == 0:
+        if a == 0 or (only is not None and i not in only):
             continue
         if is_blush((r, g, b)):
             res.append((i, "blush"))
@@ -239,12 +355,22 @@ def main():
     os.makedirs(PREVIEW, exist_ok=True)
     os.makedirs(os.path.join(ASSETS, "include"), exist_ok=True)
 
-    base = load_baby()
+    base, bbox = load_baby()
     frames = make_frames(base)
+    girl, _ = load_baby(girl=True, bbox=bbox)
+    for n, f in make_frames(girl).items():
+        add_lashes(f, bbox)
+        frames[f"girl_{n}"] = f
     heart = make_heart()
 
-    palette, idxmaps, size = quantize_frames(frames)
-    sidx = skin_indices(palette)
+    # cada sexo con su cuantizacion de 48 colores, en una sola paleta de 95
+    boy = {n: f for n, f in frames.items() if not n.startswith("girl_")}
+    girls = {n: f for n, f in frames.items() if n.startswith("girl_")}
+    palette, idxmaps, size = merge_quantized(quantize_frames(boy), quantize_frames(girls))
+    face = face_index_set({n: v for n, v in idxmaps.items() if not n.startswith("girl_")},
+                          size, face_regions(base))
+    sidx = skin_indices(palette, face)
+    share_skin(idxmaps, frames, sidx)
     pals = build_tone_palettes(palette, sidx)
 
     # previsualizaciones
@@ -260,14 +386,15 @@ def main():
         sheet.paste(img, (w * i, 0), img)
     sheet.save(os.path.join(PREVIEW, "frames.png"))
 
-    tones = Image.new("RGBA", (w * len(pals), h), (250, 250, 248, 255))
-    for t, pal in enumerate(pals):
-        img = Image.new("RGBA", (w, h))
-        p = img.load()
-        for y in range(h):
-            for x in range(w):
-                p[x, y] = tuple(pal[idxmaps["sleep"][y * w + x]])
-        tones.paste(img, (w * t, 0), img)
+    tones = Image.new("RGBA", (w * len(pals), h * 2), (250, 250, 248, 255))
+    for row, frame in enumerate(("sleep", "girl_sleep")):
+        for t, pal in enumerate(pals):
+            img = Image.new("RGBA", (w, h))
+            p = img.load()
+            for y in range(h):
+                for x in range(w):
+                    p[x, y] = tuple(pal[idxmaps[frame][y * w + x]])
+            tones.paste(img, (w * t, h * row), img)
     tones.save(os.path.join(PREVIEW, "tones.png"))
     heart.save(os.path.join(PREVIEW, "heart.png"))
     print(f"frames: {names}  size={size}  palette={len(palette)} skin_entries={len(sidx)}")
@@ -276,7 +403,7 @@ def main():
 
     # salida C
     with open(os.path.join(ASSETS, "img_baby.c"), "w", encoding="utf-8", newline="\n") as f:
-        f.write(c_header("Bebe animado: fotogramas I8 con paleta comun + paletas de tono de piel"))
+        f.write(c_header("Bebe animado (nino y nina): fotogramas I8 con paleta comun + paletas de tono de piel"))
         for n in names:
             emit_i8(f, f"img_baby_{n}", palette, idxmaps[n], size)
         emit_palettes(f, "baby_skin_palettes", pals)
