@@ -15,6 +15,7 @@
 #include "sound.h"
 #include "twin_model.h"
 #include "ui_internal.h"
+#include "ui_name.h"
 
 static const char *TAG = "ui";
 
@@ -33,6 +34,7 @@ static bool s_state_dirty;
 static app_evt_settings_t s_settings_pending;
 static bool s_settings_dirty;
 static bool s_log_dirty; /* TWIN_EVT_LOG_CHANGED: el historial ha cambiado */
+static uint32_t s_notice_pending; /* bits de TWIN_EVT_NOTICE aun sin pasar a la franja (con demo) */
 
 /* ------------------------------------------------------------- navigation */
 
@@ -152,12 +154,30 @@ static void on_log_changed(void *arg, esp_event_base_t base, int32_t id, void *d
     xSemaphoreGive(s_mutex);
 }
 
+static void on_notice(void *arg, esp_event_base_t base, int32_t id, void *data)
+{
+    (void)arg; (void)base; (void)id;
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    s_notice_pending |= ((const app_evt_notice_t *)data)->mask; /* la franja sale tambien en la demo */
+    xSemaphoreGive(s_mutex);
+}
+
+/* La franja no sale en splash ni onboarding (no es una de nuestras pantallas), ni en la despedida
+ * o el agradecimiento de «Coge mi mano», ni con el aviso o el teclado del nombre abiertos. */
+static bool notice_blocked(void)
+{
+    lv_obj_t *act = lv_screen_active();
+    bool ours = act == s_scr_home || act == s_scr_history || act == s_scr_settings;
+    return !ours || ui_home_overlay_active() || ui_name_open();
+}
+
 static void refresh_cb(lv_timer_t *t)
 {
     (void)t;
     twin_snapshot_t snap;
     app_evt_settings_t st;
     bool do_state, do_settings, do_log;
+    uint32_t notices;
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     do_state = s_state_dirty;
@@ -165,6 +185,8 @@ static void refresh_cb(lv_timer_t *t)
     do_log = s_log_dirty;
     snap = s_pending;
     st = s_settings_pending;
+    notices = s_notice_pending;
+    s_notice_pending = 0;
     s_state_dirty = s_settings_dirty = s_log_dirty = false;
     xSemaphoreGive(s_mutex);
 
@@ -195,6 +217,8 @@ static void refresh_cb(lv_timer_t *t)
         ui_home_apply(&snap);
         ui_settings_apply(&snap);
     }
+    if (notices) ui_notice_push(notices);
+    ui_notice_poll(notice_blocked()); /* tras ui_home_apply: overlay_active ya esta al dia */
 }
 
 /* ------------------------------------------------------------------- init */
@@ -219,6 +243,7 @@ void ui_init(void)
     s_scr_history = ui_history_create();
     s_scr_settings = ui_settings_create();
     ui_nav_set_unread(event_log_unseen() > 0);
+    ui_notice_init();
     ui_home_apply(&s_pending);
     ui_settings_apply(&s_pending);
 
@@ -230,6 +255,7 @@ void ui_init(void)
     app_events_subscribe(TWIN_EVT_STATE_CHANGED, on_state, NULL);
     app_events_subscribe(TWIN_EVT_SETTINGS_CHANGED, on_settings, NULL);
     app_events_subscribe(TWIN_EVT_LOG_CHANGED, on_log_changed, NULL);
+    app_events_subscribe(TWIN_EVT_NOTICE, on_notice, NULL);
     /* el jingle solo al enchufar: un reinicio sin nadie delante (OTA, comando, watchdog) no suena */
     esp_reset_reason_t rr = esp_reset_reason();
     if (rr == ESP_RST_POWERON) {

@@ -1110,13 +1110,17 @@ static void hold_refresh(bool force)
  * dedo puesto y el agradecimiento a pantalla completa): spec hmi-navegacion-avisos, "la barra no
  * aparece en ... la despedida". Oculta, tampoco se puede pulsar: un toque no cierra la despedida y
  * a la vez cambia de pantalla. */
+bool ui_home_overlay_active(void)
+{
+    hh_state_t st = hh_state(&s_hh);
+    bool baby_view = s_have_last && s_last.show_baby && ui_pages_current() == 0;
+    return (s_have_last && s_last.acc == TWIN_ACC_FAREWELL) || (baby_view && (st == HH_DONE || st == HH_THANKS));
+}
+
 static void nav_apply(void)
 {
     if (!s_nav) return;
-    hh_state_t st = hh_state(&s_hh);
-    bool baby_view = s_have_last && s_last.show_baby && ui_pages_current() == 0;
-    bool hide = (s_have_last && s_last.acc == TWIN_ACC_FAREWELL) ||
-                (baby_view && (st == HH_DONE || st == HH_THANKS));
+    bool hide = ui_home_overlay_active();
     if (hide == lv_obj_is_hidden(s_nav)) return;
     lv_obj_set_hidden(s_nav, hide);
     ESP_LOGI(TAG, "barra de navegacion %s", hide ? "oculta" : "visible");

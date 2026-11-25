@@ -18,6 +18,7 @@ void ui_home_apply(const twin_snapshot_t *s);
 void ui_home_retranslate(void);
 void ui_home_screen_pressed(void);
 void ui_home_goto_baby(void); /* desde la etiqueta del pais del mapa */
+bool ui_home_overlay_active(void); /* despedida o agradecimiento de «Coge mi mano»: sin barra ni franja */
 void ui_home_status_refresh(void); /* repinta la barra de estado (la hora del mapa ha cambiado) */ /* toque en cualquier sitio (despedida del modo acompañar) */
 
 /* ajustes */
@@ -30,6 +31,13 @@ void ui_settings_retranslate(void);
 lv_obj_t *ui_history_create(void);
 void ui_history_refresh(void); /* relee event_log: solo al cambiar el historial o al abrirlo */
 void ui_history_retranslate(void);
+/* circulo de icono de un aviso (un bit de twin_notice_t) como hijo de `row`: Historial y franja */
+void ui_notice_icon(lv_obj_t *row, uint8_t kind);
+
+/* franja de aviso en pantalla (ui_notice.c, capa superior) */
+void ui_notice_init(void);
+void ui_notice_push(uint32_t mask); /* encola un aviso por bit, en orden de bit; cola de 8 */
+void ui_notice_poll(bool blocked);  /* desde refresh_cb: saca el siguiente si no hay nada que lo tape */
 
 /* navegacion: barra fija de abajo (ui_nav.c) y cambio de pantalla (ui.c) */
 typedef enum { UI_TAB_HOME = 0, UI_TAB_HISTORY, UI_TAB_SETTINGS } ui_tab_t;

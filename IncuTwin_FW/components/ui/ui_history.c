@@ -60,7 +60,8 @@ static void badge_symbol(lv_obj_t *c, const char *sym, lv_color_t col)
     lv_obj_center(l);
 }
 
-static void row_icon(lv_obj_t *row, uint8_t kind)
+/* Compartido con la franja de aviso (ui_notice.c) para que icono y color coincidan. */
+void ui_notice_icon(lv_obj_t *row, uint8_t kind)
 {
     lv_obj_t *c;
     switch (kind) {
@@ -108,7 +109,7 @@ static void row_create(const event_entry_t *e, uint32_t now, uint8_t lang)
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_scrollable(row, false);
     lv_obj_set_clickable(row, false); /* el dedo arrastra la lista */
-    row_icon(row, e->kind);
+    ui_notice_icon(row, e->kind);
 
     lv_obj_t *col = lv_obj_create(row);
     lv_obj_set_size(col, TEXT_W - 12, LV_SIZE_CONTENT);
