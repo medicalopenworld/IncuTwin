@@ -26,9 +26,19 @@ void ui_settings_apply(const twin_snapshot_t *s);
 void ui_settings_update(const app_evt_settings_t *st);
 void ui_settings_retranslate(void);
 
-/* navegacion (ui.c) */
-void ui_go_settings(void);
-void ui_go_home(void);
+/* historial (ui_history.c) */
+lv_obj_t *ui_history_create(void);
+void ui_history_refresh(void); /* relee event_log: solo al cambiar el historial o al abrirlo */
+void ui_history_retranslate(void);
+
+/* navegacion: barra fija de abajo (ui_nav.c) y cambio de pantalla (ui.c) */
+typedef enum { UI_TAB_HOME = 0, UI_TAB_HISTORY, UI_TAB_SETTINGS } ui_tab_t;
+#define UI_NAV_Y 280 /* nada de las pantallas con barra por debajo de esta linea */
+lv_obj_t *ui_nav_create(lv_obj_t *scr, ui_tab_t active);
+void ui_nav_set_unread(bool unread); /* punto en el pollito de las tres barras */
+/* Desliza 220 ms a la pantalla de `tab` (a la izquierda si su indice sube); al entrar en el
+ * Historial marca los avisos como vistos. */
+void ui_go(ui_tab_t tab);
 
 /* Dialogo modal con nuestras fuentes (la de LVGL no tiene ¿ ni acentos), 208 px de ancho,
  * boton de cierre y un boton de accion que recibe `user_data`. Devuelve el msgbox. */

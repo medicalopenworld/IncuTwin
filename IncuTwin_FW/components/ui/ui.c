@@ -8,8 +8,10 @@
 #include "esp_log.h"
 #include "esp_system.h"
 #include "esp_lvgl_port.h"
+#include "event_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "settings.h"
 #include "sound.h"
 #include "twin_model.h"
 #include "ui_internal.h"
@@ -18,7 +20,11 @@ static const char *TAG = "ui";
 
 #define SPLASH_MS 2500
 
-static lv_obj_t *s_scr_splash, *s_scr_home, *s_scr_settings;
+static lv_obj_t *s_scr_splash, *s_scr_home, *s_scr_history, *s_scr_settings;
+static ui_tab_t s_tab = UI_TAB_HOME;        /* pantalla de la barra que se ve (o se esta cargando) */
+static uint8_t s_lang_shown;                /* idioma de los textos del Historial */
+static uint32_t s_history_ms;               /* lv_tick del ultimo repintado del Historial */
+#define HISTORY_TICK_MS 60000               /* «hace N min» al dia mientras se mira */
 
 /* dato pendiente de aplicar (lo escribe el bus de eventos, lo lee la tarea LVGL) */
 static SemaphoreHandle_t s_mutex;
@@ -26,17 +32,29 @@ static twin_snapshot_t s_pending;
 static bool s_state_dirty;
 static app_evt_settings_t s_settings_pending;
 static bool s_settings_dirty;
+static bool s_log_dirty; /* TWIN_EVT_LOG_CHANGED: el historial ha cambiado */
 
 /* ------------------------------------------------------------- navigation */
 
-void ui_go_settings(void)
+static const char *const TAB_NAME[] = { "inicio", "historial", "ajustes" };
+
+static void history_show(void)
 {
-    lv_screen_load_anim(s_scr_settings, LV_SCR_LOAD_ANIM_MOVE_LEFT, 220, 0, false);
+    if (event_log_unseen() > 0) event_log_mark_seen(); /* publica LOG_CHANGED: repinta el punto */
+    ui_history_refresh();
+    s_history_ms = lv_tick_get();
+    ui_nav_set_unread(false);
 }
 
-void ui_go_home(void)
+void ui_go(ui_tab_t tab)
 {
-    lv_screen_load_anim(s_scr_home, LV_SCR_LOAD_ANIM_MOVE_RIGHT, 220, 0, false);
+    if (tab == s_tab || tab > UI_TAB_SETTINGS) return;
+    lv_obj_t *scr[] = { s_scr_home, s_scr_history, s_scr_settings };
+    lv_screen_load_anim_t anim = tab > s_tab ? LV_SCR_LOAD_ANIM_MOVE_LEFT : LV_SCR_LOAD_ANIM_MOVE_RIGHT;
+    ESP_LOGI(TAG, "pantalla: %s -> %s", TAB_NAME[s_tab], TAB_NAME[tab]);
+    s_tab = tab;
+    if (tab == UI_TAB_HISTORY) history_show();
+    lv_screen_load_anim(scr[tab], anim, 220, 0, false);
 }
 
 /* ----------------------------------------------------------------- dialogs */
@@ -65,16 +83,18 @@ lv_obj_t *ui_msgbox(const char *title, const char *text, const char *btn_text, l
 }
 
 /* Feedback sonoro solo al pulsar un boton (spec sound): enganchado al indev, no a cada widget.
- * Cuenta como boton un lv_button, lo marcado con UI_FLAG_CLICK_SOUND (botones del msgbox,
- * simbolos de tratamiento) o una imagen pulsable. Tocar el bebe o una zona vacia no suena: el
- * tactil da a veces pulsaciones fantasma y no deben oirse (Pablo, 21-nov-2026). */
+ * Cuenta como boton un lv_button, un interruptor (horario nocturno), lo marcado con
+ * UI_FLAG_CLICK_SOUND (botones del msgbox, simbolos de tratamiento) o una imagen pulsable.
+ * Tocar el bebe o una zona vacia no suena: el tactil da a veces pulsaciones fantasma y no deben
+ * oirse (Pablo, 21-nov-2026). */
 static void click_feedback_cb(lv_event_t *e)
 {
     (void)e;
     if (lv_screen_active() == s_scr_home) ui_home_screen_pressed();
     lv_obj_t *obj = lv_indev_get_active_obj();
     if (!obj) return;
-    bool is_button = lv_obj_has_class(obj, &lv_button_class) || lv_obj_has_flag(obj, UI_FLAG_CLICK_SOUND);
+    bool is_button = lv_obj_has_class(obj, &lv_button_class) || lv_obj_has_class(obj, &lv_switch_class) ||
+                     lv_obj_has_flag(obj, UI_FLAG_CLICK_SOUND);
     bool is_icon = lv_obj_check_type(obj, &lv_image_class) && lv_obj_has_flag(obj, LV_OBJ_FLAG_CLICKABLE) &&
                    obj != baby_widget_obj();
     if (is_button || is_icon) sound_request(SOUND_CLICK);
@@ -124,25 +144,51 @@ static void on_settings(void *arg, esp_event_base_t base, int32_t id, void *data
     xSemaphoreGive(s_mutex);
 }
 
+static void on_log_changed(void *arg, esp_event_base_t base, int32_t id, void *data)
+{
+    (void)arg; (void)base; (void)id; (void)data;
+    xSemaphoreTake(s_mutex, portMAX_DELAY);
+    s_log_dirty = true;
+    xSemaphoreGive(s_mutex);
+}
+
 static void refresh_cb(lv_timer_t *t)
 {
     (void)t;
     twin_snapshot_t snap;
     app_evt_settings_t st;
-    bool do_state, do_settings;
+    bool do_state, do_settings, do_log;
 
     xSemaphoreTake(s_mutex, portMAX_DELAY);
     do_state = s_state_dirty;
     do_settings = s_settings_dirty;
+    do_log = s_log_dirty;
     snap = s_pending;
     st = s_settings_pending;
-    s_state_dirty = s_settings_dirty = false;
+    s_state_dirty = s_settings_dirty = s_log_dirty = false;
     xSemaphoreGive(s_mutex);
+
+    /* event_log toma un mutex (y una escritura a NVS lo retiene unos ms): solo se lee aqui
+     * cuando el historial ha cambiado, y una vez por minuto mientras se ve el Historial */
+    bool history_on = s_tab == UI_TAB_HISTORY && lv_screen_active() == s_scr_history;
+    if (do_log) {
+        if (history_on && event_log_unseen() > 0) event_log_mark_seen(); /* lo esta viendo */
+        ui_history_refresh();
+        s_history_ms = lv_tick_get();
+        ui_nav_set_unread(event_log_unseen() > 0);
+    } else if (history_on && lv_tick_elaps(s_history_ms) >= HISTORY_TICK_MS) {
+        ui_history_refresh();
+        s_history_ms = lv_tick_get();
+    }
 
     if (do_settings) {
         ui_home_retranslate();
         ui_settings_retranslate();
         ui_settings_update(&st);
+        if (st.lang != s_lang_shown) { /* no con cada paso del brillo: relee el historial */
+            s_lang_shown = st.lang;
+            ui_history_retranslate();
+        }
         do_state = true; /* la barra de estado cambia de idioma */
     }
     if (do_state) {
@@ -168,8 +214,11 @@ void ui_init(void)
         lv_indev_add_event_cb(board_touch_indev(), click_feedback_cb, LV_EVENT_PRESSED, NULL);
     }
     build_splash();
+    s_lang_shown = settings_lang();
     s_scr_home = ui_home_create();
+    s_scr_history = ui_history_create();
     s_scr_settings = ui_settings_create();
+    ui_nav_set_unread(event_log_unseen() > 0);
     ui_home_apply(&s_pending);
     ui_settings_apply(&s_pending);
 
@@ -180,6 +229,7 @@ void ui_init(void)
 
     app_events_subscribe(TWIN_EVT_STATE_CHANGED, on_state, NULL);
     app_events_subscribe(TWIN_EVT_SETTINGS_CHANGED, on_settings, NULL);
+    app_events_subscribe(TWIN_EVT_LOG_CHANGED, on_log_changed, NULL);
     /* el jingle solo al enchufar: un reinicio sin nadie delante (OTA, comando, watchdog) no suena */
     esp_reset_reason_t rr = esp_reset_reason();
     if (rr == ESP_RST_POWERON) {
