@@ -37,6 +37,7 @@ void ui_notice_icon(lv_obj_t *row, uint8_t kind);
 /* franja de aviso en pantalla (ui_notice.c, capa superior) */
 void ui_notice_init(void);
 void ui_notice_push(uint32_t mask); /* encola un aviso por bit, en orden de bit; cola de 8 */
+bool ui_notice_layer_busy(void);   /* hay un dialogo u otro objeto visible en la capa superior */
 void ui_notice_poll(bool blocked);  /* desde refresh_cb: saca el siguiente si no hay nada que lo tape */
 
 /* navegacion: barra fija de abajo (ui_nav.c) y cambio de pantalla (ui.c) */

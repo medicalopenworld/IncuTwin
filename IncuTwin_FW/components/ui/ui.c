@@ -163,12 +163,12 @@ static void on_notice(void *arg, esp_event_base_t base, int32_t id, void *data)
 }
 
 /* La franja no sale en splash ni onboarding (no es una de nuestras pantallas), ni en la despedida
- * o el agradecimiento de «Coge mi mano», ni con el aviso o el teclado del nombre abiertos. */
+ * o el agradecimiento de «Coge mi mano», ni con el aviso, un dialogo o el teclado del nombre abiertos. */
 static bool notice_blocked(void)
 {
     lv_obj_t *act = lv_screen_active();
     bool ours = act == s_scr_home || act == s_scr_history || act == s_scr_settings;
-    return !ours || ui_home_overlay_active() || ui_name_open();
+    return !ours || ui_home_overlay_active() || ui_name_open() || ui_notice_layer_busy();
 }
 
 static void refresh_cb(lv_timer_t *t)

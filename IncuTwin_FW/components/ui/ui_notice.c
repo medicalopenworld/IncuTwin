@@ -119,6 +119,18 @@ void ui_notice_init(void)
     lv_obj_set_hidden(s_bar, true);
 }
 
+/* true si hay en la capa superior algun objeto visible que no sea la franja (dialogos, msgbox...) */
+bool ui_notice_layer_busy(void)
+{
+    lv_obj_t *top = lv_layer_top();
+    uint32_t n = lv_obj_get_child_count(top);
+    for (uint32_t i = 0; i < n; i++) {
+        lv_obj_t *c = lv_obj_get_child(top, i);
+        if (c && c != s_bar && !lv_obj_is_hidden(c)) return true;
+    }
+    return false;
+}
+
 void ui_notice_push(uint32_t mask)
 {
     for (uint8_t bit = 0; bit < 32; bit++) {
