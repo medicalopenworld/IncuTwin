@@ -15,7 +15,7 @@ Vocabulario del modelo del gemelo usado en esta spec:
   suscripción.
 - `online`: el último estado recibido no es `offline`.
 - `link_ok` = `wifi` ∧ `broker_once` ∧ ¬`broker_lost` ∧ `paired` ∧ `state_rx` ∧ `online`.
-- `baby` ∈ {none, in, parents, home}; `thermo` ∈ {off, heating, stable, alarm}; `photo`;
+- `baby` ∈ {none, in, parents, home}; `thermo` ∈ {off, heating, stable} (un `alarm` del broker se lee como `heating`: IncuTwin nunca enseña alarmas); `photo`;
   `bpm` (0 = sin pulso); `awake`; `skin` 0..5; `name`, `weight_g`, `age_d` (opcionales).
 - `show_baby` = `link_ok` ∧ `baby` = in. `parents_view` = `link_ok` ∧ `baby` ∈ {parents, home}.
 
@@ -80,10 +80,9 @@ cumpla de esta lista, con su color:
 | 8 | ¬`state_rx` | Esperando a la IncuNest... | Waiting for the IncuNest... | gris |
 | 9 | ¬`online` | IncuNest apagada | IncuNest off | gris |
 | 10 | `baby ≠ in` | IncuNest sin bebé | IncuNest empty | azul |
-| 11 | `thermo = alarm` | ¡Alarma! | Alarm! | rojo |
-| 12 | `name` no vacío | `<name> · <weight_g> g · <age_d> día(s)` (solo los campos presentes) | idem con day/days | verde |
-| 13 | `awake` | Bebé despierto | Baby awake | verde |
-| 14 | — | Bebé durmiendo | Baby sleeping | verde |
+| 11 | `name` no vacío | `<name> · <weight_g> g · <age_d> día(s)` (solo los campos presentes) | idem con day/days | verde |
+| 12 | `awake` | Bebé despierto | Baby awake | verde |
+| 13 | — | Bebé durmiendo | Baby sleeping | verde |
 
 El borde de la barra SHALL tomar el mismo color que el texto. Un nombre largo SHALL truncarse
 con puntos suspensivos sin desbordar la barra.
@@ -106,15 +105,15 @@ con puntos suspensivos sin desbordar la barra.
 - **WHEN** `show_baby` con `name = "Lucía"`, `weight_g = 1250`, `age_d = 3`
 - **THEN** la barra dice "Lucía · 1250 g · 3 días" en verde; con `age_d = 1` dice "1 día"
 
-#### Scenario: Alarma antes que nombre
-- **WHEN** `show_baby`, `thermo = alarm` y hay nombre
-- **THEN** la barra dice "¡Alarma!" en rojo
+#### Scenario: Alarma del broker no se enseña
+- **WHEN** `show_baby`, `thermo = alarm` llega del broker y hay nombre
+- **THEN** la barra muestra el nombre en verde, nunca "¡Alarma!"
 
 ### Requirement: Iconos de estado por color [manual]
 En la vista BEBÉ, tres iconos circulares (termómetro, lámpara, corazón) SHALL indicar el estado
 solo por el color del borde:
 
-- Termómetro: ámbar si `thermo = heating`, verde si `stable`, rojo si `alarm`, gris si `off`.
+- Termómetro: ámbar si `thermo = heating`, verde si `stable`, gris si `off`.
 - Lámpara: azul si `photo`, gris si no.
 - Corazón: coral si `bpm > 0`, gris si no.
 
@@ -128,17 +127,16 @@ suave, con color y periodo según el estado:
 
 | Estado | Color | Periodo ida |
 |---|---|---|
-| `alarm` | rojo suave `0xF3B0AA` | 700 ms |
 | `photo` | azul `0x8FBBF0`, fondo de pantalla `0xE8F1FB` | 2000 ms |
 | `heating` | ámbar `0xF7D9A6` | 2600 ms |
 | resto | azul calma `0xBBD8F2` | 2600 ms |
 
-Prioridad: alarma > fototerapia > calentando > calma. Sin `show_baby` el halo SHALL ocultarse y el
+Prioridad: llamada (acompañar) > fototerapia > calentando > calma. Sin `show_baby` el halo SHALL ocultarse y el
 fondo volver a `0xF4F3F0`.
 
-#### Scenario: Entrar en alarma
-- **WHEN** `thermo` pasa de `stable` a `alarm`
-- **THEN** el halo cambia a rojo y su pulsación se acelera visiblemente (≈ 1,4 s por ciclo)
+#### Scenario: Nunca se enseña una alarma
+- **WHEN** `thermo` llega como `alarm`
+- **THEN** se ve como calentando: termómetro ámbar, halo cálido, sin texto de alarma
 
 ### Requirement: Bebé animado [manual]
 El bebé SHALL animarse de forma continua:

@@ -92,7 +92,6 @@ twin_status_t twin_status_of(const twin_snapshot_t *s)
     if (!l->state_rx) return TWIN_ST_WAITING;
     if (!s->inc.online) return TWIN_ST_INC_OFF;
     if (s->inc.baby != TWIN_BABY_IN) return s->acc == TWIN_ACC_ENDING ? TWIN_ST_ACC_ENDED : TWIN_ST_NO_BABY;
-    if (s->inc.thermo == TWIN_THERMO_ALARM) return TWIN_ST_ALARM;
     if (s->acc == TWIN_ACC_WAITING) return TWIN_ST_ACC_WAITING;
     if (acc && s->acc_remind) return TWIN_ST_ACC_REMIND;
     if (s->inc.name[0]) return TWIN_ST_NAME;

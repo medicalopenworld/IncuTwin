@@ -19,7 +19,6 @@ typedef enum {
     STR_ST_WAITING,
     STR_ST_INC_OFF,
     STR_ST_NO_BABY,
-    STR_ST_ALARM,
     STR_ST_AWAKE,
     STR_ST_SLEEP,
     /* modo Acompañar (spec accompany) */
@@ -53,7 +52,6 @@ typedef enum {
     /* info al tocar los simbolos de tratamiento y al bebe en reposo */
     STR_INFO_HEATING,
     STR_INFO_STABLE,
-    STR_INFO_TEMP_ALARM,
     STR_INFO_PHOTO,
     STR_INFO_HEART,       /* formato: %u latidos por minuto */
     STR_INFO_HEART_FAST,  /* solo si el pulso pasa de TWIN_BPM_FAST */

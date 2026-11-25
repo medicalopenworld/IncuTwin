@@ -60,7 +60,7 @@ anterior:
 
 | Clave | Tipo / valores | Efecto |
 |---|---|---|
-| `thermo` | `off`, `heating`, `stable`, `alarm` | sustituye el `thermo` derivado de `heat` |
+| `thermo` | `off`, `heating`, `stable`; `alarm` (TB anterior al 25-nov-2026) se lee como `heating` | sustituye el `thermo` derivado de `heat` |
 | `baby` | `none`, `in`, `parents`, `home` | sustituye el `baby` derivado de `state` |
 | `awake` | bool | `awake` (por defecto false) |
 | `skin` | entero 0..5 | tono de piel (por defecto el de Kconfig, 1) |

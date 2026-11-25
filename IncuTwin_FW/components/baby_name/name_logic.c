@@ -133,13 +133,12 @@ const char *bn_observed_inc(const twin_snapshot_t *s)
 
 bool bn_can_ask(const twin_snapshot_t *s)
 {
-    return !s->demo && s->show_baby && s->inc.baby == TWIN_BABY_IN && s->inc.name[0] == '\0' &&
-           s->inc.thermo != TWIN_THERMO_ALARM;
+    return !s->demo && s->show_baby && s->inc.baby == TWIN_BABY_IN && s->inc.name[0] == '\0';
 }
 
 bool bn_must_close(const twin_snapshot_t *s, const char *open_key, const char *key_now)
 {
-    return s->demo || !s->show_baby || s->inc.thermo == TWIN_THERMO_ALARM || s->inc.name[0] != '\0' ||
+    return s->demo || !s->show_baby || s->inc.name[0] != '\0' ||
            !key_now[0] || strcmp(open_key, key_now) != 0;
 }
 

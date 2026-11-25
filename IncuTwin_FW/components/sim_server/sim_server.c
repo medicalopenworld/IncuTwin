@@ -39,13 +39,13 @@ static const char PAGE[] =
     "</style></head><body><h1>IncuTwin — Simulación</h1>"
     "<h2>Escenarios</h2><div class='grid'>"
     "<button onclick=\"sc('sleep')\">Bebé dormido</button><button onclick=\"sc('awake')\">Bebé despierto</button>"
-    "<button onclick=\"sc('heating')\">Calentando</button><button onclick=\"sc('alarm')\">Alarma</button>"
-    "<button onclick=\"sc('photo')\">Fototerapia</button><button onclick=\"sc('parents')\">Con sus papás</button>"
+    "<button onclick=\"sc('heating')\">Calentando</button><button onclick=\"sc('photo')\">Fototerapia</button>"
+    "<button onclick=\"sc('parents')\">Con sus papás</button>"
     "<button onclick=\"sc('home')\">Ya está en casa</button><button onclick=\"sc('empty')\">Incubadora vacía</button>"
     "<button onclick=\"sc('off')\">IncuNest apagada</button><button onclick=\"sc('unlinked')\">Sin vincular</button></div>"
     "<h2>Campo a campo</h2><label>Termorregulación</label><select id='thermo'>"
     "<option value='off'>off</option><option value='heating'>heating</option><option value='stable'>stable</option>"
-    "<option value='alarm'>alarm</option></select>"
+    "</select>"
     "<label>Bebé</label><select id='baby'><option value='none'>none</option><option value='in'>in</option>"
     "<option value='parents'>parents</option><option value='home'>home</option></select>"
     "<div class='row'><input type='checkbox' id='photo'><span>Fototerapia</span></div>"
@@ -91,7 +91,6 @@ static const char *thermo_str(twin_thermo_t t)
     switch (t) {
     case TWIN_THERMO_HEATING: return "heating";
     case TWIN_THERMO_STABLE:  return "stable";
-    case TWIN_THERMO_ALARM:   return "alarm";
     default:                  return "off";
     }
 }
@@ -188,7 +187,6 @@ static esp_err_t state_post(httpd_req_t *req)
     if (str_eq(it, "off")) s_inc.thermo = TWIN_THERMO_OFF;
     else if (str_eq(it, "heating")) s_inc.thermo = TWIN_THERMO_HEATING;
     else if (str_eq(it, "stable")) s_inc.thermo = TWIN_THERMO_STABLE;
-    else if (str_eq(it, "alarm")) s_inc.thermo = TWIN_THERMO_ALARM;
     it = cJSON_GetObjectItemCaseSensitive(root, "baby");
     if (str_eq(it, "none")) s_inc.baby = TWIN_BABY_NONE;
     else if (str_eq(it, "in")) s_inc.baby = TWIN_BABY_IN;

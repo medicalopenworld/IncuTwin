@@ -19,14 +19,14 @@ simulado como correcto.
   IncuNest vinculada"
 
 ### Requirement: Página de control [manual]
-`GET /` SHALL servir una página única (sin dependencias externas) con: botones de los 10
+`GET /` SHALL servir una página única (sin dependencias externas) con: botones de los 9
 escenarios, controles campo a campo (termo, fototerapia, despierto, bebé dentro, en línea,
 vinculada, lpm 0–220, tono 0–5) con botón "Aplicar", y una demo automática (intervalo 2–120 s,
 Start/Stop).
 
 #### Scenario: Uso desde el móvil
-- **WHEN** se abre la URL desde un móvil en la misma WiFi y se pulsa "Alarma"
-- **THEN** el panel muestra la alarma en < 500 ms
+- **WHEN** se abre la URL desde un móvil en la misma WiFi y se pulsa "Fototerapia"
+- **THEN** el panel muestra la fototerapia en < 500 ms
 
 ### Requirement: API de estado [test-unity]
 `GET /state` SHALL devolver el modelo actual en JSON. `POST /state` SHALL aceptar `{"scenario":

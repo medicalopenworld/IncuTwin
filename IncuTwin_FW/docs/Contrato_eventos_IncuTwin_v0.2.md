@@ -97,14 +97,14 @@ Solo se listan las que afectan al contrato o son nuevas en `dev`. El resto (ener
 
 `hum_alarm`, `air_temp_high_alarm`, `air_temp_low_alarm`, `skin_temp_high_alarm`, `skin_temp_low_alarm`, `air_TC_alarm`, `skin_TC_alarm`, `air_sensor_alarm`, `skin_sensor_alarm` (modo SKIN), `skin_sensor_air_alarm` (modo AIR), `heater_alarm`, `heater_sensor_alarm`, `fan_alarm`, `air_blocked_alarm`, `power_alarm`, `mains_alarm`, `hmi_link_alarm`, `sb_link_alarm`, `sb_door_alarm`.
 
-Desaparece `temp_alarm` genérica (v0.1). Para `heat = alarm` se usan las térmicas: `air_temp_*`, `skin_temp_*`, `*_TC_alarm`, `heater_*`, `air_sensor_alarm`, `skin_sensor_alarm`, `air_blocked_alarm`.
+Desaparece `temp_alarm` genérica (v0.1). Estas alarmas son telemetría de la IncuNest; la máquina de estados de TB y la IncuTwin las ignoran (IncuTwin nunca enseña alarmas, decisión de Pablo 25-nov-2026), así que `heat` no vale `alarm`.
 
 ### 1.3 Cómo detecta lo que necesitamos (`dev`)
 
 | Necesidad | Fuente | Fiabilidad |
 |---|---|---|
 | **Entrada** | Asistente obligatorio → attributes `baby_seq` nuevo + `Control_active ∨ Phototherapy_active` | Alta. Único hueco: la enfermera cancela el asistente (la terapia queda apagada, así que tampoco hay bebé tratándose). |
-| **Calor / humedad / fototerapia** | `Control_active`, `Temp_desired` vs medida, alarmas térmicas; `Phototherapy_active` | Alta. |
+| **Calor / humedad / fototerapia** | `Control_active`, `Temp_desired` vs medida; `Phototherapy_active` | Alta. |
 | **Pulsioximetría** | Presencia de `SpO2_SQI`/`HRx_SQI` | Alta. |
 | **Canguro** | `baby_kangaroo_event` | Depende de que la enfermera responda al diálogo. |
 | **Alta** | `baby_outcome` + `baby_discharge_epoch` | Depende del alta explícita. Fallback: sesión idle prolongada (§3.4). |
@@ -189,13 +189,13 @@ care_active     bool   = Control_active ∨ Phototherapy_active
 baby_seq        int    (attribute del firmware, latch)
 stay_id         string | null
 baby_state      "none" | "in" | "parents" | "out"
-heat            "off" | "heating" | "stable" | "alarm"
+heat            "off" | "heating" | "stable"
 photo, spo2     bool
 hr              int | null
 control_mode    latch de Control_mode
 ```
 
-**`heat`**: igual que v0.1, con las alarmas térmicas nuevas: `alarm` si alguna de `air_temp_high/low`, `skin_temp_high/low`, `air_TC`, `skin_TC`, `heater`, `heater_sensor`, `air_sensor`, `skin_sensor`, `air_blocked` está latcheada; `off` si `¬Control_active`; `stable` si `|medida − Temp_desired| ≤ 0.5 °C` sostenido 5 min; `heating` en el resto.
+**`heat`**: solo `off`, `heating` o `stable`; las alarmas no se usan para `heat` (IncuTwin nunca enseña alarmas, decisión de Pablo 25-nov-2026). `off` si `¬Control_active`; `stable` si `|medida − Temp_desired| ≤ 0.5 °C` sostenido 5 min; `heating` en el resto.
 
 **`baby_state`** (máquina de estados en TB; sustituye a la heurística de v0.1):
 
