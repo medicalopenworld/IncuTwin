@@ -7,8 +7,14 @@
  */
 
 #include <inttypes.h>
+#include <stdlib.h>
+#include <string.h>
+#include <time.h>
 
+#include "accompany.h"
 #include "app_events.h"
+#include "event_log.h"
+#include "baby_name.h"
 #include "board.h"
 #include "bringup_screen.h"
 #include "cloud_status.h"
@@ -66,6 +72,7 @@ static void tick_1s_cb(void *arg)
 {
     (void)arg;
     twin_model_tick_1s();
+    accompany_tick_1s();
     twin_snapshot_t s = twin_model_get();
     usage_tick_1s(s.link_ok && s.inc.online && !s.demo);
 }
@@ -82,8 +89,11 @@ static void start_wifi_station(void)
 
 void app_main(void)
 {
+    setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); /* hora de España: antes de que nada lea la hora local */
+    tzset();
     ESP_ERROR_CHECK(storage_init());
     ESP_ERROR_CHECK(app_events_init());
+    event_log_init(); /* historial de avisos: tras storage y bus */
     ESP_ERROR_CHECK(board_init());
 
     identity_init();
@@ -91,14 +101,19 @@ void app_main(void)
     settings_init();
     usage_init();
 
+    accompany_init();
+    baby_name_init(); /* nombre local del bebe: antes de la UI */
     char inc_id[TWIN_INCUBATOR_ID_LEN] = "";
-    identity_incubator_id(inc_id);
+    if (accompany_enabled()) accompany_current(inc_id); /* la que acompañaba antes de reiniciar */
+    else identity_incubator_id(inc_id);
     twin_model_init(CONFIG_INCUTWIN_DEFAULT_SKIN, identity_has_creds(), inc_id);
+    accompany_start();
     sound_init();
     ESP_ERROR_CHECK(net_wifi_init());
 #if !CONFIG_INCUTWIN_SIM
     /* el broker: arranca en cuanto haya WiFi; sin credenciales se queda en espera */
     if (mqtt_link_start() == ESP_OK) {
+        mqtt_link_set_accompany(accompany_enabled());
         cloud_status_start();
         commands_start();
     }

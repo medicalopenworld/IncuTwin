@@ -51,13 +51,49 @@ menu "IncuTwin"
         range 60 86400
 
     config INCUTWIN_DEFAULT_SKIN
-        int "Tono de piel por defecto del bebe (0..5)"
-        default 1
-        range 0 5
+        int "Tono de piel del bebe antes de recibir el estado (0..4); luego manda el pais"
+        default 3
+        range 0 4
 
     config INCUTWIN_SNTP_SERVER
         string "Servidor SNTP"
         default "pool.ntp.org"
+
+    config INCUTWIN_BUZZER_MUTE
+        bool "SOLO PRUEBAS: zumbador siempre en silencio"
+        default n
+        help
+            Ningun sonido (arranque, avisos, latido, clic) sea cual sea el volumen de ajustes.
+            Para probar en sitios donde no puede sonar. Nunca en una build de release.
+
+    menu "Coge mi mano"
+        config INCUTWIN_HAND_MIN_S
+            int "Segundos de dedo para completar el gesto"
+            default 20
+            range 5 600
+
+        config INCUTWIN_HAND_GRACE_S
+            int "Segundos para volver a poner el dedo sin perder el progreso"
+            default 3
+            range 1 60
+
+        config INCUTWIN_HAND_READY_S
+            int "Segundos esperando el dedo tras pulsar el boton"
+            default 20
+            range 5 120
+
+        config INCUTWIN_HAND_THANKS_S
+            int "Segundos que se ve el agradecimiento al soltar (o hasta pulsar Volver)"
+            default 15
+            range 1 30
+
+        config INCUTWIN_HAND_COOLDOWN_S
+            int "Espera minima entre avisos a la IncuNest (s)"
+            default 0
+            range 0 86400
+            help
+                0 = sin espera. Valor previsto para produccion: 1800 (30 min).
+    endmenu
 
     config INCUTWIN_SIM
         bool "Build de simulacion (servidor web de control, sin MQTT ni OTA)"

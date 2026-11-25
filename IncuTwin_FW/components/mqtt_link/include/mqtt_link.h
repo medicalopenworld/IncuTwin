@@ -29,6 +29,9 @@ const char *mqtt_link_client_id(void);
 void mqtt_link_set_incubator(const char *incubator_id);
 
 /* Publica (QoS 0/1, retain). Devuelve false si no hay sesion. */
+/* Modo Acompañar: suscripcion a incubators/+/state en vez de a una sola (spec accompany). */
+void mqtt_link_set_accompany(bool on);
+
 bool mqtt_link_publish(const char *topic, const char *payload, size_t len, int qos, bool retain);
 
 #ifdef __cplusplus

@@ -1,7 +1,7 @@
 /* IncuTwin — acceso a NVS por namespace (spec identity-provisioning).
  *
  * Namespaces: "factory" y "mqtt" (fabricacion, sobreviven al factory reset),
- * "prov" (onboarding), "settings", "twin" (cache del gemelo), "usage".
+ * "prov" (onboarding), "settings", "twin" (cache del gemelo), "usage", "bname" (nombre local).
  * Todas las funciones abren y cierran el namespace: pensadas para accesos
  * poco frecuentes, no para bucles calientes.
  */
@@ -23,6 +23,10 @@ extern "C" {
 #define STORAGE_NS_SETTINGS "settings"
 #define STORAGE_NS_TWIN     "twin"
 #define STORAGE_NS_USAGE    "usage"
+#define STORAGE_NS_ACC      "acc"      /* modo Acompanar: historial (spec accompany) */
+#define STORAGE_NS_BNAME    "bname"    /* nombre local del bebe (spec nombre-bebe-panel) */
+#define STORAGE_NS_EVLOG    "evlog"    /* historial de avisos (event_log) */
+#define STORAGE_NS_EVLOG_SIM "evlogsim" /* historial del build sim: no mezcla avisos falsos con los reales */
 
 esp_err_t storage_init(void); /* nvs_flash_init con recuperacion si cambia la version */
 
@@ -37,10 +41,13 @@ bool storage_set_u8(const char *ns, const char *key, uint8_t val);
 bool storage_set_u32(const char *ns, const char *key, uint32_t val);
 bool storage_set_i32(const char *ns, const char *key, int32_t val);
 
+/* Blob de tamano exacto: false si no existe o su tamano no es `len`. */
+bool storage_get_blob(const char *ns, const char *key, void *out, size_t len);
+bool storage_set_blob(const char *ns, const char *key, const void *val, size_t len);
 bool storage_erase_key(const char *ns, const char *key);
 bool storage_erase_ns(const char *ns);
 
-/* Borra prov, settings y twin (NO factory, mqtt ni usage) y reinicia. */
+/* Borra prov, settings, twin, acc y bname (NO factory, mqtt ni usage) y reinicia. */
 void storage_factory_reset(void) __attribute__((noreturn));
 
 #ifdef __cplusplus

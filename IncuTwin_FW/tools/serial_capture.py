@@ -24,7 +24,8 @@ def main() -> int:
     ap.add_argument("--seconds", type=float, default=10.0)
     ap.add_argument("--reset", action="store_true", help="resetear la placa al abrir")
     ap.add_argument("--grep", help="solo lineas que contengan este texto")
-    ap.add_argument("--send", help="linea a enviar por la consola tras 2 s")
+    ap.add_argument("--send", action="append", help="linea a enviar por la consola (repetible: la 1a a los 2 s, luego una cada --gap s)")
+    ap.add_argument("--gap", type=float, default=3.0)
     args = ap.parse_args()
 
     with serial.Serial(args.port, args.baud, timeout=0.2) as ser:
@@ -36,12 +37,14 @@ def main() -> int:
             time.sleep(0.1)
             ser.rts = False
         t0 = time.time()
-        sent = False
+        sent = 0
+        next_send = 2.0
         buf = b""
         while time.time() - t0 < args.seconds:
-            if args.send and not sent and time.time() - t0 > 2.0:
-                ser.write((args.send + "\n").encode())
-                sent = True
+            if args.send and sent < len(args.send) and time.time() - t0 > next_send:
+                ser.write((args.send[sent] + "\n").encode())
+                sent += 1
+                next_send += args.gap
             chunk = ser.read(4096)
             if not chunk:
                 continue

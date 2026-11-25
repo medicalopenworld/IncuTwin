@@ -4,8 +4,8 @@
  * volumen (settings). La maquina de estados corre en un lv_timer de 15 ms en la
  * tarea de LVGL; las peticiones desde otras tareas se encolan de forma atomica.
  *
- * Escucha TWIN_EVT_TRANSITION (BABY_IN -> "Bebe detectado" + ventana de latido;
- * BABY_PARENTS -> fanfarria), TWIN_EVT_STATE_CHANGED (bpm visible) y
+ * Escucha TWIN_EVT_NOTICE (ingreso -> "Bebe detectado";
+ * pasa con sus papas -> fanfarria; el resto de avisos no suenan), TWIN_EVT_STATE_CHANGED (bpm visible) y
  * TWIN_EVT_SETTINGS_CHANGED (volumen).
  */
 #pragma once
@@ -28,11 +28,17 @@ typedef enum {
 /* Llamar con la tarea de LVGL ya creada (tras board_init). */
 void sound_init(void);
 
-/* Pide una melodia; segura desde cualquier tarea. Sustituye a la que suene. */
+/* Pide una melodia; segura desde cualquier tarea. Sustituye a la que suene. Para lo que el
+ * usuario provoca tocando la pantalla (clic, tono de prueba, botones de la demo) y para el arranque al enchufar. */
 void sound_request(sound_melody_t m);
 
-/* Dedo sobre el bebe / boton "Agarra mi mano" (desde la tarea de LVGL). */
-void sound_hand_hold(bool holding);
+/* Igual, pero para melodias que nadie ha pedido tocando (avisos, recordatorios, comandos
+ * remotos): en horario nocturno se descartan. */
+void sound_request_auto(sound_melody_t m);
+
+/* Latido al ritmo real del bebe: on = suena 10 s (o hasta off); al tocar el icono del corazon.
+ * Con bpm 0 o volumen Apagado no suena. */
+void sound_heartbeat(bool on);
 
 #ifdef __cplusplus
 }

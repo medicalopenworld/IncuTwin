@@ -7,6 +7,8 @@
 #include "esp_log.h"
 #include "esp_lvgl_port.h"
 #include "lvgl.h"
+#include "quiet_hours.h"
+#include "sdkconfig.h"
 #include "settings.h"
 #include "twin_types.h"
 
@@ -35,17 +37,16 @@ static const note_t CLICK_MELODY[] = { {1760, 25} }; /* A6, feedback tactil */
 #define HB_DUB_HZ    262
 #define HB_DUB_MS    40
 #define HB_REST_MIN  50
-#define HB_WINDOW_MS 3000
+#define HB_TAP_MS    10000 /* latido al tocar el icono del corazon */
 
 /* duty (10 bits) por nivel; a calibrar en hardware */
 static const uint16_t VOLUME_DUTY[] = { 0, 8, 20, 512 };
 
 /* peticiones desde otras tareas */
 static atomic_int s_req = SOUND_NONE;
-static atomic_bool s_hb_window_req = false;
+static atomic_int s_hb_req = 0; /* 1 = abrir ventana de latido, 2 = cerrarla */
 static atomic_uint s_bpm = 0;
 static atomic_uint s_volume = 3;
-static atomic_bool s_holding = false;
 
 /* estado de la tarea LVGL */
 static const note_t *s_seq;
@@ -61,6 +62,9 @@ static bool s_hb_idle = true;
 static void tone(uint16_t freq)
 {
     unsigned vol = atomic_load(&s_volume);
+#if CONFIG_INCUTWIN_BUZZER_MUTE
+    vol = 0; /* build de pruebas en silencio (spec sound) */
+#endif
     if (freq == 0 || vol == 0) {
         board_buzzer_tone(0, 0);
         return;
@@ -102,7 +106,6 @@ static void play(sound_melody_t m, uint32_t now)
 static bool hb_active(uint32_t now)
 {
     if (atomic_load(&s_volume) == 0 || atomic_load(&s_bpm) == 0) return false;
-    if (atomic_load(&s_holding)) return true;
     return s_hb_until != 0 && (int32_t)(now - s_hb_until) < 0;
 }
 
@@ -138,9 +141,12 @@ static void sound_tick(lv_timer_t *t)
         s_hb_idle = true;
         s_hb_phase = 0;
     }
-    if (atomic_exchange(&s_hb_window_req, false)) {
-        s_hb_until = now + HB_WINDOW_MS;
+    int hb = atomic_exchange(&s_hb_req, 0);
+    if (hb == 1) {
+        s_hb_until = now + HB_TAP_MS;
         if (s_hb_until == 0) s_hb_until = 1;
+    } else if (hb == 2) {
+        s_hb_until = 0;
     }
     if (atomic_load(&s_volume) == 0 && (s_seq || !s_hb_idle)) {
         seq_stop(); /* apagado: cortar lo que suene */
@@ -176,18 +182,30 @@ static void sound_tick(lv_timer_t *t)
     }
 }
 
+/* Horario nocturno en el momento de la peticion (sin hora valida: no es de noche). */
+static bool quiet_now(void)
+{
+    return quiet_hours_active(settings_local_hour(), settings_quiet_on(), settings_quiet_from(),
+                              settings_quiet_to());
+}
+
 /* ----------------------------------------------------------------- events */
 
-static void on_transition(void *arg, esp_event_base_t base, int32_t id, void *data)
+static void on_notice(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg; (void)base; (void)id;
-    twin_transition_t tr = *(twin_transition_t *)data;
-    if (tr == TWIN_TR_BABY_IN) {
-        sound_request(SOUND_BABY);
-        atomic_store(&s_hb_window_req, true);
-    } else if (tr == TWIN_TR_BABY_PARENTS) {
-        sound_request(SOUND_PARENTS);
+    const app_evt_notice_t *n = data;
+    /* solo suenan el ingreso y el paso con sus papas; el latido solo al tocar el corazon */
+    sound_melody_t m = SOUND_NONE;
+    if (n->mask & TWIN_NOTICE_ADMISSION) {
+        m = SOUND_BABY;
+    } else if (n->mask & TWIN_NOTICE_PARENTS) {
+        m = SOUND_PARENTS;
     }
+    if (m == SOUND_NONE) return;
+    ESP_LOGI(TAG, "aviso 0x%02lx -> melodia %d%s", (unsigned long)n->mask, (int)m,
+             quiet_now() ? " (se silencia si es de noche)" : "");
+    sound_request_auto(m);
 }
 
 static void on_state(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -216,11 +234,23 @@ void sound_init(void)
     } else {
         ESP_LOGE(TAG, "sin lock de LVGL: sonido deshabilitado");
     }
-    app_events_subscribe(TWIN_EVT_TRANSITION, on_transition, NULL);
+    app_events_subscribe(TWIN_EVT_NOTICE, on_notice, NULL);
     app_events_subscribe(TWIN_EVT_STATE_CHANGED, on_state, NULL);
     app_events_subscribe(TWIN_EVT_SETTINGS_CHANGED, on_settings, NULL);
 }
 
-void sound_request(sound_melody_t m) { atomic_store(&s_req, (int)m); }
+void sound_request(sound_melody_t m)
+{
+    atomic_store(&s_req, (int)m);
+}
 
-void sound_hand_hold(bool holding) { atomic_store(&s_holding, holding); }
+void sound_request_auto(sound_melody_t m)
+{
+    if (quiet_now()) {
+        ESP_LOGI(TAG, "melodia %d silenciada (horario nocturno)", (int)m);
+        return;
+    }
+    sound_request(m);
+}
+
+void sound_heartbeat(bool on) { atomic_store(&s_hb_req, on ? 1 : 2); }

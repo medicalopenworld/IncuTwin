@@ -16,7 +16,9 @@ import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-TB_ENV = os.path.join(HERE, "factory", "secrets", "thingsboard.env")
+# TB_ENV_FILE elige otro fichero de credenciales, p. ej. el del tenant de pruebas (Demo):
+#   $env:TB_ENV_FILE = "tools/factory/secrets/thingsboard-test.env"
+TB_ENV = os.environ.get("TB_ENV_FILE") or os.path.join(HERE, "factory", "secrets", "thingsboard.env")
 
 
 def load_env(path=TB_ENV):

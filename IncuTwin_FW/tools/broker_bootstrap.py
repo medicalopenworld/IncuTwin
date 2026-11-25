@@ -8,7 +8,8 @@ ninguna); los clientes que ya existen se dejan como estan.
 Roles:
   incutwin    publishClientSend incutwin/%c/# · subscribePattern incutwin/%c/cmd/# e incutwin/all/cmd/#
               (%c = client id; requiere Mosquitto >= 2.1.2, en la 2.0.22 no funcionaba)
-  thingsboard publishClientSend incubators/#          (cliente: lo crea infra con su contrasena)
+  thingsboard publishClientSend incubators/# e incutwin/+/cmd/history (historial retenido,
+              spec tb-stay-history; cliente: lo crea infra con su contrasena)
   publisher   publishClientSend incutwin/+/cmd/# · subscribePattern incutwin/+/status e incubators/#
 Clientes:
   publisher   si MQTT_PUB_PASS esta vacio/RELLENAR en broker.env se genera una contrasena y se
@@ -37,6 +38,7 @@ ROLES = {
     ],
     "thingsboard": [
         ("publishClientSend", "incubators/#"),
+        ("publishClientSend", "incutwin/+/cmd/history"),  # spec tb-stay-history
     ],
     "publisher": [
         ("publishClientSend", "incutwin/+/cmd/#"),

@@ -29,6 +29,7 @@ typedef enum {
     PAIR_INVALID = 0,
     PAIR_UNPAIR,  /* payload vacio */
     PAIR_SET,     /* {"incubator_id":"<id valido>"} */
+    PAIR_ACCOMPANY, /* {"mode":"accompany"} sin id: modo Acompañar (spec accompany) */
 } pair_cmd_t;
 
 pair_cmd_t cmd_parse_pair(const char *payload, size_t len, char out_id[TWIN_INCUBATOR_ID_LEN]);

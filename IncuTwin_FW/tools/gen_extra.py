@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
 """Assets adicionales (LVGL 9): marca IncuTwin (del logo), iconos de estado (termometro,
-lampara), iconos de cobertura WiFi (0..3 barras + sin WiFi) y las dos imagenes a pantalla
-completa (incubadora vacia, bebe con sus padres) en vertical 240x320.
+lampara), pollito del historial, iconos de cobertura WiFi (0..3 barras + sin WiFi) y las imagenes a pantalla
+completa en vertical 240x320: incubadora vacia, bebe con sus padres (nino y nina, y en
+piel oscura), corazon de IncuNest al terminar "Coge mi mano".
 Uso: python tools/gen_extra.py"""
+import colorsys
 import os
 import sys
+from collections import deque
 
-from PIL import Image, ImageChops, ImageDraw, ImageOps
+from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 IMAGES = os.path.join(ROOT, "Images")
 sys.path.insert(0, HERE)
-from gen_assets import ASSETS, PREVIEW, load_logo  # noqa: E402
+from gen_assets import (ASSETS, GIRL_HUE, GIRL_SAT_GAIN, PREVIEW, draw_bow,  # noqa: E402
+                        load_logo)
 from lvgl9_c import c_header, emit_argb8888, emit_rgb565, write_header  # noqa: E402
 
 NAVY = (30, 62, 110)
@@ -69,6 +73,53 @@ def make_lamp():
     return im.resize((W, H), Image.LANCZOS)
 
 
+def make_chick(size):
+    """Pollito amarillo asomando de media cascara blanca con borde en zigzag, ojo y pico
+    naranja. Se dibuja en una cuadricula de 128 y se reduce con antialiasing; formas gruesas
+    y simples para que se lea a 28 px, con contorno marron para separarlo del fondo claro."""
+    k = 8
+    big = 128 * k
+    u = float(k)
+    yellow, orange = (246, 196, 67, 255), (242, 140, 40, 255)
+    shell, edge, ink = (255, 255, 255, 255), (140, 104, 56, 255), (40, 30, 20, 255)
+    ow = 5 * u
+
+    def silueta(draw, fill, grow=0.0):
+        """Cabeza (circulo + copete) y cuenco de cascara; `grow` engorda para el contorno."""
+        g = grow
+        draw.ellipse((64 * u - 46 * u - g, 8 * u - g, 64 * u + 46 * u + g, 100 * u + g), fill=fill)
+        draw.polygon([(54 * u - g, 14 * u), (62 * u, 0 - g), (74 * u + g, 14 * u)], fill=fill)
+
+    # mascara de la cascara: elipse inferior recortada por arriba con zigzag
+    top, n, x0, x1 = 86, 6, 4, 124
+    zig = [(x0, 140)]
+    for i in range(n):
+        xa = x0 + (x1 - x0) * i / n
+        xb = x0 + (x1 - x0) * (i + 0.5) / n
+        zig += [(xa, top + 8), (xb, top - 8)]
+    zig += [(x1, top + 8), (x1, 140)]
+    keep = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(keep).polygon([(x * u, y * u) for x, y in zig], fill=255)
+    bowl = Image.new("L", (big, big), 0)
+    ImageDraw.Draw(bowl).ellipse((x0 * u, 58 * u, x1 * u, 126 * u), fill=255)
+    shell_mask = ImageChops.multiply(keep, bowl)
+    ring = shell_mask.filter(ImageFilter.MaxFilter(2 * int(ow) + 1))
+
+    im = Image.new("RGBA", (big, big), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    silueta(d, edge, grow=ow)           # contorno del pollito
+    im.paste(Image.new("RGBA", im.size, edge), mask=ring)   # contorno de la cascara
+    silueta(d, yellow)
+    # pico (por encima de la cascara) y ojos
+    d.polygon([(50 * u, 56 * u), (78 * u, 56 * u), (64 * u, 78 * u)], fill=orange,
+              outline=edge, width=int(2 * u))
+    for ex in (42 * u, 86 * u):
+        d.ellipse((ex - 7 * u, 38 * u, ex + 7 * u, 52 * u), fill=ink)
+        d.ellipse((ex - 3 * u, 40 * u, ex + 1 * u, 44 * u), fill=(255, 255, 255, 255))
+    im.paste(Image.new("RGBA", im.size, shell), mask=shell_mask)
+    return im.resize((size, size), Image.LANCZOS)
+
+
 def make_wifi(level):
     """Abanico WiFi: punto + 3 arcos. `level` 0..3 = arcos solidos; el resto tenue (mismo
     navy con poca alfa) para que un recolor de LVGL conserve la distincion."""
@@ -100,14 +151,97 @@ def make_wifi_off():
     return im.resize((W, H), Image.LANCZOS)
 
 
-def fullscreen_from(png):
-    """Imagen derecha en la pantalla vertical: recorta margenes blancos y rellena a 240x320."""
-    im = Image.open(os.path.join(IMAGES, png)).convert("RGB")
-    bg = Image.new("RGB", im.size, (255, 255, 255))
-    diff = ImageChops.difference(im, bg).convert("L")
+def make_flag_cm():
+    """Bandera de Camerun (verde | rojo con estrella amarilla | amarillo), 96x64, esquinas
+    redondeadas y borde fino, para la pagina del pais de la demo."""
+    import math
+    s = 4
+    W, H = 96, 64
+    im = Image.new("RGBA", (W * s, H * s), (0, 0, 0, 0))
+    mask = Image.new("L", im.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, W * s - 1, H * s - 1), radius=6 * s, fill=255)
+    d = ImageDraw.Draw(im)
+    w3 = W * s / 3
+    d.rectangle((0, 0, w3, H * s), fill=(0, 122, 94))
+    d.rectangle((w3, 0, 2 * w3, H * s), fill=(206, 17, 38))
+    d.rectangle((2 * w3, 0, W * s, H * s), fill=(252, 209, 22))
+    cx, cy, ro, ri = W * s / 2, H * s / 2, 11 * s, 4.4 * s
+    pts = []
+    for k in range(10):
+        r = ro if k % 2 == 0 else ri
+        a = -math.pi / 2 + k * math.pi / 5
+        pts.append((cx + r * math.cos(a), cy + r * math.sin(a)))
+    d.polygon(pts, fill=(252, 209, 22))
+    out = Image.new("RGBA", im.size, (0, 0, 0, 0))
+    out.paste(im, mask=mask)
+    ImageDraw.Draw(out).rounded_rectangle((0, 0, W * s - 1, H * s - 1), radius=6 * s,
+                                          outline=(200, 200, 200, 255), width=s)
+    return out.resize((W, H), Image.LANCZOS)
+
+
+# Nina en Baby_with_parents.png (coordenadas del PNG original, 896x1199). El padre lleva
+# camiseta azul y la madre una casi blanca pegadas al bebe: en vez de recolorear por zona se
+# rellena desde semillas dentro del gorro y la manta, y el contorno marino del dibujo hace de
+# frontera (comprobado: ninguna de las dos camisetas cambia).
+PARENTS_GIRL_SEEDS = ((470, 665), (440, 660), (500, 650), (520, 680), (480, 630), (460, 640),
+                      (340, 810), (430, 810), (480, 860), (380, 900), (450, 760), (300, 900))
+PARENTS_GIRL_BOX = (200, 540, 640, 1040)
+PARENTS_GIRL_VMIN = 0.40
+PARENTS_BOW = (522, 598, 5)   # centro x, arriba y, celda: tapa el pompon (~523, 615)
+
+
+def parents_girl(im):
+    """Baby_with_parents.png -> la misma escena con la bebe en version nina (propuesta B)."""
+    im = im.copy()
+    px = im.load()
+    x0, y0, x1, y1 = PARENTS_GIRL_BOX
+
+    def bluish(p):
+        hh, ss, vv = colorsys.rgb_to_hsv(*(c / 255 for c in p[:3]))
+        return 0.50 <= hh <= 0.68 and ss > 0.06 and vv > PARENTS_GIRL_VMIN
+
+    seen = set()
+    dq = deque(PARENTS_GIRL_SEEDS)
+    while dq:
+        x, y = dq.popleft()
+        if (x, y) in seen or not (x0 <= x < x1 and y0 <= y < y1) or not bluish(px[x, y]):
+            continue
+        seen.add((x, y))
+        dq.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+    for x, y in seen:
+        hh, ss, vv = colorsys.rgb_to_hsv(*(c / 255 for c in px[x, y][:3]))
+        r, g, b = colorsys.hsv_to_rgb(GIRL_HUE / 360, min(1, ss * GIRL_SAT_GAIN), vv)
+        px[x, y] = (round(r * 255), round(g * 255), round(b * 255))
+    cx, top, k = PARENTS_BOW
+    draw_bow(ImageDraw.Draw(im), cx, top, k)
+    return im
+
+
+def fullscreen_from(png, transform=None):
+    """Imagen derecha en la pantalla vertical: recorta margenes blancos y rellena a 240x320.
+    `transform` se aplica al PNG original antes de recortar (la caja sale del original)."""
+    src = Image.open(os.path.join(IMAGES, png)).convert("RGB")
+    im = transform(src) if transform else src
+    bg = Image.new("RGB", src.size, (255, 255, 255))
+    diff = ImageChops.difference(src, bg).convert("L")
     bbox = diff.point(lambda v: 255 if v > 16 else 0).getbbox()
     im = im.crop(bbox)
     return ImageOps.pad(im, (SCREEN_W, SCREEN_H), Image.LANCZOS, color=(255, 255, 255))
+
+
+def save_chick_preview(c28, c64):
+    """tools/preview/chick.png: ambos tamanos sobre el fondo claro de la UI, 28 px a x1 y x4
+    (como se vera en pantalla y ampliado) y a 50 % de opacidad (pestana inactiva)."""
+    bg = (244, 247, 251, 255)
+    sheet = Image.new("RGBA", (420, 140), bg)
+    sheet.alpha_composite(c28, (10, 10))
+    faded = c28.copy()
+    faded.putalpha(faded.getchannel("A").point(lambda v: v // 2))
+    sheet.alpha_composite(faded, (50, 10))
+    sheet.alpha_composite(c28.resize((112, 112), Image.NEAREST), (100, 14))
+    sheet.alpha_composite(c64, (230, 10))
+    sheet.alpha_composite(c64.resize((128, 128), Image.LANCZOS), (290, 6))
+    sheet.save(os.path.join(PREVIEW, "chick.png"))
 
 
 def main():
@@ -116,19 +250,32 @@ def main():
     wm = make_wordmark()
     th = make_thermo()
     lp = make_lamp()
+    chick28 = make_chick(28)
+    chick64 = make_chick(64)
     wifis = [make_wifi(i) for i in range(4)]
     wifi_off = make_wifi_off()
     empty = fullscreen_from("IncuNest_empty.png")
     parents = fullscreen_from("Baby_with_parents.png")
+    parents_black = fullscreen_from("Baby_with_parents_black.jpg")  # tonos de piel 3..5
+    thanks = fullscreen_from("Corazon_IncuNest.png")  # fin de "Coge mi mano"
+    flag_cm = make_flag_cm()  # pagina del pais en la demo
+    parents_g = fullscreen_from("Baby_with_parents.png", parents_girl)
 
     wm.save(os.path.join(PREVIEW, "wordmark.png"))
     th.save(os.path.join(PREVIEW, "icon_thermo.png"))
     lp.save(os.path.join(PREVIEW, "icon_lamp.png"))
     wifi_off.save(os.path.join(PREVIEW, "wifi_off.png"))
+    chick28.save(os.path.join(PREVIEW, "chick_28.png"))
+    chick64.save(os.path.join(PREVIEW, "chick_64.png"))
+    save_chick_preview(chick28, chick64)
     for i, w in enumerate(wifis):
         w.save(os.path.join(PREVIEW, f"wifi_{i}.png"))
     empty.save(os.path.join(PREVIEW, "incunest_empty.png"))
     parents.save(os.path.join(PREVIEW, "baby_parents.png"))
+    parents_black.save(os.path.join(PREVIEW, "baby_parents_black.png"))
+    thanks.save(os.path.join(PREVIEW, "hand_thanks.png"))
+    flag_cm.save(os.path.join(PREVIEW, "flag_cm.png"))
+    parents_g.save(os.path.join(PREVIEW, "baby_parents_girl.png"))
     print("wordmark:", wm.size, " empty:", empty.size)
 
     with open(os.path.join(ASSETS, "img_extra.c"), "w", encoding="utf-8", newline="\n") as f:
@@ -137,17 +284,25 @@ def main():
         emit_argb8888(f, "img_icon_thermo", th)
         emit_argb8888(f, "img_icon_lamp", lp)
         emit_argb8888(f, "img_wifi_off", wifi_off)
+        emit_argb8888(f, "img_chick_28", chick28)
+        emit_argb8888(f, "img_chick_64", chick64)
         for i, w in enumerate(wifis):
             emit_argb8888(f, f"img_wifi_{i}", w)
         emit_rgb565(f, "img_incunest_empty", empty)
         emit_rgb565(f, "img_baby_parents", parents)
+        emit_rgb565(f, "img_baby_parents_black", parents_black)
+        emit_rgb565(f, "img_hand_thanks", thanks)
+        emit_argb8888(f, "img_flag_cm", flag_cm)
+        emit_rgb565(f, "img_baby_parents_girl", parents_g)
 
     write_header(
         os.path.join(ASSETS, "include", "assets_extra.h"),
         "Assets adicionales (gen_extra.py)",
         ["img_wordmark", "img_icon_thermo", "img_icon_lamp", "img_wifi_off",
+         "img_chick_28", "img_chick_64",
          "img_wifi_0", "img_wifi_1", "img_wifi_2", "img_wifi_3",
-         "img_incunest_empty", "img_baby_parents"],
+         "img_incunest_empty", "img_baby_parents", "img_baby_parents_black", "img_hand_thanks",
+         "img_flag_cm", "img_baby_parents_girl"],
     )
     print("img_extra.c escrito")
 

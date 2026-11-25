@@ -1,4 +1,5 @@
 /* Spec twin-state-ingest: validacion del payload de incubators/<id>/state. */
+#include <stdio.h>
 #include <string.h>
 
 #include "twin_logic.h"
@@ -27,6 +28,7 @@ TEST_CASE("parse: payload del contrato", "[twin][parse]")
     TEST_ASSERT_EQUAL_STRING("treatment_changed", m.last_event);
     TEST_ASSERT_FALSE(m.has_thermo);
     TEST_ASSERT_FALSE(m.has_name);
+    TEST_ASSERT_FALSE(m.has_sex);
 }
 
 TEST_CASE("parse: bpm null y campos ausentes", "[twin][parse]")
@@ -100,6 +102,55 @@ TEST_CASE("parse: nombre demasiado largo se ignora, vacio no cuenta", "[twin][pa
     TEST_ASSERT_FALSE(m.has_name);
 }
 
+TEST_CASE("parse: el tono 5 retirado se pinta como el 4", "[twin][parse]")
+{
+    twin_msg_t m;
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"skin\":5}", "353", &m));
+    TEST_ASSERT_TRUE(m.has_skin);
+    TEST_ASSERT_EQUAL_UINT8(4, m.skin);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"skin\":6}", "353", &m));
+    TEST_ASSERT_FALSE(m.has_skin);
+}
+
+TEST_CASE("parse: pais ISO alfa-2", "[twin][parse]")
+{
+    twin_msg_t m;
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"country\":\"cm\"}", "353", &m));
+    TEST_ASSERT_TRUE(m.has_country);
+    TEST_ASSERT_EQUAL_STRING("CM", m.country);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"country\":\"Camerun\"}", "353", &m));
+    TEST_ASSERT_FALSE(m.has_country);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"country\":\"C1\"}", "353", &m));
+    TEST_ASSERT_FALSE(m.has_country);
+}
+
+TEST_CASE("parse: sexo del bebe m/f; cualquier otro valor se ignora", "[twin][parse]")
+{
+    twin_msg_t m;
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"name\":\"Hugo\",\"sex\":\"m\"}", "353", &m));
+    TEST_ASSERT_TRUE(m.has_sex);
+    TEST_ASSERT_EQUAL(TWIN_SEX_MALE, m.sex);
+    TEST_ASSERT_EQUAL_STRING("Hugo", m.name);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"353\",\"state\":\"baby\",\"sex\":\"f\"}", "353", &m));
+    TEST_ASSERT_TRUE(m.has_sex);
+    TEST_ASSERT_EQUAL(TWIN_SEX_FEMALE, m.sex);
+    /* invalido: no invalida el mensaje, solo no cuenta */
+    const char *bad[] = { "\"x\"", "\"\"", "\"M\"", "1", "true", "null" };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        char j[96];
+        snprintf(j, sizeof(j), "{\"incubator_id\":\"353\",\"state\":\"baby\",\"sex\":%s}", bad[i]);
+        TEST_ASSERT_EQUAL(TWIN_PARSE_OK, parse(j, "353", &m));
+        TEST_ASSERT_FALSE(m.has_sex);
+    }
+}
+
 TEST_CASE("parse: tratamientos desconocidos se ignoran", "[twin][parse]")
 {
     twin_msg_t m;
@@ -108,4 +159,26 @@ TEST_CASE("parse: tratamientos desconocidos se ignoran", "[twin][parse]")
     TEST_ASSERT_TRUE(m.heat);
     TEST_ASSERT_FALSE(m.photo);
     TEST_ASSERT_FALSE(m.pulseox);
+}
+
+TEST_CASE("parse: stay_id", "[twin][parse]")
+{
+    twin_msg_t m;
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"297\",\"state\":\"baby\",\"stay_id\":\"297:4\"}", "297", &m));
+    TEST_ASSERT_TRUE(m.has_stay);
+    TEST_ASSERT_EQUAL_STRING("297:4", m.stay_id);
+    TEST_ASSERT_EQUAL(TWIN_PARSE_OK,
+                      parse("{\"incubator_id\":\"297\",\"state\":\"baby\",\"stay_id\":\"297:0-1794260594\"}", "297", &m));
+    TEST_ASSERT_TRUE(m.has_stay);
+    TEST_ASSERT_EQUAL_STRING("297:0-1794260594", m.stay_id);
+    /* invalidos: no invalidan el mensaje, solo no cuentan */
+    const char *bad[] = { "\"\"", "7", "null", "\"297:4 x\"", "\"297/4\"",
+                          "\"0123456789012345678901234567890123456789\"" /* 40 */ };
+    for (size_t i = 0; i < sizeof(bad) / sizeof(bad[0]); i++) {
+        char j[128];
+        snprintf(j, sizeof(j), "{\"incubator_id\":\"297\",\"state\":\"baby\",\"stay_id\":%s}", bad[i]);
+        TEST_ASSERT_EQUAL(TWIN_PARSE_OK, parse(j, "297", &m));
+        TEST_ASSERT_FALSE_MESSAGE(m.has_stay, bad[i]);
+    }
 }

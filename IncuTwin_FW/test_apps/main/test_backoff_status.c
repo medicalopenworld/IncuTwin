@@ -30,18 +30,23 @@ TEST_CASE("backoff: jitter dentro de +-20 %", "[mqtt]")
 TEST_CASE("status: payload exacto y tamano", "[status]")
 {
     char buf[STATUS_PAYLOAD_MAX + 1];
-    int n = status_payload_build(buf, sizeof(buf), "2.0.0", -61, "353", 1759320000LL);
+    int n = status_payload_build(buf, sizeof(buf), "2.0.0", -61, "353", false, 1759320000LL);
     TEST_ASSERT_TRUE(n > 0);
     TEST_ASSERT_EQUAL_STRING(
         "{\"online\":true,\"fw\":\"2.0.0\",\"rssi\":-61,\"incubator_id\":\"353\",\"ts\":1759320000}", buf);
     TEST_ASSERT_TRUE(n <= STATUS_PAYLOAD_MAX);
 
-    n = status_payload_build(buf, sizeof(buf), "2.0.0", -100, "", 0);
+    n = status_payload_build(buf, sizeof(buf), "2.0.0", -100, "", false, 0);
     TEST_ASSERT_EQUAL_STRING("{\"online\":true,\"fw\":\"2.0.0\",\"rssi\":-100,\"incubator_id\":\"\",\"ts\":0}", buf);
 
-    /* el peor caso cabe: version larga + id de 16 + ts de 10 digitos */
-    n = status_payload_build(buf, sizeof(buf), "12.34.56-beta.7", -99, "1234567890123456", 9999999999LL);
+    /* modo acompañar: incubator_id es la que se acompaña ahora */
+    n = status_payload_build(buf, sizeof(buf), "2.0.0", -61, "297", true, 1759320000LL);
+    TEST_ASSERT_EQUAL_STRING(
+        "{\"online\":true,\"fw\":\"2.0.0\",\"rssi\":-61,\"incubator_id\":\"297\",\"acc\":1,\"ts\":1759320000}", buf);
+
+    /* el peor caso cabe: version larga + id de 16 + acc + ts de 10 digitos */
+    n = status_payload_build(buf, sizeof(buf), "12.34.56-beta.7", -99, "1234567890123456", true, 9999999999LL);
     TEST_ASSERT_TRUE(n > 0 && n <= STATUS_PAYLOAD_MAX);
     char tiny[20];
-    TEST_ASSERT_EQUAL(-1, status_payload_build(tiny, sizeof(tiny), "2.0.0", -61, "353", 0));
+    TEST_ASSERT_EQUAL(-1, status_payload_build(tiny, sizeof(tiny), "2.0.0", -61, "353", false, 0));
 }

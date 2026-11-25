@@ -63,10 +63,15 @@ anterior:
 | `awake` | bool | `awake` (por defecto false) |
 | `skin` | entero 0..5 | tono de piel (por defecto el de Kconfig, 1) |
 | `name` | string ≤ 23 bytes UTF-8 | nombre en la barra ("" = ninguno) |
+| `sex` | `m`, `f` | sexo del bebé (ausente o inválido = desconocido) |
 | `weight_g` | entero 0..9999 | peso (0 = no mostrar) |
 | `age_d` | entero 0..9999 | días (ausente = no mostrar) |
 
 Valores inválidos de una clave opcional SHALL ignorarse sin invalidar el mensaje.
+
+`name` y `sex` los decide ThingsBoard una vez por episodio (`docs/Contrato_eventos_IncuTwin_v0.2.md`
+§3.4.1) y son los mismos para todos los paneles de la incubadora. El panel NO SHALL elegir,
+sortear ni recordar por su cuenta el nombre o el sexo: si no vienen en el mensaje, no hay.
 
 #### Scenario: Canguro vía extensión
 - **WHEN** llega `state: baby, baby: "parents"`
@@ -75,6 +80,14 @@ Valores inválidos de una clave opcional SHALL ignorarse sin invalidar el mensaj
 #### Scenario: Extensión inválida
 - **WHEN** llega `skin: 9`
 - **THEN** el tono no cambia y el resto del mensaje se aplica
+
+#### Scenario: Identidad del bebé
+- **WHEN** llega `state: baby, name: "Hugo", sex: "m"`
+- **THEN** el modelo tiene `name = "Hugo"`, `sex = male`
+
+#### Scenario: Identidad ausente
+- **WHEN** el modelo tenía `name = "Hugo"`, `sex = male` y llega un estado sin `name` ni `sex`
+- **THEN** el modelo queda con `name = ""` y `sex` desconocido
 
 ### Requirement: Deduplicación por event_seq [test-unity]
 El panel SHALL recordar el último `event_seq` aplicado de la incubadora emparejada (en RAM y en

@@ -49,13 +49,50 @@ static void parse_extensions(const cJSON *root, twin_msg_t *m)
     if (cJSON_IsBool(it)) { m->has_awake = true; m->awake = cJSON_IsTrue(it); }
 
     it = cJSON_GetObjectItemCaseSensitive(root, "skin");
-    if (get_int(it, 0, TWIN_SKIN_COUNT - 1, &v)) { m->has_skin = true; m->skin = (uint8_t)v; }
+    /* 5 era el tono mas oscuro, ya retirado: se pinta con el 4 */
+    if (get_int(it, 0, TWIN_SKIN_COUNT, &v)) {
+        m->has_skin = true;
+        m->skin = (uint8_t)(v >= TWIN_SKIN_COUNT ? TWIN_SKIN_COUNT - 1 : v);
+    }
 
     it = cJSON_GetObjectItemCaseSensitive(root, "name");
     if (cJSON_IsString(it) && it->valuestring && strlen(it->valuestring) < TWIN_NAME_LEN) {
         m->has_name = it->valuestring[0] != '\0';
         strncpy(m->name, it->valuestring, TWIN_NAME_LEN - 1);
     }
+
+    /* pais: ISO 3166-1 alfa-2 ("CM"); se acepta en minusculas y se guarda en mayusculas */
+    it = cJSON_GetObjectItemCaseSensitive(root, "country");
+    if (cJSON_IsString(it) && it->valuestring && strlen(it->valuestring) == 2) {
+        char c0 = it->valuestring[0], c1 = it->valuestring[1];
+        if (c0 >= 'a' && c0 <= 'z') c0 = (char)(c0 - 'a' + 'A');
+        if (c1 >= 'a' && c1 <= 'z') c1 = (char)(c1 - 'a' + 'A');
+        if (c0 >= 'A' && c0 <= 'Z' && c1 >= 'A' && c1 <= 'Z') {
+            m->has_country = true;
+            m->country[0] = c0;
+            m->country[1] = c1;
+            m->country[2] = '\0';
+        }
+    }
+    /* estancia: 1..39 caracteres [A-Za-z0-9:_-]; cualquier otra cosa se ignora */
+    it = cJSON_GetObjectItemCaseSensitive(root, "stay_id");
+    if (cJSON_IsString(it) && it->valuestring) {
+        size_t n = strlen(it->valuestring);
+        bool ok = n > 0 && n < TWIN_STAY_LEN;
+        for (size_t i = 0; ok && i < n; i++) {
+            char c = it->valuestring[i];
+            ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') ||
+                 c == ':' || c == '_' || c == '-';
+        }
+        if (ok) {
+            m->has_stay = true;
+            memcpy(m->stay_id, it->valuestring, n + 1);
+        }
+    }
+
+    it = cJSON_GetObjectItemCaseSensitive(root, "sex");
+    if (str_eq(it, "m")) { m->has_sex = true; m->sex = TWIN_SEX_MALE; }
+    else if (str_eq(it, "f")) { m->has_sex = true; m->sex = TWIN_SEX_FEMALE; }
 
     it = cJSON_GetObjectItemCaseSensitive(root, "weight_g");
     if (get_int(it, 0, 9999, &v)) { m->has_weight = v > 0; m->weight_g = (uint16_t)v; }

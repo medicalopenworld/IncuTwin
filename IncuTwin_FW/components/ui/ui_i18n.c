@@ -1,5 +1,7 @@
 #include "ui_i18n.h"
 
+#include <stddef.h>
+
 #include "settings.h"
 
 static const char *const STRINGS[STR_COUNT][2] = {
@@ -17,21 +19,76 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_ST_ALARM       */ { "¡Alarma!",                          "Alarm!" },
     /* STR_ST_AWAKE       */ { "Bebé despierto",                    "Baby awake" },
     /* STR_ST_SLEEP       */ { "Bebé durmiendo",                    "Baby sleeping" },
+    /* STR_ACC_SEARCH     */ { "Ahora no hay bebés. Te avisaré",    "No babies now. I'll let you know" },
+    /* STR_ACC_WAITING    */ { "Un bebé te espera",                 "A baby is waiting for you" },
+    /* STR_ACC_REMIND     */ { "¿Le das la mano hoy?",              "Will you hold their hand today?" },
+    /* STR_ACC_ENDED      */ { "Ha terminado su estancia",          "Their stay has ended" },
+    /* STR_ACC_FAREWELL   */ { "¡A casa! Gracias por acompañarle",  "Home! Thanks for being there" },
+    /* STR_STREAK_NONE    */ { "Cada día que le das la mano se enciende un corazón",
+                               "Each day you hold their hand, a heart lights up" },
+    /* STR_STREAK_START   */ { "Dale la mano hoy y empieza una racha", "Hold their hand today to start a streak" },
+    /* STR_STREAK_TODAY1  */ { "¡Hoy le has dado la mano! Vuelve mañana", "You held their hand today! Come back tomorrow" },
+    /* STR_STREAK_RUN     */ { "¡%d días seguidos! Vuelve mañana",  "%d days in a row! Come back tomorrow" },
+    /* STR_STREAK_WEEK    */ { "¡Toda la semana acompañando!",      "A whole week by their side!" },
+    /* STR_STREAK_KEEP1   */ { "Ayer le diste la mano. ¿Y hoy?",    "You held their hand yesterday. Today too?" },
+    /* STR_STREAK_KEEP    */ { "Llevas %d días seguidos: dale la mano hoy", "%d days in a row: hold their hand today" },
+    /* STR_STREAK_NO_TIME */ { "Esperando la hora para contar los días", "Waiting for the time to count the days" },
+    /* STR_STREAK_TITLE   */ { "Tu racha",                          "Your streak" },
+    /* STR_WEEKDAY_INITIALS */ { "DLMXJVS",                         "SMTWTFS" },
+    /* STR_PG_TIME_IN     */ { "En %s son las %s",                  "In %s it's %s" },
+    /* STR_HH_ST_SUPER_IN */ { "Súper corazón en %u:%02u",          "Super heart in %u:%02u" },
+    /* STR_HH_ST_SUPER    */ { "¡Súper corazón!",                   "Super heart!" },
+    /* STR_STREAK_SUPER   */ { "¡Súper corazón hoy! 3 minutos de la mano", "Super heart today! 3 minutes hand in hand" },
+    /* STR_HH_BACK        */ { "Volver al bebé",                    "Back to the baby" },
+    /* STR_HH_ST_AGAIN    */ { "Vuelve cuando quieras",             "Come back anytime" },
+    /* STR_STREAK_REST    */ { "Hoy no hay bebés: tu racha sigue a salvo", "No babies today: your streak is safe" },
     /* STR_DAY            */ { "día",                               "day" },
     /* STR_DAYS           */ { "días",                              "days" },
-    /* STR_HAND           */ { "Agarra mi mano",                    "Hold my hand" },
+    /* STR_HAND           */ { "Coge mi mano",                      "Hold my hand" },
+    /* STR_INFO_HEATING   */ { "La incubadora está calentando al bebé",
+                               "The incubator is warming the baby" },
+    /* STR_INFO_STABLE    */ { "La incubadora mantiene al bebé calentito",
+                               "The incubator is keeping the baby warm" },
+    /* STR_INFO_TEMP_ALARM*/ { "La incubadora está vigilando su temperatura",
+                               "The incubator is watching the baby's temperature" },
+    /* STR_INFO_PHOTO     */ { "El bebé está recibiendo fototerapia",
+                               "The baby is getting phototherapy" },
+    /* STR_INFO_HEART     */ { "Este es su latido: %u por minuto",  "This is the baby's heartbeat: %u per minute" },
+    /* STR_INFO_HEART_FAST*/ { "El corazón de los bebés late muy rápido",
+                               "Babies' hearts beat very fast" },
+    /* STR_INFO_PRESS_HAND*/ { "Pulsa \"Coge mi mano\" para acompañarle",
+                               "Tap \"Hold my hand\" to keep the baby company" },
+    /* STR_HH_READY       */ { "Pon tu dedo sobre el bebé",         "Put your finger on the baby" },
+    /* STR_HH_HOLD1       */ { "Le estás dando la mano...",         "You're holding their hand..." },
+    /* STR_HH_HOLD2       */ { "El bebé está recibiendo calorcito", "The baby is getting your warmth" },
+    /* STR_HH_GRACE       */ { "¿Sigues ahí? Vuelve a ponerlo",     "Still there? Put it back" },
+    /* STR_HH_THANKS      */ { "Gracias por tu calorcito",          "Thank you for your warmth" },
+    /* STR_HH_ST_READY    */ { "Te está esperando",                 "Waiting for you" },
+    /* STR_HH_ST_HOLD     */ { "Mantén pulsado para estar mano a mano",
+                               "Keep pressing to stay hand in hand" },
+    /* STR_HH_ST_GRACE    */ { "Te espera %u s más",                "Waiting %u s more" },
+    /* STR_HH_ST_DONE     */ { "Quédate todo lo que quieras",       "Stay as long as you like" },
+    /* STR_PG_HOSPITAL    */ { "Hospital",                          "Hospital" },
+    /* STR_PG_LOCAL_TIME  */ { "Hora local",                        "Local time" },
+    /* STR_PG_DISTANCE    */ { "A %s km de tu IncuTwin",            "%s km from your IncuTwin" },
+    /* STR_PG_ACHIEVEMENTS*/ { "Logros",                            "Achievements" },
+    /* STR_PG_ACH_SUB     */ { "Lo que hemos logrado juntos",       "What we've achieved together" },
+    /* STR_PG_MY_DAYS     */ { "días que le has acompañado",        "days you've been with them" },
+    /* STR_PG_STREAK      */ { "días seguidos de racha",            "day streak" },
+    /* STR_PG_FAMILIES    */ { "familias más le acompañan",         "more families with them" },
+    /* STR_PG_DAYS        */ { "días del bebé en esta IncuNest",    "days in this IncuNest" },
     /* STR_SETTINGS       */ { "Ajustes",                           "Settings" },
     /* STR_LANGUAGE       */ { "Idioma",                            "Language" },
     /* STR_SKIN_TONE      */ { "Tono de piel",                      "Skin tone" },
     /* STR_SKIN_HINT      */ { "Según el país de la IncuNest asignada",
                                "Based on the assigned IncuNest's country" },
+    /* STR_SKIN_HINT_DEMO */ { "Demo: toca un tono para probarlo",  "Demo: tap a tone to try it" },
     /* STR_SOUND          */ { "Sonido",                            "Sound" },
     /* STR_VOL_OFF        */ { "Apagado",                           "Off" },
     /* STR_VOL_LOW        */ { "Bajo",                              "Low" },
     /* STR_VOL_MID        */ { "Medio",                             "Mid" },
     /* STR_VOL_HIGH       */ { "Alto",                              "High" },
     /* STR_BRIGHTNESS     */ { "Brillo",                            "Brightness" },
-    /* STR_BACK           */ { "Volver",                            "Back" },
     /* STR_WIFI           */ { "WiFi",                              "WiFi" },
     /* STR_SERVER         */ { "Servidor",                          "Server" },
     /* STR_CONNECTED      */ { "Conectado",                         "Connected" },
@@ -56,7 +113,110 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_OB_CANCEL      */ { "Cancelar",                          "Cancel" },
     /* STR_WIFI_CHANGE_Q  */ { "¿Cambiar la red WiFi?",             "Change the WiFi network?" },
     /* STR_WIFI_CHANGE    */ { "Cambiar",                           "Change" },
+    /* STR_NAME_ARRIVED   */ { "Ha llegado un bebé",                "A baby has arrived" },
+    /* STR_NAME_ASK       */ { "¿Quieres ponerle nombre?",          "Would you like to name them?" },
+    /* STR_NAME_YES       */ { "SÍ",                                "YES" },
+    /* STR_NAME_LATER     */ { "AHORA NO",                          "NOT NOW" },
+    /* STR_NAME_PLACEHOLDER*/ { "Ponle nombre",                     "Give a name" },
+    /* STR_NAME_DONE      */ { "LISTO",                             "DONE" },
+    /* STR_NOTICE_ADMISSION */ { "Ha entrado un bebé en la incubadora", "A baby has entered the incubator" },
+    /* STR_NOTICE_PARENTS */ { "El bebé está con sus papás",        "The baby is with their parents" },
+    /* STR_NOTICE_EXIT    */ { "El bebé ha salido de la incubadora", "The baby has left the incubator" },
+    /* STR_NOTICE_HEAT_ON */ { "Ha empezado el calor",              "Warmth has started" },
+    /* STR_NOTICE_HEAT_OFF*/ { "Ha terminado el calor",             "Warmth has ended" },
+    /* STR_NOTICE_PHOTO_ON*/ { "Ha empezado la fototerapia",        "Phototherapy has started" },
+    /* STR_NOTICE_PHOTO_OFF*/ { "Ha terminado la fototerapia",      "Phototherapy has ended" },
+    /* STR_HISTORY        */ { "Historial",                         "History" },
+    /* STR_HISTORY_EMPTY  */ { "Aquí verás lo que vaya pasando en tu IncuNest",
+                               "Here you'll see what happens in your IncuNest" },
+    /* STR_QUIET          */ { "De noche, sin sonido",              "Quiet at night" },
+    /* STR_QUIET_FROM     */ { "Desde",                             "From" },
+    /* STR_QUIET_TO       */ { "Hasta",                             "To" },
 };
+
+/* Paises de la barra del pais (ISO 3166-1 alfa-2). Solo caracteres de las fuentes
+ * (ASCII + vocales acentuadas + ñ). Uno que no este aqui se muestra con su codigo. */
+static const struct {
+    char iso[3];
+    const char *name[2];
+} COUNTRIES[] = {
+    { "CM", { "Camerún", "Cameroon" } },
+    { "ES", { "España", "Spain" } },
+    { "GH", { "Ghana", "Ghana" } },
+    { "TG", { "Togo", "Togo" } },
+    { "BJ", { "Benín", "Benin" } },
+    { "KE", { "Kenia", "Kenya" } },
+    { "SN", { "Senegal", "Senegal" } },
+    { "NG", { "Nigeria", "Nigeria" } },
+    { "CI", { "Costa de Marfil", "Ivory Coast" } },
+    { "MA", { "Marruecos", "Morocco" } },
+    { "ET", { "Etiopía", "Ethiopia" } },
+    { "TZ", { "Tanzania", "Tanzania" } },
+    { "UG", { "Uganda", "Uganda" } },
+    { "MZ", { "Mozambique", "Mozambique" } },
+    { "CD", { "R. D. del Congo", "DR Congo" } },
+    { "CG", { "Congo", "Congo" } },
+    { "GA", { "Gabón", "Gabon" } },
+    { "GQ", { "Guinea Ecuatorial", "Equatorial Guinea" } },
+    { "GN", { "Guinea", "Guinea" } },
+    { "SL", { "Sierra Leona", "Sierra Leone" } },
+    { "LR", { "Liberia", "Liberia" } },
+    { "ML", { "Malí", "Mali" } },
+    { "BF", { "Burkina Faso", "Burkina Faso" } },
+    { "NE", { "Níger", "Niger" } },
+    { "TD", { "Chad", "Chad" } },
+    { "CF", { "R. Centroafricana", "Central African Rep." } },
+    { "AO", { "Angola", "Angola" } },
+    { "MW", { "Malaui", "Malawi" } },
+    { "ZM", { "Zambia", "Zambia" } },
+    { "RW", { "Ruanda", "Rwanda" } },
+    { "SS", { "Sudán del Sur", "South Sudan" } },
+    { "SD", { "Sudán", "Sudan" } },
+    { "SO", { "Somalia", "Somalia" } },
+    { "MG", { "Madagascar", "Madagascar" } },
+    { "MX", { "México", "Mexico" } },
+    { "GT", { "Guatemala", "Guatemala" } },
+    { "HN", { "Honduras", "Honduras" } },
+    { "NI", { "Nicaragua", "Nicaragua" } },
+    { "HT", { "Haití", "Haiti" } },
+    { "CO", { "Colombia", "Colombia" } },
+    { "EC", { "Ecuador", "Ecuador" } },
+    { "PE", { "Perú", "Peru" } },
+    { "BO", { "Bolivia", "Bolivia" } },
+    { "VE", { "Venezuela", "Venezuela" } },
+    { "UA", { "Ucrania", "Ukraine" } },
+    { "PS", { "Palestina", "Palestine" } },
+    { "YE", { "Yemen", "Yemen" } },
+    { "AF", { "Afganistán", "Afghanistan" } },
+    { "IN", { "India", "India" } },
+    { "BD", { "Bangladés", "Bangladesh" } },
+    { "PK", { "Pakistán", "Pakistan" } },
+    { "PH", { "Filipinas", "Philippines" } },
+};
+
+const char *tr_country(const char *iso)
+{
+    if (!iso || !iso[0]) return "";
+    int lang = settings_lang() == SETTINGS_LANG_EN ? 1 : 0;
+    for (size_t i = 0; i < sizeof(COUNTRIES) / sizeof(COUNTRIES[0]); i++) {
+        if (COUNTRIES[i].iso[0] == iso[0] && COUNTRIES[i].iso[1] == iso[1]) return COUNTRIES[i].name[lang];
+    }
+    return iso;
+}
+
+const char *ui_notice_text(twin_notice_t kind)
+{
+    switch (kind) {
+    case TWIN_NOTICE_ADMISSION: return tr(STR_NOTICE_ADMISSION);
+    case TWIN_NOTICE_PARENTS:   return tr(STR_NOTICE_PARENTS);
+    case TWIN_NOTICE_EXIT:      return tr(STR_NOTICE_EXIT);
+    case TWIN_NOTICE_HEAT_ON:   return tr(STR_NOTICE_HEAT_ON);
+    case TWIN_NOTICE_HEAT_OFF:  return tr(STR_NOTICE_HEAT_OFF);
+    case TWIN_NOTICE_PHOTO_ON:  return tr(STR_NOTICE_PHOTO_ON);
+    case TWIN_NOTICE_PHOTO_OFF: return tr(STR_NOTICE_PHOTO_OFF);
+    default:                    return "";
+    }
+}
 
 const char *tr(ui_str_t id)
 {

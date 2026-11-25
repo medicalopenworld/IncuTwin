@@ -38,6 +38,9 @@ typedef struct {
     bool has_awake;   bool awake;
     bool has_skin;    uint8_t skin;
     bool has_name;    char name[TWIN_NAME_LEN];
+    bool has_country; char country[TWIN_COUNTRY_LEN];
+    bool has_sex;     twin_sex_t sex;
+    bool has_stay;    char stay_id[TWIN_STAY_LEN];
     bool has_weight;  uint16_t weight_g;
     bool has_age;     int16_t age_d;
 } twin_msg_t;
@@ -62,7 +65,6 @@ const char *twin_parse_result_str(twin_parse_result_t r);
 
 typedef struct {
     bool is_new;           /* seq ausente o mayor que el ultimo visto */
-    uint32_t transitions;  /* mascara de twin_transition_t (solo si is_new) */
     bool persist;          /* hay que guardar seq/baby en NVS */
 } twin_apply_result_t;
 
@@ -71,9 +73,6 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
 
 /* Estado inicial de la incubadora (sin emparejar / tras desemparejar). */
 void twin_incubator_reset(twin_incubator_t *inc, uint8_t default_skin);
-
-/* Transiciones al pasar de `before` a `after`. */
-uint32_t twin_transitions_between(twin_baby_t before, twin_baby_t after);
 
 /* ------------------------------------------------------------ presentation */
 

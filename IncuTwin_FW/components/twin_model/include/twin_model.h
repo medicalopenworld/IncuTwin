@@ -2,8 +2,8 @@
  *
  * Recibe el estado del enlace (WiFi, broker, emparejado), los mensajes de
  * incubators/<id>/state y el overlay del modo demo; publica
- * TWIN_EVT_STATE_CHANGED (twin_snapshot_t) y TWIN_EVT_TRANSITION
- * (twin_transition_t). Persiste event_seq y baby en NVS "twin".
+ * TWIN_EVT_STATE_CHANGED (twin_snapshot_t) y TWIN_EVT_NOTICE
+ * (app_evt_notice_t). Persiste event_seq y baby en NVS "twin".
  *
  * Todas las funciones son seguras desde cualquier tarea (mutex interno) y no
  * bloquean mas que lo que tarda un post al bus de eventos.
@@ -40,6 +40,12 @@ void twin_model_demo_enter(void);
 void twin_model_demo_exit(void);
 bool twin_model_demo_active(void);
 void twin_model_demo_apply(const twin_incubator_t *inc, bool linked);
+/* Solo en demo: prueba otro tono de piel (no toca el real ni se guarda). */
+void twin_model_demo_set_skin(uint8_t skin);
+
+/* Modo Acompañar (spec accompany): fase, recordatorio y corazones para la UI. Publica solo si
+ * cambia. En la demo el snapshot los lleva apagados. */
+void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week, uint8_t super, uint8_t rest);
 
 twin_snapshot_t twin_model_get(void);
 

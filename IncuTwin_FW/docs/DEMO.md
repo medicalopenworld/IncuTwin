@@ -19,13 +19,19 @@ Si el panel quedó ligado a un device que no es del tenant, se envía
 `tb-forget` por el puerto serie (115200): borra el token, conserva la WiFi
 y se re-provisiona con el perfil `IncuTwin`.
 
-## Nombre del bebé (opcional, rama `feat/baby-name`)
+## Nombre y sexo del bebé
 
-Con consentimiento de la familia: `python tb/tb_apply_incutwin_state.py --enable IncuNest-1_2 --attr=itw_show_name=true`.
-Con el bebé dentro, la barra inferior cambia "Bebé durmiendo" por
-"Nombre · peso g · N días" (`baby_name` máx. 20 caracteres, peso de
-ingreso del asistente, días desde el ingreso: TB no tiene fecha de
-nacimiento). Nunca sale en los eventos ni en el visor. Para quitarlo:
+Cada bebé nuevo (`stay_id` nuevo) recibe en ThingsBoard un nombre y un sexo,
+iguales para todos los paneles de la incubadora (Contrato §3.4.1). Sin hacer
+nada, la barra inferior muestra un **apodo** ("Lucía") en vez de "Bebé
+durmiendo"; el sexo es el que mande la IncuNest (`baby_sex`) o, si no llega,
+sorteado. Se ven en los server attrs `itw_baby_alias`, `itw_baby_sex` e
+`itw_baby_sex_src` (`auto`/`device`). Pruebas: `node tb/test_identity.js`.
+
+Nombre real, con consentimiento de la familia: `python tb/tb_apply_incutwin_state.py --enable IncuNest-1_2 --attr=itw_show_name=true`.
+La barra pasa a "Nombre · peso g · N días" (`baby_name` máx. 20 caracteres,
+peso de ingreso del asistente, días desde el ingreso: TB no tiene fecha de
+nacimiento). Nunca sale en los eventos ni en el visor. Para volver al apodo:
 `--attr=itw_show_name=false`.
 
 ## Guion (5 min)

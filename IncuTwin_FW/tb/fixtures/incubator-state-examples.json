@@ -1,0 +1,236 @@
+{
+  "_about": "Payloads reales de incubators/<SN>/state generados con tb/itw_state_machine.js (node tb/gen_sim_fixtures.js). Campos nuevos pueden aparecer: el consumidor debe ignorar los desconocidos. name/weight_g/age_d solo salen con itw_show_name y la app NO debe mostrarlos.",
+  "examples": [
+    {
+      "case": "ingreso con calor (baby_in)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795168816,
+        "state": "baby",
+        "treatments": [
+          "heat"
+        ],
+        "bpm": null,
+        "last_seen": 1795168816,
+        "event_seq": 2,
+        "last_event": "heartbeat",
+        "thermo": "heating",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "fototerapia (treatment_changed)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169181,
+        "state": "baby",
+        "treatments": [
+          "heat",
+          "phototherapy"
+        ],
+        "bpm": null,
+        "last_seen": 1795169181,
+        "event_seq": 9,
+        "last_event": "treatment_changed",
+        "thermo": "heating",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "fototerapia (treatment_changed)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169211,
+        "state": "baby",
+        "treatments": [
+          "heat",
+          "phototherapy"
+        ],
+        "bpm": null,
+        "last_seen": 1795169211,
+        "event_seq": 10,
+        "last_event": "treatment_changed",
+        "thermo": "stable",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "pulsioxímetro con bpm",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169236,
+        "state": "baby",
+        "treatments": [
+          "heat",
+          "phototherapy",
+          "pulseox"
+        ],
+        "bpm": 140,
+        "last_seen": 1795169236,
+        "event_seq": 11,
+        "last_event": "heartbeat",
+        "thermo": "stable",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "pulsioxímetro con bpm",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169241,
+        "state": "baby",
+        "treatments": [
+          "heat",
+          "phototherapy",
+          "pulseox"
+        ],
+        "bpm": 140,
+        "last_seen": 1795169241,
+        "event_seq": 12,
+        "last_event": "treatment_changed",
+        "thermo": "stable",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "canguro (baby_parents)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169286,
+        "state": "baby",
+        "treatments": [],
+        "bpm": null,
+        "last_seen": 1795169286,
+        "event_seq": 13,
+        "last_event": "baby_parents",
+        "thermo": "off",
+        "baby": "parents",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "con sus papás",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169296,
+        "state": "baby",
+        "treatments": [],
+        "bpm": null,
+        "last_seen": 1795169296,
+        "event_seq": 14,
+        "last_event": "heartbeat",
+        "thermo": "off",
+        "baby": "parents",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "vuelta a la incubadora (baby_back)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169351,
+        "state": "baby",
+        "treatments": [
+          "heat"
+        ],
+        "bpm": null,
+        "last_seen": 1795169351,
+        "event_seq": 15,
+        "last_event": "baby_back",
+        "thermo": "heating",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "incubadora apagada (incubator_offline)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169981,
+        "state": "offline",
+        "treatments": [
+          "heat"
+        ],
+        "bpm": null,
+        "last_seen": 1795169381,
+        "event_seq": 17,
+        "last_event": "incubator_offline",
+        "thermo": "heating",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "alarma térmica (thermo: alarm)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795169991,
+        "state": "baby",
+        "treatments": [
+          "heat"
+        ],
+        "bpm": null,
+        "last_seen": 1795169991,
+        "event_seq": 20,
+        "last_event": "treatment_changed",
+        "thermo": "alarm",
+        "baby": "in",
+        "country": "TG"
+      }
+    },
+    {
+      "case": "alta a casa (baby_out, baby: home)",
+      "topic": "incubators/SIM01/state",
+      "retained": true,
+      "qos": 1,
+      "payload": {
+        "incubator_id": "SIM01",
+        "ts": 1795170001,
+        "state": "free",
+        "treatments": [],
+        "bpm": null,
+        "last_seen": 1795170001,
+        "event_seq": 21,
+        "last_event": "baby_out",
+        "thermo": "off",
+        "baby": "home",
+        "country": "TG"
+      }
+    }
+  ]
+}

@@ -80,6 +80,38 @@ TEST_CASE("status: con sus papas y en casa mandan sobre todo", "[twin][status]")
     TEST_ASSERT_EQUAL(TWIN_ST_NO_WIFI, twin_status_of(&s));
 }
 
+TEST_CASE("status: modo acompañar", "[twin][status][acc]")
+{
+    twin_snapshot_t s = linked_snapshot();
+    s.acc = TWIN_ACC_WAITING;
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_WAITING, twin_status_of(&s));
+    s.inc.thermo = TWIN_THERMO_ALARM;
+    TEST_ASSERT_EQUAL(TWIN_ST_ALARM, twin_status_of(&s)); /* la alarma manda */
+    s.inc.thermo = TWIN_THERMO_STABLE;
+    s.acc = TWIN_ACC_WITH;
+    TEST_ASSERT_EQUAL(TWIN_ST_SLEEP, twin_status_of(&s));
+    s.acc_remind = true;
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_REMIND, twin_status_of(&s));
+    s.acc_remind = false;
+    s.acc = TWIN_ACC_ENDING;
+    s.inc.baby = TWIN_BABY_NONE; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_ENDED, twin_status_of(&s));
+    s.inc.online = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_INC_OFF, twin_status_of(&s));
+    s = linked_snapshot();
+    s.acc = TWIN_ACC_FAREWELL;
+    s.inc.baby = TWIN_BABY_HOME; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_FAREWELL, twin_status_of(&s));
+    s.acc = TWIN_ACC_SEARCHING;
+    s.link.paired = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_SEARCH, twin_status_of(&s));
+    s.link.wifi = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_NO_WIFI, twin_status_of(&s)); /* sin red, lo de siempre */
+    s = linked_snapshot();
+    s.link.paired = false; twin_derive(&s);
+    TEST_ASSERT_EQUAL(TWIN_ST_UNPAIRED, twin_status_of(&s)); /* modo apagado */
+}
+
 TEST_CASE("derive: caida breve del broker mantiene link_ok", "[twin][status]")
 {
     twin_snapshot_t s = linked_snapshot();
@@ -109,7 +141,6 @@ TEST_CASE("apply: bebe con calor y pulso", "[twin][ingest]")
     TEST_ASSERT_EQUAL(142, inc.bpm);
     TEST_ASSERT_TRUE(inc.online);
     TEST_ASSERT_EQUAL(10, seq);
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, r.transitions);
     TEST_ASSERT_TRUE(r.persist);
 }
 
@@ -124,6 +155,21 @@ TEST_CASE("apply: bpm sin pulseox no cuenta", "[twin][ingest]")
     m.pulseox = true; m.bpm = 301; m.seq = 2;
     twin_apply(&inc, &seq, &m);
     TEST_ASSERT_EQUAL(0, inc.bpm); /* fuera de rango */
+}
+
+TEST_CASE("apply: solo se ensena un pulso normal de recien nacido (100..180)", "[twin][ingest]")
+{
+    twin_incubator_t inc; uint32_t seq = 0;
+    twin_incubator_reset(&inc, 1);
+    static const struct { int bpm; uint16_t shown; } C[] = {
+        { 94, 0 }, { 99, 0 }, { 100, 100 }, { 142, 142 }, { 180, 180 }, { 181, 0 }, { 240, 0 },
+    };
+    for (uint32_t i = 0; i < sizeof(C) / sizeof(C[0]); i++) {
+        twin_msg_t m = base_msg(TWIN_MSG_STATE_BABY, i + 1, "heartbeat");
+        m.pulseox = true; m.bpm = C[i].bpm;
+        twin_apply(&inc, &seq, &m);
+        TEST_ASSERT_EQUAL_UINT16_MESSAGE(C[i].shown, inc.bpm, "bpm mostrado");
+    }
 }
 
 TEST_CASE("apply: offline y tratamientos ausentes", "[twin][ingest]")
@@ -149,22 +195,27 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
     m.has_awake = true; m.awake = true;
     m.has_skin = true; m.skin = 4;
     m.has_name = true; strcpy(m.name, "Lucía");
+    m.has_sex = true; m.sex = TWIN_SEX_FEMALE;
+    m.has_stay = true; strcpy(m.stay_id, "297:4");
     m.has_weight = true; m.weight_g = 1250;
     m.has_age = true; m.age_d = 3;
-    twin_apply_result_t r = twin_apply(&inc, &seq, &m);
+    twin_apply(&inc, &seq, &m);
     TEST_ASSERT_EQUAL(TWIN_THERMO_HEATING, inc.thermo);
     TEST_ASSERT_EQUAL(TWIN_BABY_PARENTS, inc.baby);
     TEST_ASSERT_TRUE(inc.awake);
     TEST_ASSERT_EQUAL(4, inc.skin);
     TEST_ASSERT_EQUAL_STRING("Lucía", inc.name);
+    TEST_ASSERT_EQUAL(TWIN_SEX_FEMALE, inc.sex);
+    TEST_ASSERT_EQUAL_STRING("297:4", inc.stay_id);
     TEST_ASSERT_EQUAL(1250, inc.weight_g);
     TEST_ASSERT_EQUAL(3, inc.age_d);
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_PARENTS, r.transitions);
 
     twin_msg_t m2 = base_msg(TWIN_MSG_STATE_BABY, 2, "treatment_changed");
     m2.heat = true;
     twin_apply(&inc, &seq, &m2);
     TEST_ASSERT_EQUAL_STRING("", inc.name);
+    TEST_ASSERT_EQUAL(TWIN_SEX_UNKNOWN, inc.sex);
+    TEST_ASSERT_EQUAL_STRING("", inc.stay_id);
     TEST_ASSERT_EQUAL(0, inc.weight_g);
     TEST_ASSERT_EQUAL(-1, inc.age_d);
     TEST_ASSERT_FALSE(inc.awake);
@@ -174,7 +225,7 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
 
 /* --------------------------------------------------------------- dedup */
 
-TEST_CASE("dedup: seq menor o igual es refresco sin transiciones", "[twin][ingest]")
+TEST_CASE("dedup: seq menor o igual es refresco", "[twin][ingest]")
 {
     twin_incubator_t inc; uint32_t seq = 1300;
     twin_incubator_reset(&inc, 1);
@@ -182,7 +233,6 @@ TEST_CASE("dedup: seq menor o igual es refresco sin transiciones", "[twin][inges
     twin_msg_t m = base_msg(TWIN_MSG_STATE_BABY, 1300, "baby_in");
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_FALSE(r.is_new);
-    TEST_ASSERT_EQUAL(0, r.transitions);
     TEST_ASSERT_FALSE(r.persist);
     TEST_ASSERT_EQUAL(TWIN_BABY_IN, inc.baby); /* el modelo si se refresca */
     TEST_ASSERT_EQUAL(1300, seq);
@@ -197,7 +247,6 @@ TEST_CASE("dedup: reinicio con bebe dentro no repite melodia", "[twin][ingest]")
     m.heat = true; m.pulseox = true; m.bpm = 130;
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_TRUE(r.is_new);
-    TEST_ASSERT_EQUAL(0, r.transitions);
     TEST_ASSERT_FALSE(r.persist); /* heartbeat sin cambio de baby no gasta NVS */
     TEST_ASSERT_EQUAL(1290, seq);
 }
@@ -211,7 +260,6 @@ TEST_CASE("dedup: evento perdido durante un apagado", "[twin][ingest]")
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_TRUE(r.is_new);
     TEST_ASSERT_EQUAL(TWIN_BABY_NONE, inc.baby);
-    TEST_ASSERT_EQUAL(0, r.transitions); /* baby_out no suena */
     TEST_ASSERT_TRUE(r.persist);
     TEST_ASSERT_EQUAL(1300, seq);
 }
@@ -224,21 +272,7 @@ TEST_CASE("dedup: sin event_seq siempre es nuevo", "[twin][ingest]")
     m.has_seq = false;
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_TRUE(r.is_new);
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, r.transitions);
     TEST_ASSERT_EQUAL(50, seq); /* no se toca */
-}
-
-/* ---------------------------------------------------------- transiciones */
-
-TEST_CASE("transiciones: solo in y parents/home suenan", "[twin]")
-{
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, twin_transitions_between(TWIN_BABY_NONE, TWIN_BABY_IN));
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, twin_transitions_between(TWIN_BABY_PARENTS, TWIN_BABY_IN));
-    TEST_ASSERT_EQUAL(0, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_IN));
-    TEST_ASSERT_EQUAL(0, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_NONE));
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_PARENTS, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_PARENTS));
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_PARENTS, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_HOME));
-    TEST_ASSERT_EQUAL(0, twin_transitions_between(TWIN_BABY_PARENTS, TWIN_BABY_HOME));
 }
 
 /* ------------------------------------------------------------------ varios */
@@ -274,6 +308,9 @@ TEST_CASE("reset: estado inicial de la incubadora", "[twin]")
     TEST_ASSERT_EQUAL(0, inc.bpm);
     TEST_ASSERT_EQUAL(3, inc.skin);
     TEST_ASSERT_EQUAL(-1, inc.age_d);
+    TEST_ASSERT_EQUAL(TWIN_SEX_UNKNOWN, inc.sex);
+    TEST_ASSERT_EQUAL_STRING("", inc.name);
+    TEST_ASSERT_EQUAL_STRING("", inc.stay_id);
     twin_incubator_reset(&inc, 9);
     TEST_ASSERT_EQUAL(0, inc.skin); /* fuera de rango -> 0 */
 }

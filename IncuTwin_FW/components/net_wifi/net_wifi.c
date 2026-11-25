@@ -62,13 +62,26 @@ static void rssi_cb(void *arg)
     }
 }
 
+static void on_time_sync(struct timeval *tv)
+{
+    struct tm tm;
+    time_t t = tv->tv_sec;
+    localtime_r(&t, &tm);
+    ESP_LOGI(TAG, "hora sincronizada: %04d-%02d-%02d %02d:%02d (local)", tm.tm_year + 1900, tm.tm_mon + 1,
+             tm.tm_mday, tm.tm_hour, tm.tm_min);
+}
+
+/* Varios servidores: en algunas redes (moviles, hospitales) pool.ntp.org no responde y sin hora
+ * no hay reloj, ni dias acompañados, ni recordatorio. */
 static void start_sntp(void)
 {
     if (s_sntp_started) return;
-    esp_sntp_config_t cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG(CONFIG_INCUTWIN_SNTP_SERVER);
+    esp_sntp_config_t cfg = ESP_NETIF_SNTP_DEFAULT_CONFIG_MULTIPLE(
+        3, ESP_SNTP_SERVER_LIST(CONFIG_INCUTWIN_SNTP_SERVER, "time.google.com", "time.cloudflare.com"));
+    cfg.sync_cb = on_time_sync;
     if (esp_netif_sntp_init(&cfg) == ESP_OK) {
         s_sntp_started = true;
-        ESP_LOGI(TAG, "sntp: %s", CONFIG_INCUTWIN_SNTP_SERVER);
+        ESP_LOGI(TAG, "sntp: %s, time.google.com, time.cloudflare.com", CONFIG_INCUTWIN_SNTP_SERVER);
     }
 }
 

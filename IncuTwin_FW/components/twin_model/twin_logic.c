@@ -1,5 +1,7 @@
 #include "twin_logic.h"
 
+#include "twin_geo.h"
+
 #include <string.h>
 
 void twin_incubator_reset(twin_incubator_t *inc, uint8_t default_skin)
@@ -11,20 +13,6 @@ void twin_incubator_reset(twin_incubator_t *inc, uint8_t default_skin)
     inc->age_d = -1;
 }
 
-uint32_t twin_transitions_between(twin_baby_t before, twin_baby_t after)
-{
-    uint32_t tr = 0;
-    if (after == TWIN_BABY_IN && before != TWIN_BABY_IN) {
-        tr |= TWIN_TR_BABY_IN;
-    }
-    bool after_parents = after == TWIN_BABY_PARENTS || after == TWIN_BABY_HOME;
-    bool before_parents = before == TWIN_BABY_PARENTS || before == TWIN_BABY_HOME;
-    if (after_parents && !before_parents) {
-        tr |= TWIN_TR_BABY_PARENTS;
-    }
-    return tr;
-}
-
 twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const twin_msg_t *m)
 {
     twin_apply_result_t r = { 0 };
@@ -33,29 +21,43 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
 
     /* mapeo base (estado completo: lo ausente se apaga) */
     inc->online = m->state != TWIN_MSG_STATE_OFFLINE;
+    /* un "offline" sin baby da none; ThingsBoard siempre manda baby (itw_state_machine.js), asi que persistirlo es seguro */
     inc->baby = m->state == TWIN_MSG_STATE_BABY ? TWIN_BABY_IN : TWIN_BABY_NONE;
     inc->thermo = m->heat ? TWIN_THERMO_STABLE : TWIN_THERMO_OFF;
     inc->photo = m->photo;
     inc->pulseox = m->pulseox;
-    inc->bpm = (m->pulseox && m->bpm >= 1 && m->bpm <= TWIN_BPM_MAX) ? (uint16_t)m->bpm : 0;
+    inc->bpm = (m->pulseox && m->bpm >= TWIN_BPM_SHOW_MIN && m->bpm <= TWIN_BPM_SHOW_MAX) ? (uint16_t)m->bpm : 0;
 
-    /* extensiones: prevalecen si vienen; name/weight/age se borran si no vienen
+    /* extensiones: prevalecen si vienen; name/sex/weight/age se borran si no vienen
      * (ThingsBoard publica el estado completo cada vez) */
     if (m->has_thermo) inc->thermo = m->thermo;
     if (m->has_baby) inc->baby = m->baby;
     inc->awake = m->has_awake ? m->awake : false;
-    if (m->has_skin) inc->skin = m->skin;
     if (m->has_name) {
         strncpy(inc->name, m->name, TWIN_NAME_LEN - 1);
         inc->name[TWIN_NAME_LEN - 1] = '\0';
     } else {
         inc->name[0] = '\0';
     }
+    if (m->has_country) {
+        memcpy(inc->country, m->country, TWIN_COUNTRY_LEN);
+    } else {
+        inc->country[0] = '\0';
+    }
+    /* tono: el explicito manda y se conserva; si no, el del pais (4 de 5 si no se sabe) */
+    if (m->has_skin) {
+        inc->skin = m->skin;
+        inc->skin_set = true;
+    } else if (!inc->skin_set) {
+        inc->skin = twin_geo_skin(inc->country);
+    }
+    inc->sex = m->has_sex ? m->sex : TWIN_SEX_UNKNOWN;
+    if (m->has_stay) memcpy(inc->stay_id, m->stay_id, TWIN_STAY_LEN);
+    else inc->stay_id[0] = '\0';
     inc->weight_g = m->has_weight ? m->weight_g : 0;
     inc->age_d = m->has_age ? m->age_d : -1;
 
     if (r.is_new) {
-        r.transitions = twin_transitions_between(before, inc->baby);
         if (m->has_seq) {
             *last_seq = m->seq;
         }
@@ -78,17 +80,21 @@ void twin_derive(twin_snapshot_t *s)
 twin_status_t twin_status_of(const twin_snapshot_t *s)
 {
     const twin_link_t *l = &s->link;
-    if (s->parents_view && s->inc.baby == TWIN_BABY_HOME) return TWIN_ST_HOME;
+    bool acc = s->acc != TWIN_ACC_OFF;
+    if (s->parents_view && s->inc.baby == TWIN_BABY_HOME)
+        return s->acc == TWIN_ACC_FAREWELL ? TWIN_ST_ACC_FAREWELL : TWIN_ST_HOME;
     if (s->parents_view) return TWIN_ST_PARENTS;
     if (!l->wifi) return TWIN_ST_NO_WIFI;
     if (!l->has_creds) return TWIN_ST_NO_CREDS;
     if (!l->broker_once) return TWIN_ST_CONNECTING;
     if (l->broker_lost) return TWIN_ST_BROKER_LOST;
-    if (!l->paired) return TWIN_ST_UNPAIRED;
+    if (!l->paired) return acc ? TWIN_ST_ACC_SEARCH : TWIN_ST_UNPAIRED;
     if (!l->state_rx) return TWIN_ST_WAITING;
     if (!s->inc.online) return TWIN_ST_INC_OFF;
-    if (s->inc.baby != TWIN_BABY_IN) return TWIN_ST_NO_BABY;
+    if (s->inc.baby != TWIN_BABY_IN) return s->acc == TWIN_ACC_ENDING ? TWIN_ST_ACC_ENDED : TWIN_ST_NO_BABY;
     if (s->inc.thermo == TWIN_THERMO_ALARM) return TWIN_ST_ALARM;
+    if (s->acc == TWIN_ACC_WAITING) return TWIN_ST_ACC_WAITING;
+    if (acc && s->acc_remind) return TWIN_ST_ACC_REMIND;
     if (s->inc.name[0]) return TWIN_ST_NAME;
     return s->inc.awake ? TWIN_ST_AWAKE : TWIN_ST_SLEEP;
 }

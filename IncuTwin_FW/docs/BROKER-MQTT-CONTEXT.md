@@ -52,6 +52,8 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/status` | la IncuTwin (+ LWT) | monitorización (v1: nadie) | sí | 1 |
 | `incutwin/<client_id>/cmd/pair` | Pablo / Cloud Function | la IncuTwin | **sí** | 1 |
 | `incutwin/<client_id>/cmd/<otros>` | Pablo / Cloud Function | la IncuTwin | no | 1 |
+| `incutwin/<client_id>/hand` | la IncuTwin, al completar "Coge mi mano" (spec `hold-my-hand`) | gateway → ThingsBoard (`IncuTwin_hand_hold`) | no | 1 |
+| `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`) | la IncuTwin | **sí** | 1 |
 
 `<incubator_id>` = número de serie de la IncuNest tal como se llama el dispositivo en ThingsBoard
 (ej. `353`). `<client_id>` = `incutwin-<serie>` (ej. `incutwin-0001`); usuario MQTT idéntico.
@@ -70,6 +72,10 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
   "last_event": "treatment_changed"   // "baby_in" | "baby_out" | "treatment_changed" | "heartbeat" | "incubator_offline" | "incubator_online"
 }
 ```
+
+Claves opcionales que ThingsBoard añade y el firmware acepta (spec `twin-state-ingest`): `thermo`,
+`baby`, `name`, `sex` (`"m"`/`"f"`), `weight_g`, `age_d`. Con bebé visible siempre van `name` y
+`sex`: los fija ThingsBoard una vez por episodio, iguales para todas las IncuTwin de la incubadora.
 
 Reglas: ThingsBoard publica el estado **completo** en cada evento y, si hay `bpm`, como máximo
 una vez cada 60 s. Retenido: una IncuTwin que arranca recibe el último estado al suscribirse,
@@ -100,7 +106,10 @@ $CTRL addRoleACL incutwin subscribePattern 'incutwin/%c/cmd/#' allow
 
 $CTRL createRole thingsboard
 $CTRL addRoleACL thingsboard publishClientSend 'incubators/#' allow
+$CTRL addRoleACL thingsboard publishClientSend 'incutwin/+/cmd/history' allow   # historial (tb-stay-history)
 $CTRL createClient thingsboard          # contraseña → variable de entorno de la rule chain
+# Sin client id fijo: ThingsBoard abre dos conexiones con este usuario, `thingsboard` (estado) y
+# `thingsboard-history` (historial). Con el mismo client id se echarían una a otra.
 $CTRL addClientRole thingsboard thingsboard
 
 $CTRL createRole publisher              # Pablo / Cloud Function: emparejar y mandar comandos
@@ -261,7 +270,7 @@ $CTRL addClientRole gateway gateway
         "deviceNameExpressionSource": "topic",
         "deviceNameExpression": "(?<=incutwin/)(.*?)(?=/status)",
         "deviceProfileExpressionSource": "constant",
-        "deviceProfileExpression": "incutwin"
+        "deviceProfileExpression": "IncuTwin"
       },
       "attributes": [ { "type": "string", "key": "fw", "value": "${fw}" },
                       { "type": "string", "key": "incubator_id", "value": "${incubator_id}" } ],
@@ -278,6 +287,21 @@ $CTRL addClientRole gateway gateway
     }]
   }
 }
+```
+
+"Coge mi mano" necesita una segunda entrada en `mapping` y que el rol `gateway` pueda leerla
+(`$CTRL addRoleACL gateway subscribePattern 'incutwin/+/hand' allow`). El panel publica
+`{"hand_hold":1,"incubator_id":"353","hold_s":60}`; la rule chain `IncuTwin` de los paneles ya
+espera la telemetría `hand_hold` y la lleva a `IncuTwin_hand_hold`:
+
+```json
+{ "topicFilter": "incutwin/+/hand",
+  "converter": { "type": "json",
+    "deviceInfo": { "deviceNameExpressionSource": "topic",
+                    "deviceNameExpression": "(?<=incutwin/)(.*?)(?=/hand)",
+                    "deviceProfileExpressionSource": "constant", "deviceProfileExpression": "IncuTwin" },
+    "timeseries": [ { "type": "int", "key": "hand_hold", "value": "${hand_hold}" },
+                    { "type": "int", "key": "hold_s", "value": "${hold_s}" } ] } }
 ```
 
 El gateway no toca `incubators/#`. Un RPC `ota` o `reboot` lanzado desde ThingsBoard sobre

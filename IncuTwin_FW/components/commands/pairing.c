@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "accompany.h"
 #include "app_events.h"
 #include "commands_parse.h"
 #include "esp_log.h"
@@ -21,6 +22,7 @@ static void on_sub_rejected(void *arg, esp_event_base_t base, int32_t id, void *
 {
     (void)arg; (void)base; (void)id;
     const app_evt_pairing_t *ev = data;
+    if (accompany_enabled()) return;
     char current[TWIN_INCUBATOR_ID_LEN] = "";
     identity_incubator_id(current);
     if (!current[0] || strcmp(current, ev->incubator_id) != 0) return;
@@ -40,7 +42,27 @@ void pairing_handle(const char *payload, size_t len)
     char current[TWIN_INCUBATOR_ID_LEN] = "";
     identity_incubator_id(current);
 
-    switch (cmd_parse_pair(payload, len, id)) {
+    pair_cmd_t cmd = cmd_parse_pair(payload, len, id);
+    if (cmd == PAIR_ACCOMPANY) {
+        if (accompany_enabled()) return; /* el retenido de siempre */
+        if (current[0]) identity_set_incubator_id(NULL);
+        ESP_LOGI(TAG, "modo acompañar%s%s", current[0] ? " (antes " : "", current[0] ? current : "");
+        mqtt_link_set_accompany(true);
+        accompany_set_enabled(true);
+        announce("");
+        return;
+    }
+    if ((cmd == PAIR_SET || cmd == PAIR_UNPAIR) && accompany_enabled()) {
+        accompany_set_enabled(false);
+        mqtt_link_set_accompany(false);
+        current[0] = '\0'; /* el gemelo seguia a la elegida por accompany */
+        if (cmd == PAIR_UNPAIR) {
+            ESP_LOGI(TAG, "modo acompañar apagado: sin emparejar");
+            announce("");
+            return;
+        }
+    }
+    switch (cmd) {
     case PAIR_SET:
         if (strcmp(id, current) == 0) {
             mqtt_link_set_incubator(id); /* mismo id: solo asegurar la suscripcion */

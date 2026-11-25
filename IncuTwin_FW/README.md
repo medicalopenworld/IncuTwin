@@ -74,7 +74,7 @@ Cada variante combina `sdkconfig.defaults` con un fichero extra y usa su propio 
 |---|---|---|
 | Producto | Lo que se distribuye | `idf.py build` |
 | `dev` | Banco de pruebas: OTA desde cualquier host HTTPS, watchdog de validación 120 s. **No distribuir** | `idf.py -B build-dev -D SDKCONFIG=build-dev/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.dev" build` |
-| `sim` | Sin MQTT ni OTA; servidor web en el panel para controlar el estado desde el móvil. **No distribuir** | `idf.py -B build-sim -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.sim" build` |
+| `sim` | Sin MQTT ni OTA; servidor web en el panel para controlar el estado desde el móvil. **No distribuir** | `idf.py -B build-sim -D SDKCONFIG=build-sim/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.sim" build` |
 | `bringup` | Pantalla de dianas para comprobar pantalla y táctil | `idf.py -B build-bringup -D SDKCONFIG=build-bringup/sdkconfig -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.bringup" build` |
 | `rollbacktest` | Imagen que nunca conecta, para probar el rollback | ver cabecera de `sdkconfig.defaults.rollbacktest` |
 

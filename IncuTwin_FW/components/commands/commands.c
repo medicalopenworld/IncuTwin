@@ -2,6 +2,7 @@
 
 #include <string.h>
 
+#include "accompany.h"
 #include "app_events.h"
 #include "commands_parse.h"
 #include "esp_log.h"
@@ -51,7 +52,7 @@ static void cmd_test_melody(const char *payload, size_t len)
     if (!strcmp(m, "boot")) sel = SOUND_BOOT;
     else if (!strcmp(m, "parents")) sel = SOUND_PARENTS;
     else if (!strcmp(m, "test")) sel = SOUND_TEST;
-    sound_request(sel);
+    sound_request_auto(sel); /* comando remoto: de noche no suena */
 }
 
 static void cmd_brightness(const char *payload, size_t len)
@@ -71,7 +72,8 @@ static void on_msg(void *arg, esp_event_base_t base, int32_t id, void *data)
     const app_evt_mqtt_msg_t *m = data;
 
     if (cmd_is_state_topic(m->topic, NULL)) {
-        twin_model_ingest(m->payload, m->len);
+        if (accompany_enabled()) accompany_ingest(m->payload, m->len); /* todas las IncuNest */
+        else twin_model_ingest(m->payload, m->len);
         return;
     }
     char name[CMD_NAME_MAX];
