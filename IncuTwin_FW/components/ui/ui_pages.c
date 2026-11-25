@@ -18,11 +18,18 @@
 
 static const char *TAG = "pages";
 
-/* Zona que tapan las paginas: entre la barra superior y la barra de estado */
-#define PG_Y      38
-#define PG_H      240
-#define DOTS_Y    280
+/* Zona que tapan las paginas: empieza donde el bebe (BABY_Y de ui_home, para taparlo entero,
+ * gorro incluido) y acaba en la barra de estado (y 257). Su franja de arriba (PG_TOP) queda bajo
+ * la barra del WiFi: sin contenido. Los puntos de pagina van en el margen de abajo. Antes: PG_Y 38,
+ * PG_H 240, DOTS_Y 280 (por debajo quedaba la barra de estado en 288). */
+#define PG_Y      14
+#define PG_H      243
+#define PG_TOP    22
+#define DOTS_Y    250 /* entre la fila de Inicio (211..248) y la barra de estado (257) */
 #define SLIDE_MS  260
+/* logros, dentro de su caja (que empieza en PG_TOP): antes titulo 8 y subtitulo 36 */
+#define ACH_T_Y   4
+#define ACH_SUB_Y 28
 
 /* Mapa a toda la pagina, pintado en el panel (components/world_map) con el zoom justo para ver
  * tu IncuTwin y la IncuNest; arriba la etiqueta del pais y los km sobre la linea que los une.
@@ -32,6 +39,7 @@ static const char *TAG = "pages";
 #define CHIP_H      40  /* bandera + nombre */
 #define CHIP_H_DEMO 58  /* + hospital */
 #define MAP_BOTTOM  16  /* margen de abajo del encuadre (los puntos de pagina) */
+#define MAP_TOP     PG_TOP /* el mapa llega hasta arriba, pero el encuadre empieza bajo la barra */
 #define COL_LAND    lv_color_hex(0xEEE8D8)
 #define COL_SEA     lv_color_hex(0xCFE2F3)
 
@@ -342,7 +350,7 @@ static void country_page_refresh(void)
 
     /* mapa: encuadre para los dos puntos entre la etiqueta y la tarjeta de abajo */
     if (s_map_buf) {
-        const wm_frame_t f = { .w = MAP_W, .h = MAP_H, .top = (int16_t)(chip_h + 8),
+        const wm_frame_t f = { .w = MAP_W, .h = MAP_H, .top = (int16_t)(MAP_TOP + chip_h + 8),
                                .bottom = MAP_BOTTOM, .margin = 24, .min_ppd = 1.2f, .max_ppd = 9.0f };
         wm_view_t v;
         wm_fit(&v, &f, TWIN_GEO_HOME_LAT, TWIN_GEO_HOME_LON, g->lat, g->lon);
@@ -411,7 +419,7 @@ void ui_pages_create(lv_obj_t *scr)
 
     /* arriba a la izquierda: bandera + pais (+ hospital en la demo) */
     s_chip = overlay(p);
-    lv_obj_set_pos(s_chip, 8, 8);
+    lv_obj_set_pos(s_chip, 8, MAP_TOP + 8);
     lv_obj_set_width(s_chip, LV_SIZE_CONTENT);
     lv_obj_set_style_max_width(s_chip, 224, 0);
     lv_obj_set_style_pad_hor(s_chip, 8, 0);
@@ -468,14 +476,16 @@ void ui_pages_create(lv_obj_t *scr)
     p = s_pg[2] = panel(scr);
     lv_obj_set_user_data(p, (void *)(intptr_t)2);
     s_ach_box = lv_obj_create(p);
-    lv_obj_set_size(s_ach_box, 240, PG_H);
+    lv_obj_set_size(s_ach_box, 240, PG_H - PG_TOP);
+    lv_obj_set_pos(s_ach_box, 0, PG_TOP);
     lv_obj_set_style_bg_opa(s_ach_box, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_ach_box, 0, 0);
     lv_obj_set_style_pad_all(s_ach_box, 0, 0);
     lv_obj_set_scrollable(s_ach_box, false);
     lv_obj_set_clickable(s_ach_box, false);
     s_streak_box = lv_obj_create(p);
-    lv_obj_set_size(s_streak_box, 240, PG_H);
+    lv_obj_set_size(s_streak_box, 240, PG_H - PG_TOP);
+    lv_obj_set_pos(s_streak_box, 0, PG_TOP);
     lv_obj_set_style_bg_opa(s_streak_box, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_streak_box, 0, 0);
     lv_obj_set_style_pad_all(s_streak_box, 0, 0);
@@ -485,8 +495,8 @@ void ui_pages_create(lv_obj_t *scr)
 
     /* la racha: titulo, 7 corazones con la inicial del dia y una frase */
     s_lbl_streak_t = text(s_streak_box, &lv_font_es_20, COL_NAVY_DARK, 0, 0);
-    lv_obj_align(s_lbl_streak_t, LV_ALIGN_TOP_MID, 0, 16);
-    lv_obj_t *c = card(s_streak_box, 60, 76);
+    lv_obj_align(s_lbl_streak_t, LV_ALIGN_TOP_MID, 0, 4);
+    lv_obj_t *c = card(s_streak_box, 36, 76);
     for (int i = 0; i < WEEK_N; i++) {
         int32_t x = 6 + i * 29; /* 7 x 29 = 203 dentro de 216 */
         lv_obj_t *h = s_week[i] = lv_image_create(c);
@@ -501,27 +511,28 @@ void ui_pages_create(lv_obj_t *scr)
         lv_obj_set_x(s_week_day[i], x);
         lv_obj_set_style_text_align(s_week_day[i], LV_TEXT_ALIGN_CENTER, 0);
     }
-    s_lbl_streak = text(s_streak_box, &lv_font_es_16, COL_NAVY_DARK, 20, 156);
+    s_lbl_streak = text(s_streak_box, &lv_font_es_16, COL_NAVY_DARK, 20, 124);
     lv_obj_set_width(s_lbl_streak, 200);
     lv_obj_set_style_text_align(s_lbl_streak, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(s_lbl_streak, LV_LABEL_LONG_MODE_WRAP);
 
     p = s_ach_box;
     s_lbl_ach_t = text(p, &lv_font_es_20, COL_NAVY_DARK, 0, 0);
-    lv_obj_align(s_lbl_ach_t, LV_ALIGN_TOP_MID, 0, 8);
+    lv_obj_align(s_lbl_ach_t, LV_ALIGN_TOP_MID, 0, ACH_T_Y);
     s_lbl_ach_sub = text(p, &lv_font_es_12, COL_OFFLINE, 0, 0);
-    lv_obj_align(s_lbl_ach_sub, LV_ALIGN_TOP_MID, 0, 36);
+    lv_obj_align(s_lbl_ach_sub, LV_ALIGN_TOP_MID, 0, ACH_SUB_Y);
     for (int i = 0; i < 4; i++) {
-        c = card(p, 58 + (i / 2) * 92, 88); /* hasta 3 lineas de texto */
-        lv_obj_set_size(c, 104, 88);
+        /* hasta 3 lineas de texto (30 + 3 x 16 = 78); antes y 58 / 150, alto 88 */
+        c = card(p, 48 + (i / 2) * 82, 78);
+        lv_obj_set_size(c, 104, 78);
         lv_obj_set_x(c, 12 + (i % 2) * 112);
         s_tile_num[i] = text(c, &lv_font_es_20, COL_CORAL, 0, 0);
-        lv_obj_align(s_tile_num[i], LV_ALIGN_TOP_MID, 0, 10);
+        lv_obj_align(s_tile_num[i], LV_ALIGN_TOP_MID, 0, 6);
         s_tile_cap[i] = text(c, &lv_font_es_12, COL_NAVY_DARK, 0, 0);
         lv_obj_set_width(s_tile_cap[i], 96);
         lv_obj_set_style_text_align(s_tile_cap[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(s_tile_cap[i], LV_LABEL_LONG_MODE_WRAP);
-        lv_obj_align(s_tile_cap[i], LV_ALIGN_TOP_MID, 0, 36);
+        lv_obj_align(s_tile_cap[i], LV_ALIGN_TOP_MID, 0, 30);
     }
     hands_refresh();
     lv_label_set_text_fmt(s_tile_num[2], "+%u", DEMO_FAMILIES);
@@ -545,14 +556,14 @@ void ui_pages_retranslate(void)
 {
     country_page_refresh();
     lv_label_set_text(s_lbl_streak_t, tr(STR_STREAK_TITLE));
-    lv_obj_align(s_lbl_streak_t, LV_ALIGN_TOP_MID, 0, 16);
+    lv_obj_align(s_lbl_streak_t, LV_ALIGN_TOP_MID, 0, 4);
     streak_draw(); /* iniciales y frase en el idioma nuevo */
     lv_label_set_text(s_lbl_ach_t, tr(STR_PG_ACHIEVEMENTS));
     lv_label_set_text(s_lbl_ach_sub, tr(STR_PG_ACH_SUB));
     static const ui_str_t CAP[4] = { STR_PG_MY_DAYS, STR_PG_STREAK, STR_PG_FAMILIES, STR_PG_DAYS };
     for (int i = 0; i < 4; i++) lv_label_set_text(s_tile_cap[i], tr(CAP[i]));
-    lv_obj_align(s_lbl_ach_t, LV_ALIGN_TOP_MID, 0, 8);
-    lv_obj_align(s_lbl_ach_sub, LV_ALIGN_TOP_MID, 0, 36);
+    lv_obj_align(s_lbl_ach_t, LV_ALIGN_TOP_MID, 0, ACH_T_Y);
+    lv_obj_align(s_lbl_ach_sub, LV_ALIGN_TOP_MID, 0, ACH_SUB_Y);
 }
 
 /* Corazones nuevos del modelo (bit 0 = hoy) */

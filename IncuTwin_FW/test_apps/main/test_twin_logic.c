@@ -141,7 +141,6 @@ TEST_CASE("apply: bebe con calor y pulso", "[twin][ingest]")
     TEST_ASSERT_EQUAL(142, inc.bpm);
     TEST_ASSERT_TRUE(inc.online);
     TEST_ASSERT_EQUAL(10, seq);
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, r.transitions);
     TEST_ASSERT_TRUE(r.persist);
 }
 
@@ -200,7 +199,7 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
     m.has_stay = true; strcpy(m.stay_id, "297:4");
     m.has_weight = true; m.weight_g = 1250;
     m.has_age = true; m.age_d = 3;
-    twin_apply_result_t r = twin_apply(&inc, &seq, &m);
+    twin_apply(&inc, &seq, &m);
     TEST_ASSERT_EQUAL(TWIN_THERMO_HEATING, inc.thermo);
     TEST_ASSERT_EQUAL(TWIN_BABY_PARENTS, inc.baby);
     TEST_ASSERT_TRUE(inc.awake);
@@ -210,7 +209,6 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
     TEST_ASSERT_EQUAL_STRING("297:4", inc.stay_id);
     TEST_ASSERT_EQUAL(1250, inc.weight_g);
     TEST_ASSERT_EQUAL(3, inc.age_d);
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_PARENTS, r.transitions);
 
     twin_msg_t m2 = base_msg(TWIN_MSG_STATE_BABY, 2, "treatment_changed");
     m2.heat = true;
@@ -227,7 +225,7 @@ TEST_CASE("apply: extensiones prevalecen; nombre se borra si no viene", "[twin][
 
 /* --------------------------------------------------------------- dedup */
 
-TEST_CASE("dedup: seq menor o igual es refresco sin transiciones", "[twin][ingest]")
+TEST_CASE("dedup: seq menor o igual es refresco", "[twin][ingest]")
 {
     twin_incubator_t inc; uint32_t seq = 1300;
     twin_incubator_reset(&inc, 1);
@@ -235,7 +233,6 @@ TEST_CASE("dedup: seq menor o igual es refresco sin transiciones", "[twin][inges
     twin_msg_t m = base_msg(TWIN_MSG_STATE_BABY, 1300, "baby_in");
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_FALSE(r.is_new);
-    TEST_ASSERT_EQUAL(0, r.transitions);
     TEST_ASSERT_FALSE(r.persist);
     TEST_ASSERT_EQUAL(TWIN_BABY_IN, inc.baby); /* el modelo si se refresca */
     TEST_ASSERT_EQUAL(1300, seq);
@@ -250,7 +247,6 @@ TEST_CASE("dedup: reinicio con bebe dentro no repite melodia", "[twin][ingest]")
     m.heat = true; m.pulseox = true; m.bpm = 130;
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_TRUE(r.is_new);
-    TEST_ASSERT_EQUAL(0, r.transitions);
     TEST_ASSERT_FALSE(r.persist); /* heartbeat sin cambio de baby no gasta NVS */
     TEST_ASSERT_EQUAL(1290, seq);
 }
@@ -264,7 +260,6 @@ TEST_CASE("dedup: evento perdido durante un apagado", "[twin][ingest]")
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_TRUE(r.is_new);
     TEST_ASSERT_EQUAL(TWIN_BABY_NONE, inc.baby);
-    TEST_ASSERT_EQUAL(0, r.transitions); /* baby_out no suena */
     TEST_ASSERT_TRUE(r.persist);
     TEST_ASSERT_EQUAL(1300, seq);
 }
@@ -277,21 +272,7 @@ TEST_CASE("dedup: sin event_seq siempre es nuevo", "[twin][ingest]")
     m.has_seq = false;
     twin_apply_result_t r = twin_apply(&inc, &seq, &m);
     TEST_ASSERT_TRUE(r.is_new);
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, r.transitions);
     TEST_ASSERT_EQUAL(50, seq); /* no se toca */
-}
-
-/* ---------------------------------------------------------- transiciones */
-
-TEST_CASE("transiciones: solo in y parents/home suenan", "[twin]")
-{
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, twin_transitions_between(TWIN_BABY_NONE, TWIN_BABY_IN));
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_IN, twin_transitions_between(TWIN_BABY_PARENTS, TWIN_BABY_IN));
-    TEST_ASSERT_EQUAL(0, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_IN));
-    TEST_ASSERT_EQUAL(0, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_NONE));
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_PARENTS, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_PARENTS));
-    TEST_ASSERT_EQUAL(TWIN_TR_BABY_PARENTS, twin_transitions_between(TWIN_BABY_IN, TWIN_BABY_HOME));
-    TEST_ASSERT_EQUAL(0, twin_transitions_between(TWIN_BABY_PARENTS, TWIN_BABY_HOME));
 }
 
 /* ------------------------------------------------------------------ varios */

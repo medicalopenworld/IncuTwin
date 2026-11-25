@@ -1,6 +1,8 @@
 /* Textos ES/EN del panel (tablas de las specs twin-display, settings, onboarding). */
 #pragma once
 
+#include "twin_types.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -88,7 +90,6 @@ typedef enum {
     STR_VOL_MID,
     STR_VOL_HIGH,
     STR_BRIGHTNESS,
-    STR_BACK,
     STR_WIFI,
     STR_SERVER,
     STR_CONNECTED,
@@ -116,6 +117,21 @@ typedef enum {
     STR_NAME_LATER,
     STR_NAME_PLACEHOLDER,
     STR_NAME_DONE,
+    /* avisos de lo que vive el bebe (spec hmi-navegacion-avisos); ver ui_notice_text() */
+    STR_NOTICE_ADMISSION,
+    STR_NOTICE_PARENTS,
+    STR_NOTICE_EXIT,
+    STR_NOTICE_HEAT_ON,
+    STR_NOTICE_HEAT_OFF,
+    STR_NOTICE_PHOTO_ON,
+    STR_NOTICE_PHOTO_OFF,
+    /* historial */
+    STR_HISTORY,
+    STR_HISTORY_EMPTY,
+    /* ajustes: horario nocturno */
+    STR_QUIET,
+    STR_QUIET_FROM,
+    STR_QUIET_TO,
     STR_COUNT
 } ui_str_t;
 
@@ -123,6 +139,8 @@ typedef enum {
 const char *tr(ui_str_t id);
 /* Nombre del pais en el idioma actual; el propio codigo si no esta en la tabla. */
 const char *tr_country(const char *iso);
+/* Texto del aviso `kind` (un solo bit de twin_notice_t) en el idioma actual; "" si no es un aviso. */
+const char *ui_notice_text(twin_notice_t kind);
 
 #ifdef __cplusplus
 }

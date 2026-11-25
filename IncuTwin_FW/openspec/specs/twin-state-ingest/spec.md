@@ -85,7 +85,8 @@ actualiza el modelo pero no se generan transiciones (y por tanto no suena nada).
 `event_seq` mayor, o sin `event_seq`, SHALL aplicarse como **nuevo**. El `event_seq` SHALL
 persistirse en NVS cuando `last_event` ≠ `heartbeat` o cuando el mensaje produzca una transición
 de `baby`; junto a él SHALL persistirse el `baby` resultante (`twin/baby`). Al emparejar con otra
-incubadora ambos SHALL ponerse a cero.
+incubadora (o desemparejar) ambos SHALL borrarse de NVS y ponerse a cero en RAM. El build sim
+NO SHALL leerlos ni escribirlos.
 
 #### Scenario: Reinicio con bebé dentro
 - **WHEN** el panel se reinicia tras haber aplicado `event_seq = 1287` con `baby = in`, y al
@@ -103,20 +104,20 @@ incubadora ambos SHALL ponerse a cero.
 - **WHEN** llega dos veces el mismo mensaje con `event_seq = 1300`
 - **THEN** la segunda vez es un refresco y no cambia nada observable
 
-### Requirement: Transiciones que suenan [test-unity]
-Al aplicar un mensaje **nuevo**, el panel SHALL comparar el `baby` anterior con el resultante y
-emitir: `BABY_IN` si pasa a `in` desde cualquier otro valor; `BABY_PARENTS` si pasa a `parents`
-o `home` desde otro valor. `BABY_IN` SHALL disparar la melodía "Bebé detectado" y la ventana de
-latido audible; `BABY_PARENTS`, la fanfarria. Ninguna otra transición SHALL sonar (en particular
-`baby_out`, `treatment_changed`, `incubator_offline/online`, `heartbeat`).
+### Requirement: Avisos y transiciones que suenan [test-unity]
+Al aplicar un mensaje **nuevo**, el panel SHALL comparar el último estado **en línea** con el
+resultante y publicar los avisos definidos en `event-history` (función pura `twin_notify`). Solo dos
+avisos suenan: `ADMISSION` (melodía «Bebé detectado») y `PARENTS` (fanfarria); el resto (salida,
+calor, fototerapia) solo se ven y se guardan. Ir a `home` y volver de `parents` a `in` NO SHALL sonar.
+Un refresco (`event_seq` ≤ recordado) no produce avisos.
 
 #### Scenario: Llegada del bebé
 - **WHEN** el modelo tenía `baby = none` y llega nuevo `state: baby, last_event: baby_in`
-- **THEN** suena "Bebé detectado"
+- **THEN** aviso `ADMISSION` y suena "Bebé detectado"
 
 #### Scenario: Alta sin ruido
 - **WHEN** el modelo tenía `baby = in` y llega nuevo `state: free, last_event: baby_out`
-- **THEN** no suena nada y la vista pasa a incubadora vacía
+- **THEN** aviso `EXIT` en pantalla, no suena nada y la vista pasa a incubadora vacía
 
 ### Requirement: Sin caducidad local de datos [test-unity]
 El panel NO SHALL marcar la incubadora como apagada por ausencia de mensajes: el `offline` lo

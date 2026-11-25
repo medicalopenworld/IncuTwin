@@ -89,7 +89,6 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_VOL_MID        */ { "Medio",                             "Mid" },
     /* STR_VOL_HIGH       */ { "Alto",                              "High" },
     /* STR_BRIGHTNESS     */ { "Brillo",                            "Brightness" },
-    /* STR_BACK           */ { "Volver",                            "Back" },
     /* STR_WIFI           */ { "WiFi",                              "WiFi" },
     /* STR_SERVER         */ { "Servidor",                          "Server" },
     /* STR_CONNECTED      */ { "Conectado",                         "Connected" },
@@ -120,6 +119,19 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_NAME_LATER     */ { "AHORA NO",                          "NOT NOW" },
     /* STR_NAME_PLACEHOLDER*/ { "Ponle nombre",                     "Give a name" },
     /* STR_NAME_DONE      */ { "LISTO",                             "DONE" },
+    /* STR_NOTICE_ADMISSION */ { "Ha entrado un bebé en la incubadora", "A baby has entered the incubator" },
+    /* STR_NOTICE_PARENTS */ { "El bebé está con sus papás",        "The baby is with their parents" },
+    /* STR_NOTICE_EXIT    */ { "El bebé ha salido de la incubadora", "The baby has left the incubator" },
+    /* STR_NOTICE_HEAT_ON */ { "Ha empezado el calor",              "Warmth has started" },
+    /* STR_NOTICE_HEAT_OFF*/ { "Ha terminado el calor",             "Warmth has ended" },
+    /* STR_NOTICE_PHOTO_ON*/ { "Ha empezado la fototerapia",        "Phototherapy has started" },
+    /* STR_NOTICE_PHOTO_OFF*/ { "Ha terminado la fototerapia",      "Phototherapy has ended" },
+    /* STR_HISTORY        */ { "Historial",                         "History" },
+    /* STR_HISTORY_EMPTY  */ { "Aquí verás lo que vaya pasando en tu IncuNest",
+                               "Here you'll see what happens in your IncuNest" },
+    /* STR_QUIET          */ { "De noche, sin sonido",              "Quiet at night" },
+    /* STR_QUIET_FROM     */ { "Desde",                             "From" },
+    /* STR_QUIET_TO       */ { "Hasta",                             "To" },
 };
 
 /* Paises de la barra del pais (ISO 3166-1 alfa-2). Solo caracteres de las fuentes
@@ -190,6 +202,20 @@ const char *tr_country(const char *iso)
         if (COUNTRIES[i].iso[0] == iso[0] && COUNTRIES[i].iso[1] == iso[1]) return COUNTRIES[i].name[lang];
     }
     return iso;
+}
+
+const char *ui_notice_text(twin_notice_t kind)
+{
+    switch (kind) {
+    case TWIN_NOTICE_ADMISSION: return tr(STR_NOTICE_ADMISSION);
+    case TWIN_NOTICE_PARENTS:   return tr(STR_NOTICE_PARENTS);
+    case TWIN_NOTICE_EXIT:      return tr(STR_NOTICE_EXIT);
+    case TWIN_NOTICE_HEAT_ON:   return tr(STR_NOTICE_HEAT_ON);
+    case TWIN_NOTICE_HEAT_OFF:  return tr(STR_NOTICE_HEAT_OFF);
+    case TWIN_NOTICE_PHOTO_ON:  return tr(STR_NOTICE_PHOTO_ON);
+    case TWIN_NOTICE_PHOTO_OFF: return tr(STR_NOTICE_PHOTO_OFF);
+    default:                    return "";
+    }
 }
 
 const char *tr(ui_str_t id)

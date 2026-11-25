@@ -13,6 +13,7 @@
 #include "freertos/semphr.h"
 #include "identity.h"
 #include "net_wifi.h"
+#include "settings.h"
 #include "sound.h"
 #include "storage.h"
 #include "twin_logic.h"
@@ -20,7 +21,6 @@
 
 static const char *TAG = "acc";
 
-#define TZ_SPAIN       "CET-1CEST,M3.5.0,M10.5.0/3"
 #define PICK_WAIT_S    5 /* tras conectar: dejar llegar todos los retenidos antes de elegir */
 #define KEY_MODE       "acc_mode"
 #define KEY_STATE      "state"
@@ -115,7 +115,7 @@ static void handle_locked(uint32_t r)
     if (r & ACC_R_SAVE) save_locked();
     if (r & ACC_R_REMIND) {
         ESP_LOGI(TAG, "recordatorio: hoy aun no le has dado la mano");
-        sound_request(SOUND_BABY); /* en horario de silencio lo descarta sound */
+        sound_request_auto(SOUND_BABY); /* en horario de silencio no suena */
     }
     if (r & (ACC_R_PHASE | ACC_R_SWITCH | ACC_R_REMIND)) {
         ESP_LOGI(TAG, "fase %d, actual '%s'", acc_phase(&s_acc), acc_current(&s_acc));
@@ -172,8 +172,6 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
 void accompany_init(void)
 {
     s_mutex = xSemaphoreCreateMutex();
-    setenv("TZ", TZ_SPAIN, 1);
-    tzset();
     uint8_t mode = 0;
     s_enabled = storage_get_u8(STORAGE_NS_MQTT, KEY_MODE, &mode) && mode == 1;
     uint32_t seed = acc_hash(identity_mqtt_user());
@@ -237,7 +235,6 @@ void accompany_set_enabled(bool on)
     } else {
         storage_erase_key(STORAGE_NS_MQTT, KEY_MODE);
         s_acc.n_seen = 0;
-        sound_set_quiet(false);
         ESP_LOGI(TAG, "modo acompañar apagado");
     }
     publish_ui_locked();
@@ -289,7 +286,6 @@ void accompany_tick_1s(void)
     local_now(&day, &hour);
     twin_snapshot_t s = twin_model_get();
     bool shown = !s.demo && (s.show_baby || s.parents_view);
-    sound_set_quiet(acc_quiet(hour));
     LOCK();
     uint32_t r = 0;
     if (s_gesture_pending && day != ACC_NO_DAY) {

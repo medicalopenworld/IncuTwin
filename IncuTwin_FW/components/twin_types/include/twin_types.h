@@ -66,6 +66,18 @@ typedef struct {
     int16_t age_d;        /* -1 = no compartido */
 } twin_incubator_t;
 
+/* Avisos de lo que vive el bebe (mascara de bits). El orden de los bits es el orden en que se
+ * muestran y se guardan en el historial. */
+typedef enum {
+    TWIN_NOTICE_ADMISSION = 1u << 0, /* ingreso: llega un bebe */
+    TWIN_NOTICE_PARENTS = 1u << 1,   /* pasa con sus padres */
+    TWIN_NOTICE_HEAT_ON = 1u << 2,   /* empieza el calor */
+    TWIN_NOTICE_HEAT_OFF = 1u << 3,  /* termina el calor */
+    TWIN_NOTICE_PHOTO_ON = 1u << 4,  /* empieza la fototerapia */
+    TWIN_NOTICE_PHOTO_OFF = 1u << 5, /* termina la fototerapia */
+    TWIN_NOTICE_EXIT = 1u << 6,      /* el bebe sale de la incubadora */
+} twin_notice_t;
+
 /* Fase del modo Acompañar (spec accompany). */
 typedef enum {
     TWIN_ACC_OFF = 0,   /* modo apagado: emparejado fijo o sin emparejar */
@@ -106,12 +118,6 @@ typedef struct {
     bool show_baby;
     bool parents_view;
 } twin_snapshot_t;
-
-/* Transiciones que suenan (TWIN_EVT_TRANSITION). */
-typedef enum {
-    TWIN_TR_BABY_IN = 1,      /* -> in desde otro valor */
-    TWIN_TR_BABY_PARENTS = 2, /* -> parents/home desde otro valor */
-} twin_transition_t;
 
 /* Linea de la barra de estado, por prioridad (spec twin-display). */
 typedef enum {

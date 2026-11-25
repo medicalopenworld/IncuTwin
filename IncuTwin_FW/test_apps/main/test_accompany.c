@@ -354,16 +354,6 @@ TEST_CASE("acc: sin recordatorio si hoy ya hubo gesto, sin bebe o sin hora", "[a
     TEST_ASSERT_FALSE(acc_tick(&a, 3, DAY, 19, true) & ACC_R_REMIND);
 }
 
-TEST_CASE("acc: horario de silencio de 22 a 9", "[acc]")
-{
-    TEST_ASSERT_TRUE(acc_quiet(22));
-    TEST_ASSERT_TRUE(acc_quiet(3));
-    TEST_ASSERT_TRUE(acc_quiet(8));
-    TEST_ASSERT_FALSE(acc_quiet(9));
-    TEST_ASSERT_FALSE(acc_quiet(21));
-    TEST_ASSERT_FALSE(acc_quiet(-1));
-}
-
 /* -------------------------------------------------------- dias acompañados */
 
 TEST_CASE("acc: corazones de los ultimos 7 dias", "[acc]")

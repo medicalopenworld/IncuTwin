@@ -19,8 +19,6 @@ extern "C" {
 #define ACC_ENDING_S    (2 * 3600)  /* sin bebe o desconectada antes de buscar otra */
 #define ACC_SAVE_S      600         /* guardar el historial cada 10 min mientras cuenta */
 #define ACC_REMIND_HOUR 19          /* recordatorio diario */
-#define ACC_QUIET_FROM  22          /* silencio de 22:00 ... */
-#define ACC_QUIET_TO    9           /* ... a 9:00 */
 #define ACC_NO_DAY      INT32_MIN   /* dia desconocido / nunca */
 #define ACC_PERSIST_VERSION 1
 
@@ -132,8 +130,6 @@ uint32_t acc_hist_secs(const acc_t *a, const char *id);
 bool acc_remind_active(const acc_t *a, int32_t day, int hour);
 /* Corazones: bit 0 = hoy ... bit 6 = hace 6 dias. */
 uint8_t acc_week_mask(const acc_t *a, int32_t day);
-/* Horario de silencio (hour < 0 = sin hora: no hay silencio). */
-bool acc_quiet(int hour);
 
 #ifdef __cplusplus
 }

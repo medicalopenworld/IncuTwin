@@ -11,6 +11,8 @@ extern const lv_image_dsc_t img_wordmark;
 extern const lv_image_dsc_t img_icon_thermo;
 extern const lv_image_dsc_t img_icon_lamp;
 extern const lv_image_dsc_t img_wifi_off;
+extern const lv_image_dsc_t img_chick_28;
+extern const lv_image_dsc_t img_chick_64;
 extern const lv_image_dsc_t img_wifi_0;
 extern const lv_image_dsc_t img_wifi_1;
 extern const lv_image_dsc_t img_wifi_2;

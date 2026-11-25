@@ -65,7 +65,6 @@ const char *twin_parse_result_str(twin_parse_result_t r);
 
 typedef struct {
     bool is_new;           /* seq ausente o mayor que el ultimo visto */
-    uint32_t transitions;  /* mascara de twin_transition_t (solo si is_new) */
     bool persist;          /* hay que guardar seq/baby en NVS */
 } twin_apply_result_t;
 
@@ -74,9 +73,6 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
 
 /* Estado inicial de la incubadora (sin emparejar / tras desemparejar). */
 void twin_incubator_reset(twin_incubator_t *inc, uint8_t default_skin);
-
-/* Transiciones al pasar de `before` a `after`. */
-uint32_t twin_transitions_between(twin_baby_t before, twin_baby_t after);
 
 /* ------------------------------------------------------------ presentation */
 

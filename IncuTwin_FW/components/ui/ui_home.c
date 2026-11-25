@@ -1,10 +1,12 @@
-/* Pantalla principal (spec twin-display). Layout vertical 240x320:
- *   barra superior : WiFi | marca | engranaje
+/* Pantalla principal (spec twin-display, hmi-navegacion-avisos). Layout vertical 240x320:
+ *   barra superior : WiFi | marca a media escala a la derecha (donde estaba la rueda)
  *   centro         : bebe + halo | incubadora vacia | con sus papas (dos tonos de piel)
- *   cuerpo del bebe: pais de la incubadora, si se comparte (oculto durante el gesto)
- *   fila           : simbolos del tratamiento en curso (solo los activos, juntos a la
+ *   cuerpo del bebe: pais de la incubadora, si se comparte (oculto durante el gesto) y nombre
+ *   fila (211..248): simbolos del tratamiento en curso (solo los activos, juntos a la
  *                    izquierda) + boton "Coge mi mano" (o el texto del gesto)
- *   abajo          : barra de estado siempre visible
+ *   250..255       : puntos de pagina (solo en demo / acompañar, ui_pages.c)
+ *   257..278       : barra de estado siempre visible
+ *   280..320       : barra de navegacion (ui_nav.c); nada de Inicio por debajo de UI_NAV_Y
  * En demo se desliza a izquierda/derecha entre tres paginas (ui_pages.c).
  * El latido solo suena al tocar el icono del corazon (ritmo real del bebe).
  * El gesto "Coge mi mano" (spec hold-my-hand) lo lleva hand_hold; aqui solo se pinta. */
@@ -16,11 +18,11 @@
 #include "assets.h"
 #include "baby_name.h"
 #include "baby_widget.h"
+#include "esp_log.h"
 #include "hand_hold.h"
 #include "name_logic.h"
 #include "sdkconfig.h"
 #include "sound.h"
-#include "storage.h"
 #include "twin_logic.h"
 #include "ui_internal.h"
 #include "ui_name.h"
@@ -28,24 +30,34 @@
 #include "ui_pages.h"
 #include "usage_stats.h"
 
+static const char *TAG = "home";
+
+/* Todo el bloque del bebe esta 24 px mas arriba que antes de la barra de navegacion (BABY_Y era
+ * 38, COUNTRY_Y 164, NAME_Y 206) para que fila y estado quepan encima de ella. Medido con la
+ * silueta opaca del sprite: el bebe ocupa y 11..199 (respirando sube 3 px), el nombre 182..208. */
 #define BABY_X 63   /* sprite de 114x185 */
-#define BABY_Y 38
+#define BABY_Y 14
 #define BABY_CX (BABY_X + 57)
 #define BABY_CY (BABY_Y + 92)
-#define ICON_D 44
-#define ICON_Y 232
-#define STATUS_Y 288
+#define ICON_D 38   /* antes 44; 38 deja sitio a los puntos de pagina entre fila y estado */
+#define ICON_Y 211
+#define STATUS_Y 257
+#define STATUS_H 22
+/* imagenes "con sus papas": su dibujo (medido) acaba en y 283 / 301; se suben para que acabe
+ * en la barra de navegacion sin cortar el corazon de arriba */
+#define PARENTS_Y       (-3)
+#define PARENTS_BLACK_Y (-18)
 
 /* gesto "Coge mi mano" */
 #define RING_D        196
-#define NAME_Y        206
-#define COUNTRY_Y     164 /* centrado en la manta, entre la cara y el nombre */
+#define NAME_Y        182
+#define COUNTRY_Y     140 /* centrado en la manta, entre la cara y el nombre */
 #define N_HEARTS      4
 #define HH_TICK_MS    100
 #define COL_RING_BG   lv_color_hex(0xF5C4B3)
 #define COL_RING_DIM  lv_color_hex(0xEBA8A0)
 #define COL_BG_THANKS lv_color_hex(0xFBEDEA)
-#define HOLD_H        40
+#define HOLD_H        ICON_D /* texto del gesto: en el sitio de la fila */
 /* Vueltas del anillo: cada minuto extra pinta otra vuelta encima, en el color siguiente.
  * Colores muy distintos entre vueltas seguidas para que se vea el cambio:
  * coral -> azul de la marca -> ambar -> verde -> coral... */
@@ -82,10 +94,12 @@ static bool s_have_last;
 static bool s_row_shown; /* la fila se ve: bebe a la vista y sin gesto */
 static uint32_t s_farewell_ms; /* lv_tick al entrar en la despedida del modo acompañar */
 static bool s_farewell;
+static lv_obj_t *s_nav; /* barra de abajo; fuera en la despedida y al final del gesto */
 #define FAREWELL_TOUCH_MIN_MS 5000 /* que no la cierre un toque fantasma nada mas salir */
 
 static void hold_refresh(bool force);
 static void overlay_refresh(void);
+static void nav_apply(void);
 static void name_clicked_cb(lv_event_t *e);
 static void name_done(void);
 static void name_maybe_ask(void);
@@ -215,24 +229,6 @@ static void photo_icon_clicked(lv_event_t *e)
 }
 
 /* ------------------------------------------------------------- handlers */
-
-static void gear_clicked(lv_event_t *e)
-{
-    (void)e;
-    ui_go_settings();
-}
-
-static void reset_confirmed(lv_event_t *e)
-{
-    (void)e;
-    storage_factory_reset();
-}
-
-static void gear_long_pressed(lv_event_t *e)
-{
-    (void)e;
-    ui_msgbox("IncuTwin", tr(STR_RESET_Q), tr(STR_RESET), COL_RED, reset_confirmed, NULL);
-}
 
 /* Icono WiFi -> cambiar de red (spec onboarding) */
 static void wifi_change_confirmed(lv_event_t *e)
@@ -468,7 +464,7 @@ static void hold_create_above_baby(void)
     lv_obj_set_hidden(s_target, true);
 
     static const int16_t HX[N_HEARTS] = { 50, 172, 160, 58 };
-    static const int16_t HY[N_HEARTS] = { 110, 96, 168, 176 };
+    static const int16_t HY[N_HEARTS] = { 86, 72, 144, 152 }; /* -24 con el bebe */
     for (int i = 0; i < N_HEARTS; i++) {
         lv_obj_t *h = lv_image_create(s_scr);
         lv_image_set_src(h, &img_heart);
@@ -555,7 +551,7 @@ static void hold_create_above_baby(void)
     s_lbl_hold = lv_label_create(s_scr);
     lv_label_set_text(s_lbl_hold, "");
     lv_obj_set_size(s_lbl_hold, 224, HOLD_H);
-    lv_obj_set_pos(s_lbl_hold, 8, ICON_Y + 2);
+    lv_obj_set_pos(s_lbl_hold, 8, ICON_Y);
     lv_obj_set_style_text_font(s_lbl_hold, &lv_font_es_14, 0);
     lv_obj_set_style_text_align(s_lbl_hold, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_pad_hor(s_lbl_hold, 6, 0);
@@ -574,7 +570,7 @@ static void hold_timer_cb(lv_timer_t *t)
     hold_refresh(false);
 }
 
-/* Botones de arriba (WiFi, ajustes): fondo blanco y marco azul de la marca */
+/* Boton de arriba (WiFi): fondo blanco y marco azul de la marca */
 static void top_button_style(lv_obj_t *b)
 {
     lv_obj_set_style_bg_color(b, COL_CARD, 0);
@@ -616,12 +612,12 @@ lv_obj_t *ui_home_create(void)
     /* imagenes a pantalla completa (debajo de todo) */
     s_empty_img = lv_image_create(s_scr);
     lv_image_set_src(s_empty_img, &img_incunest_empty);
-    lv_obj_set_pos(s_empty_img, 0, 0);
+    lv_obj_set_pos(s_empty_img, 0, 0); /* su dibujo (medido) ocupa y 46..275: ya cabe */
     lv_obj_set_hidden(s_empty_img, true);
 
     s_parents_img = lv_image_create(s_scr);
     lv_image_set_src(s_parents_img, &img_baby_parents);
-    lv_obj_set_pos(s_parents_img, 0, 0);
+    lv_obj_set_pos(s_parents_img, 0, PARENTS_Y);
     lv_obj_set_hidden(s_parents_img, true);
 
     /* halo que respira */
@@ -690,7 +686,7 @@ lv_obj_t *ui_home_create(void)
 
     /* barra de estado */
     s_status = lv_obj_create(s_scr);
-    lv_obj_set_size(s_status, 224, 26);
+    lv_obj_set_size(s_status, 224, STATUS_H);
     lv_obj_set_pos(s_status, 8, STATUS_Y);
     lv_obj_set_style_radius(s_status, 10, 0);
     lv_obj_set_style_bg_color(s_status, COL_CARD, 0);
@@ -709,7 +705,7 @@ lv_obj_t *ui_home_create(void)
     lv_obj_center(s_lbl_status);
 
     /* barra superior */
-    /* WiFi y ajustes: botones con marco, para que se vea que se pueden tocar */
+    /* WiFi: boton con marco, para que se vea que se puede tocar */
     s_wifi_btn = lv_button_create(s_scr);
     lv_obj_set_size(s_wifi_btn, 42, 30);
     lv_obj_align(s_wifi_btn, LV_ALIGN_TOP_LEFT, 4, 5);
@@ -732,21 +728,15 @@ lv_obj_t *ui_home_create(void)
     lv_obj_set_pos(s_demo_badge, 6, 11);
     lv_obj_set_hidden(s_demo_badge, true);
 
+    /* marca a media escala (144x26 -> 72x13) donde estaba la rueda: el gorro del bebe sube
+     * hasta y 11 y no cabe debajo de la marca entera */
     lv_obj_t *wm = lv_image_create(s_scr);
     lv_image_set_src(wm, &img_wordmark);
-    lv_obj_align(wm, LV_ALIGN_TOP_MID, 0, 8);
+    lv_image_set_inner_align(wm, LV_IMAGE_ALIGN_STRETCH);
+    lv_obj_set_size(wm, 72, 13);
+    lv_obj_align(wm, LV_ALIGN_TOP_RIGHT, -6, 14);
 
-    lv_obj_t *gear = lv_button_create(s_scr);
-    lv_obj_set_size(gear, 42, 30);
-    lv_obj_align(gear, LV_ALIGN_TOP_RIGHT, -4, 5);
-    top_button_style(gear);
-    lv_obj_add_event_cb(gear, gear_clicked, LV_EVENT_SHORT_CLICKED, NULL);
-    lv_obj_add_event_cb(gear, gear_long_pressed, LV_EVENT_LONG_PRESSED, NULL);
-    lv_obj_t *gl = lv_label_create(gear);
-    lv_label_set_text(gl, LV_SYMBOL_SETTINGS);
-    lv_obj_set_style_text_font(gl, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(gl, COL_NAVY, 0);
-    lv_obj_center(gl);
+    s_nav = ui_nav_create(s_scr, UI_TAB_HOME); /* lo ultimo: encima de todo */
     return s_scr;
 }
 
@@ -871,7 +861,10 @@ static void parents_img_apply(uint8_t skin, bool girl)
     const void *src = skin >= TWIN_SKIN_DARK_MIN ? &img_baby_parents_black
                     : girl                       ? &img_baby_parents_girl
                                                  : &img_baby_parents;
-    if (lv_image_get_src(s_parents_img) != src) lv_image_set_src(s_parents_img, src);
+    if (lv_image_get_src(s_parents_img) != src) {
+        lv_image_set_src(s_parents_img, src);
+        lv_obj_set_y(s_parents_img, src == &img_baby_parents_black ? PARENTS_BLACK_Y : PARENTS_Y);
+    }
 }
 
 static void wifi_icon_apply(const twin_snapshot_t *s)
@@ -1043,6 +1036,7 @@ static void hold_refresh(bool force)
         hearts_run(baby_view && (st == HH_HOLDING || st == HH_DONE));
         thanks_show(baby_view && st == HH_THANKS);
         overlay_refresh();
+        nav_apply();
         if (idle) {
             s_ring_lap = -1;
             s_super_sent = false;
@@ -1110,6 +1104,26 @@ static void hold_refresh(bool force)
     }
 }
 
+/* La barra no sale en la despedida del modo acompañar ni en el final del gesto (completado con el
+ * dedo puesto y el agradecimiento a pantalla completa): spec hmi-navegacion-avisos, "la barra no
+ * aparece en ... la despedida". Oculta, tampoco se puede pulsar: un toque no cierra la despedida y
+ * a la vez cambia de pantalla. */
+bool ui_home_overlay_active(void)
+{
+    hh_state_t st = hh_state(&s_hh);
+    bool baby_view = s_have_last && s_last.show_baby && ui_pages_current() == 0;
+    return (s_have_last && s_last.acc == TWIN_ACC_FAREWELL) || (baby_view && (st == HH_DONE || st == HH_THANKS));
+}
+
+static void nav_apply(void)
+{
+    if (!s_nav) return;
+    bool hide = ui_home_overlay_active();
+    if (hide == lv_obj_is_hidden(s_nav)) return;
+    lv_obj_set_hidden(s_nav, hide);
+    ESP_LOGI(TAG, "barra de navegacion %s", hide ? "oculta" : "visible");
+}
+
 void ui_home_apply(const twin_snapshot_t *s)
 {
     const twin_incubator_t *inc = &s->inc;
@@ -1123,6 +1137,7 @@ void ui_home_apply(const twin_snapshot_t *s)
     bool farewell = s->acc == TWIN_ACC_FAREWELL;
     if (farewell && !s_farewell) s_farewell_ms = lv_tick_get();
     s_farewell = farewell;
+    nav_apply();
     ui_pages_apply(s);
     hh_set_available(&s_hh, s->show_baby && ui_pages_current() == 0,
                      !s->demo && s->link.broker_connected && s->link.paired, lv_tick_get());
