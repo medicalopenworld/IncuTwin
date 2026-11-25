@@ -49,7 +49,8 @@ La pulsación corta en demo SHALL pasar al siguiente escenario, en bucle, en est
 Cada escenario SHALL producir los mismos avisos en pantalla y la misma melodía que si llegara por red
 (ver `event-history`: entrar en `sleep` desde `unlinked` suena "Bebé detectado"; entrar en `parents`
 desde `sleep` suena la fanfarria), pero los avisos de la demo NO SHALL guardarse en el Historial.
-Los botones de la demo suenan también en horario nocturno.
+El pitido de prueba al entrar y salir de la demo suena también en horario nocturno; las melodías de
+los escenarios siguen el horario nocturno y se silencian de noche, como las reales.
 Fuera de demo la pulsación corta no hace nada.
 
 #### Scenario: Ciclo completo

@@ -218,7 +218,7 @@ ella y "Coge mi mano" SHALL seguir siendo accesible.
 - **WHEN** aparece el diálogo "¿Restablecer de fábrica?" o el teclado del nombre del bebé
 - **THEN** la barra de navegación no se ve hasta cerrarlo
 
-### Requirement: Aviso en pantalla [test-unity]
+### Requirement: Aviso en pantalla [manual]
 Cada aviso de `event-history` (ingreso, con sus papás, salida, calor y fototerapia, empieza y acaba)
 SHALL mostrarse como una franja de 224×44 px que baja desde la parte superior (capa superior de
 LVGL) con el icono y el texto del aviso durante 4 s. Los avisos SHALL mostrarse de uno en uno con una
@@ -226,7 +226,7 @@ cola de 8 (si llegan más, se pierde el más antiguo de la cola, que sigue en el
 franja SHALL abrir el Historial. La franja SHALL mostrarse también en horario nocturno.
 
 La franja NO SHALL mostrarse mientras la pantalla esté ocupada: los mismos casos en que se oculta la
-barra de navegación más el teclado del nombre del bebé. Los avisos SHALL esperar en la cola y
+barra de navegación. Los avisos SHALL esperar en la cola y
 mostrarse al quedar libre.
 
 #### Scenario: Varios a la vez

@@ -60,7 +60,7 @@ como base sin avisar.
 - **WHEN** la IncuNest pasa a `offline` con bebé y luego vuelve en línea con el mismo estado
 - **THEN** no hay aviso; si vuelve sin bebé, un único aviso `EXIT`
 
-### Requirement: Historial persistente [test-unity]
+### Requirement: Historial persistente [manual]
 El panel SHALL guardar los **50** últimos avisos en un anillo en NVS (namespace `evlog`; el build sim
 usa `evlogsim` y borra `evlog` al arrancar, para no mezclar avisos de prueba con los reales). Cada
 entrada guarda el tipo, la hora (epoch SNTP; 0 si aún no hay hora) y el id de la IncuNest (no se

@@ -91,17 +91,18 @@ inicializar), ni al cambiar el brillo, ni al reiniciar por OTA.
 - **WHEN** se enciende el panel
 - **THEN** el primer sonido audible es la melodía de arranque
 
-### Requirement: Horario nocturno [test-unity]
+### Requirement: Horario nocturno [manual]
 El panel SHALL tener un único horario nocturno: activado/desactivado y horas «desde» y «hasta»
 (horas enteras, intervalo [desde, hasta); si desde > hasta cruza la medianoche; desde = hasta o
 apagado = nunca), por defecto **activado de 21 a 9**, en hora de España
 (`CET-1CEST,M3.5.0,M10.5.0/3`). Se guarda en NVS (namespace `settings`). Sin hora válida (SNTP
-aún no sincronizado) NO SHALL considerarse de noche.
+aún no sincronizado) NO SHALL considerarse de noche. (El cálculo `quiet_hours_active` está cubierto por
+`test-unity`; el silenciado de las melodías es `manual`.)
 
 De noche SHALL quedar en silencio toda melodía que la persona no haya provocado tocando la pantalla:
 melodías de aviso (ingreso, con sus papás), melodías de comandos remotos y recordatorios del modo
 acompañar (que usa este mismo horario, antes 22–9 fijo). Seguirán sonando el clic táctil, el latido
-al tocar al bebé, el pitido de prueba de volumen y los botones de la demo. El silencio no afecta a lo
+al tocar al bebé, el pitido de prueba de volumen y el de entrar o salir de la demo (las melodías de los escenarios de la demo sí se silencian). El silencio no afecta a lo
 que se ve: el aviso en pantalla aparece igual.
 
 #### Scenario: Ingreso de noche
@@ -116,7 +117,7 @@ que se ve: el aviso en pantalla aparece igual.
 - **WHEN** es de noche y se pulsa un botón
 - **THEN** suena el clic
 
-### Requirement: Melodía de arranque solo al enchufar [test-unity]
+### Requirement: Melodía de arranque solo al enchufar [manual]
 La melodía de arranque SHALL sonar únicamente cuando el motivo de reinicio es `ESP_RST_POWERON`, a
 cualquier hora. NO SHALL sonar tras un reinicio por software, OTA, comando remoto, caída ni
 perro guardián. El log del arranque SHALL indicar el motivo y si suena o no.
