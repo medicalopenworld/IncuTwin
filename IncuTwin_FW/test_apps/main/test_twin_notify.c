@@ -74,8 +74,8 @@ TEST_CASE("notice: vuelve de offline sin bebe = una salida", "[notice]")
     TEST_ASSERT_EQUAL_UINT32(TWIN_NOTICE_EXIT, twin_notices_update(&b, inc(TWIN_BABY_NONE, TWIN_THERMO_OFF, false, true)));
 }
 
-TEST_CASE("notice: alarma con calor previo no avisa", "[notice]")
+TEST_CASE("notice: un \"alarm\" del broker es calor y no avisa si ya habia", "[notice]")
 {
     twin_notice_base_t b = base(TWIN_BABY_IN, true, false);
-    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_ALARM, false, true)));
+    TEST_ASSERT_EQUAL_UINT32(0, twin_notices_update(&b, inc(TWIN_BABY_IN, TWIN_THERMO_HEATING, false, true)));
 }

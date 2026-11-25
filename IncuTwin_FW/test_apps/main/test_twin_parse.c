@@ -76,7 +76,7 @@ TEST_CASE("parse: extensiones validas e invalidas", "[twin][parse]")
                     "\"weight_g\":1250,\"age_d\":3}";
     TEST_ASSERT_EQUAL(TWIN_PARSE_OK, parse(j, "353", &m));
     TEST_ASSERT_TRUE(m.has_thermo);
-    TEST_ASSERT_EQUAL(TWIN_THERMO_ALARM, m.thermo);
+    TEST_ASSERT_EQUAL(TWIN_THERMO_HEATING, m.thermo); /* nunca alarma: se lee como calor */
     TEST_ASSERT_TRUE(m.has_baby);
     TEST_ASSERT_EQUAL(TWIN_BABY_PARENTS, m.baby);
     TEST_ASSERT_TRUE(m.has_awake);

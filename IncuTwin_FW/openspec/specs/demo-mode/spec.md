@@ -38,13 +38,12 @@ La pulsación corta en demo SHALL pasar al siguiente escenario, en bucle, en est
 | 1 | sleep | bebé durmiendo, 120 lpm, calor estable |
 | 2 | awake | bebé despierto, 140 lpm |
 | 3 | heating | calentando (halo ámbar), 130 lpm |
-| 4 | alarm | ¡Alarma! (halo rojo rápido), 180 lpm |
-| 5 | photo | fototerapia (halo azul), 130 lpm |
-| 6 | parents | con sus papás |
-| 7 | home | ¡ya está en casa! |
-| 8 | empty | IncuNest sin bebé |
-| 9 | off | IncuNest apagada |
-| 10 | unlinked | sin IncuNest vinculada |
+| 4 | photo | fototerapia (halo azul), 130 lpm |
+| 5 | parents | con sus papás |
+| 6 | home | ¡ya está en casa! |
+| 7 | empty | IncuNest sin bebé |
+| 8 | off | IncuNest apagada |
+| 9 | unlinked | sin IncuNest vinculada |
 
 Cada escenario SHALL producir los mismos avisos en pantalla y la misma melodía que si llegara por red
 (ver `event-history`: entrar en `sleep` desde `unlinked` suena "Bebé detectado"; entrar en `parents`
@@ -54,8 +53,8 @@ los escenarios siguen el horario nocturno y se silencian de noche, como las real
 Fuera de demo la pulsación corta no hace nada.
 
 #### Scenario: Ciclo completo
-- **WHEN** se pulsa BOOT brevemente 10 veces desde el escenario 1
-- **THEN** se recorren los 10 escenarios y se vuelve a "sleep", que vuelve a sonar
+- **WHEN** se pulsa BOOT brevemente 9 veces desde el escenario 1
+- **THEN** se recorren los 9 escenarios y se vuelve a "sleep", que vuelve a sonar
 
 #### Scenario: Corta fuera de demo
 - **WHEN** se pulsa BOOT brevemente sin demo activa

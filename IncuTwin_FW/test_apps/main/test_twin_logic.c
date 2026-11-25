@@ -44,8 +44,8 @@ TEST_CASE("status: las 14 prioridades en orden", "[twin][status]")
     TEST_ASSERT_EQUAL(TWIN_ST_AWAKE, twin_status_of(&s));
     strcpy(s.inc.name, "Lucía");
     TEST_ASSERT_EQUAL(TWIN_ST_NAME, twin_status_of(&s));
-    s.inc.thermo = TWIN_THERMO_ALARM;
-    TEST_ASSERT_EQUAL(TWIN_ST_ALARM, twin_status_of(&s)); /* alarma antes que nombre */
+    s.inc.thermo = TWIN_THERMO_HEATING;
+    TEST_ASSERT_EQUAL(TWIN_ST_NAME, twin_status_of(&s)); /* nunca hay estado de alarma */
     s.inc.baby = TWIN_BABY_NONE; twin_derive(&s);
     TEST_ASSERT_EQUAL(TWIN_ST_NO_BABY, twin_status_of(&s));
     s.inc.online = false; twin_derive(&s);
@@ -68,7 +68,7 @@ TEST_CASE("status: con sus papas y en casa mandan sobre todo", "[twin][status]")
 {
     twin_snapshot_t s = linked_snapshot();
     s.inc.baby = TWIN_BABY_PARENTS;
-    s.inc.thermo = TWIN_THERMO_ALARM;
+    s.inc.thermo = TWIN_THERMO_HEATING;
     twin_derive(&s);
     TEST_ASSERT_TRUE(s.parents_view);
     TEST_ASSERT_EQUAL(TWIN_ST_PARENTS, twin_status_of(&s));
@@ -85,8 +85,8 @@ TEST_CASE("status: modo acompañar", "[twin][status][acc]")
     twin_snapshot_t s = linked_snapshot();
     s.acc = TWIN_ACC_WAITING;
     TEST_ASSERT_EQUAL(TWIN_ST_ACC_WAITING, twin_status_of(&s));
-    s.inc.thermo = TWIN_THERMO_ALARM;
-    TEST_ASSERT_EQUAL(TWIN_ST_ALARM, twin_status_of(&s)); /* la alarma manda */
+    s.inc.thermo = TWIN_THERMO_HEATING;
+    TEST_ASSERT_EQUAL(TWIN_ST_ACC_WAITING, twin_status_of(&s)); /* el calor no tapa la llamada */
     s.inc.thermo = TWIN_THERMO_STABLE;
     s.acc = TWIN_ACC_WITH;
     TEST_ASSERT_EQUAL(TWIN_ST_SLEEP, twin_status_of(&s));

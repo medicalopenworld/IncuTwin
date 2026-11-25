@@ -64,7 +64,7 @@ static const char *TAG = "home";
 static const uint32_t LAP_COLS[] = { 0xDE6F63, 0x054E92, 0xF5A93B, 0x3F9E63 };
 #define N_LAP_COLS (sizeof(LAP_COLS) / sizeof(LAP_COLS[0]))
 
-typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_ALARM, HALO_CALL } halo_mode_t;
+typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_CALL } halo_mode_t;
 typedef enum { VIEW_EMPTY = 0, VIEW_BABY, VIEW_PARENTS } home_view_t;
 
 static lv_obj_t *s_scr;
@@ -136,7 +136,6 @@ static void halo_set_mode(halo_mode_t m)
         return;
     case HALO_WARM:  col = COL_HALO_WARM; break;
     case HALO_PHOTO: col = COL_HALO_PHOTO; period = 2000; break;
-    case HALO_ALARM: col = COL_HALO_ALARM; period = 700; break;
     case HALO_CALL:  col = COL_HALO_CALL; period = 1200; break;
     default: break;
     }
@@ -217,7 +216,6 @@ static void thermo_icon_clicked(lv_event_t *e)
     if (!s_have_last) return;
     switch (s_last.inc.thermo) {
     case TWIN_THERMO_HEATING: info_show(tr(STR_INFO_HEATING), COL_WARM); break;
-    case TWIN_THERMO_ALARM:   info_show(tr(STR_INFO_TEMP_ALARM), COL_RED); break;
     default:                  info_show(tr(STR_INFO_STABLE), COL_OK); break;
     }
 }
@@ -795,8 +793,7 @@ static void status_bar_apply(const twin_snapshot_t *s)
     twin_status_t st = twin_status_of(s);
     /* en la pagina del mapa, la hora del pais (salvo avisos que no pueden esperar) */
     char clock[64];
-    bool urgent = st == TWIN_ST_ALARM || st == TWIN_ST_NO_WIFI || st == TWIN_ST_NO_CREDS ||
-                  st == TWIN_ST_BROKER_LOST;
+    bool urgent = st == TWIN_ST_NO_WIFI || st == TWIN_ST_NO_CREDS || st == TWIN_ST_BROKER_LOST;
     if (!urgent && ui_pages_status_text(clock, sizeof(clock))) {
         status_bar_text(clock, COL_NAVY_DARK);
         return;
@@ -812,7 +809,6 @@ static void status_bar_apply(const twin_snapshot_t *s)
     case TWIN_ST_WAITING:     status_bar_text(tr(STR_ST_WAITING), COL_OFFLINE); break;
     case TWIN_ST_INC_OFF:     status_bar_text(tr(STR_ST_INC_OFF), COL_OFFLINE); break;
     case TWIN_ST_NO_BABY:     status_bar_text(tr(STR_ST_NO_BABY), COL_PHOTO); break;
-    case TWIN_ST_ALARM:       status_bar_text(tr(STR_ST_ALARM), COL_RED); break;
     case TWIN_ST_NAME:        status_bar_baby(&s->inc); break;
     case TWIN_ST_ACC_SEARCH:  status_bar_text(tr(STR_ACC_SEARCH), COL_OFFLINE); break;
     case TWIN_ST_ACC_WAITING: status_bar_text(tr(STR_ACC_WAITING), COL_CORAL); break;
@@ -1154,8 +1150,7 @@ void ui_home_apply(const twin_snapshot_t *s)
     bool girl = inc->sex == TWIN_SEX_FEMALE;
     parents_img_apply(inc->skin, girl);
 
-    lv_color_t tcol = inc->thermo == TWIN_THERMO_HEATING ? COL_WARM
-                    : inc->thermo == TWIN_THERMO_ALARM   ? COL_RED : COL_OK;
+    lv_color_t tcol = inc->thermo == TWIN_THERMO_HEATING ? COL_WARM : COL_OK;
     treat_icon_set(s_icon_thermo, s->show_baby && inc->thermo != TWIN_THERMO_OFF, tcol);
     treat_icon_set(s_icon_photo, s->show_baby && inc->photo, COL_PHOTO);
     state_icon_set(s_icon_heart, COL_CORAL);
@@ -1168,7 +1163,6 @@ void ui_home_apply(const twin_snapshot_t *s)
 
     bool calling = s->acc == TWIN_ACC_WAITING || (s->acc != TWIN_ACC_OFF && s->acc_remind);
     if (!s->show_baby)                          halo_set_mode(HALO_OFF);
-    else if (inc->thermo == TWIN_THERMO_ALARM)   halo_set_mode(HALO_ALARM);
     else if (calling)                            halo_set_mode(HALO_CALL);
     else if (inc->photo)                         halo_set_mode(HALO_PHOTO);
     else if (inc->thermo == TWIN_THERMO_HEATING) halo_set_mode(HALO_WARM);

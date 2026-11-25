@@ -17,7 +17,6 @@ static const twin_scenario_t SCENARIOS[] = {
     { "sleep",    true,  INC(true,  TWIN_BABY_IN,      TWIN_THERMO_STABLE,  false, 120, false, M) },
     { "awake",    true,  INC(true,  TWIN_BABY_IN,      TWIN_THERMO_STABLE,  false, 140, true, F) },
     { "heating",  true,  INC(true,  TWIN_BABY_IN,      TWIN_THERMO_HEATING, false, 130, false, M) },
-    { "alarm",    true,  INC(true,  TWIN_BABY_IN,      TWIN_THERMO_ALARM,   false, 180, true, M) },
     { "photo",    true,  INC(true,  TWIN_BABY_IN,      TWIN_THERMO_STABLE,  true,  130, false, F) },
     { "parents",  true,  INC(true,  TWIN_BABY_PARENTS, TWIN_THERMO_OFF,     false, 0,   false, M) },
     { "home",     true,  INC(true,  TWIN_BABY_HOME,    TWIN_THERMO_OFF,     false, 0,   false, F) },

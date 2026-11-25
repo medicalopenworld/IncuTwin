@@ -229,19 +229,19 @@ TEST_CASE("can_ask_only_when_it_does_not_bother", "[baby_name]")
     s = snap(); s.demo = true;                      TEST_ASSERT_FALSE(bn_can_ask(&s));
     s = snap(); s.show_baby = false;                TEST_ASSERT_FALSE(bn_can_ask(&s));
     s = snap(); s.inc.baby = TWIN_BABY_PARENTS;     TEST_ASSERT_FALSE(bn_can_ask(&s));
-    s = snap(); s.inc.thermo = TWIN_THERMO_ALARM;   TEST_ASSERT_FALSE(bn_can_ask(&s));
+    s = snap(); s.inc.thermo = TWIN_THERMO_HEATING; TEST_ASSERT_TRUE(bn_can_ask(&s)); /* el calor no impide preguntar */
     s = snap(); strcpy(s.inc.name, "Amara");        TEST_ASSERT_FALSE(bn_can_ask(&s));
 }
 
 TEST_CASE("open_dialog_closes_when_state_changes", "[baby_name]")
 {
-    /* revision final #3: el aviso o el teclado abiertos no tapan una alarma, no siguen en la
+    /* revision final #3: el aviso o el teclado abiertos no siguen en la
      * demo y no guardan el nombre en otro bebe */
     twin_snapshot_t s = snap();
     TEST_ASSERT_FALSE(bn_must_close(&s, "297#1", "297#1"));
     s.inc.baby = TWIN_BABY_PARENTS; /* canguro: el mismo bebe, se puede seguir escribiendo */
     TEST_ASSERT_FALSE(bn_must_close(&s, "297#1", "297#1"));
-    s = snap(); s.inc.thermo = TWIN_THERMO_ALARM;   TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));
+    s = snap(); s.inc.thermo = TWIN_THERMO_HEATING; TEST_ASSERT_FALSE(bn_must_close(&s, "297#1", "297#1"));
     s = snap(); s.demo = true;                      TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));
     s = snap(); s.show_baby = false;                TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));
     s = snap(); strcpy(s.inc.name, "Amara");        TEST_ASSERT_TRUE(bn_must_close(&s, "297#1", "297#1"));

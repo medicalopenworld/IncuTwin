@@ -19,7 +19,6 @@
 #define COL_HALO_CALM  lv_color_hex(0xBBD8F2)
 #define COL_HALO_WARM  lv_color_hex(0xF7D9A6)
 #define COL_HALO_PHOTO lv_color_hex(0x8FBBF0)
-#define COL_HALO_ALARM lv_color_hex(0xF3B0AA)
 #define COL_HALO_CALL  lv_color_hex(0xF6C3BC) /* coral suave: un bebe te llama */
 #define COL_SUPER      lv_color_hex(0xE0A200) /* dorado: super corazon (3 min de mano) */
 #define COL_REST       lv_color_hex(0x9CC3E6) /* azul claro: dia sin bebes, no rompe la racha */

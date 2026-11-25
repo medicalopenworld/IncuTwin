@@ -33,10 +33,10 @@ IncuNest ──telemetría──▶ ThingsBoard ──estado (retenido)──▶
 ## Características
 
 - **Bebé animado** con 6 tonos de piel (intercambio de paleta), halo de color según el estado
-  (calma, calentando, fototerapia, alarma) y corazón que late al ritmo real.
+  (calma, calentando, fototerapia) y corazón que late al ritmo real.
 - **Barra de estado** con prioridad: sin WiFi, conectando, sin conexión con el servidor
   (≥ 10 min sin broker), sin IncuNest vinculada, IncuNest apagada, sin bebé, durmiendo,
-  despierto, padres, alarma…
+  despierto, padres…
 - **Sonido** por el buzzer (GPIO8): melodía de arranque, avisos y latido al tocar al bebé;
   volumen en 4 niveles.
 - **Ajustes**: idioma ES/EN, volumen, brillo y reset de fábrica (con diálogo).
@@ -45,7 +45,7 @@ IncuNest ──telemetría──▶ ThingsBoard ──estado (retenido)──▶
 - **OTA por HTTPS** con verificación sha256 antes de activar el slot y **rollback** del
   bootloader si la imagen nueva no consigue conectar al broker.
 - **Modo demo con el botón BOOT** (sin red): 2 s entra/sale, pulsación corta pasa al siguiente
-  de los 10 escenarios (dormido, despierto, calentando, alarma, fototerapia, padres, en casa,
+  de los 9 escenarios (dormido, despierto, calentando, fototerapia, padres, en casa,
   vacía, apagada, sin vincular). Muestra una insignia **DEMO**.
 - **Consola serie** (115200): `info`, `usage`, `wifi <ssid> <pass>`, `unpair`, `reboot`.
 

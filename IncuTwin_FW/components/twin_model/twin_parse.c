@@ -37,7 +37,8 @@ static void parse_extensions(const cJSON *root, twin_msg_t *m)
     if (str_eq(it, "off")) { m->has_thermo = true; m->thermo = TWIN_THERMO_OFF; }
     else if (str_eq(it, "heating")) { m->has_thermo = true; m->thermo = TWIN_THERMO_HEATING; }
     else if (str_eq(it, "stable")) { m->has_thermo = true; m->thermo = TWIN_THERMO_STABLE; }
-    else if (str_eq(it, "alarm")) { m->has_thermo = true; m->thermo = TWIN_THERMO_ALARM; }
+    /* TB anterior al 25-nov-2026: la incubadora esta cuidando la temperatura; nunca una alarma */
+    else if (str_eq(it, "alarm")) { m->has_thermo = true; m->thermo = TWIN_THERMO_HEATING; }
 
     it = cJSON_GetObjectItemCaseSensitive(root, "baby");
     if (str_eq(it, "none")) { m->has_baby = true; m->baby = TWIN_BABY_NONE; }

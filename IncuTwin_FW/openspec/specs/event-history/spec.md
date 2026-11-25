@@ -30,7 +30,7 @@ emitir:
 | `heat` empieza / acaba | `HEAT_ON` / `HEAT_OFF` | Ha empezado el calor / Ha terminado el calor · Warmth has started / Warmth has ended | — |
 | `photo` empieza / acaba | `PHOTO_ON` / `PHOTO_OFF` | Ha empezado la fototerapia / Ha terminado la fototerapia · Phototherapy has started / Phototherapy has ended | — |
 
-`parents` → `in`, la caída o vuelta de la conexión, `thermo = alarm` con calor ya activo,
+`parents` → `in`, la caída o vuelta de la conexión, un `alarm` de un ThingsBoard antiguo (se lee como calor) con calor ya activo,
 pulsioxímetro, nombre y sexo NO SHALL generar aviso. Varios cambios en un mismo mensaje SHALL dar
 varios avisos a la vez.
 
@@ -40,9 +40,9 @@ varios avisos a la vez.
 - **THEN** salen los avisos ADMISSION, PHOTO_ON, PARENTS y EXIT (la vuelta a `in` no da ninguno) y solo
   suenan dos melodías: ingreso y con sus papás
 
-#### Scenario: Alarma con calor
-- **WHEN** `thermo` pasa de `stable` a `alarm`
-- **THEN** no hay aviso (el calor sigue activo)
+#### Scenario: Alarma antigua con calor
+- **WHEN** `thermo` llega como `alarm` con calor ya activo
+- **THEN** no hay aviso (se lee como calor y el calor sigue activo)
 
 ### Requirement: Sin avisos falsos [test-unity]
 Los avisos SHALL calcularse contra el último estado en línea. Un mensaje con `event_seq` ≤ el último

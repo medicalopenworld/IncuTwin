@@ -35,7 +35,8 @@ typedef enum {
     TWIN_THERMO_OFF = 0,
     TWIN_THERMO_HEATING, /* extension */
     TWIN_THERMO_STABLE,  /* "heat" en treatments */
-    TWIN_THERMO_ALARM,   /* extension */
+    /* No hay alarma: IncuTwin nunca la enseña (Pablo, 25-nov-2026). Un "alarm" que llegue del
+     * broker se lee como calor (twin_parse.c). */
 } twin_thermo_t;
 
 /* Sexo del bebe. Lo decide ThingsBoard una vez por episodio (el de la IncuNest o, si no llega,
@@ -131,7 +132,6 @@ typedef enum {
     TWIN_ST_WAITING,
     TWIN_ST_INC_OFF,
     TWIN_ST_NO_BABY,
-    TWIN_ST_ALARM,
     TWIN_ST_NAME,
     TWIN_ST_AWAKE,
     TWIN_ST_SLEEP,
