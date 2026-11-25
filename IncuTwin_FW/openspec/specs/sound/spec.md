@@ -96,7 +96,8 @@ El panel SHALL tener un único horario nocturno: activado/desactivado y horas «
 (horas enteras, intervalo [desde, hasta); si desde > hasta cruza la medianoche; desde = hasta o
 apagado = nunca), por defecto **activado de 21 a 9**, en hora de España
 (`CET-1CEST,M3.5.0,M10.5.0/3`). Se guarda en NVS (namespace `settings`). Sin hora válida (SNTP
-aún no sincronizado) NO SHALL considerarse de noche. (El cálculo `quiet_hours_active` está cubierto por
+aún no sincronizado) NO SHALL considerarse de noche. El horario se evalúa en el momento de cada
+petición de melodía automática, no con un valor en caché. (El cálculo `quiet_hours_active` está cubierto por
 `test-unity`; el silenciado de las melodías es `manual`.)
 
 De noche SHALL quedar en silencio toda melodía que la persona no haya provocado tocando la pantalla:

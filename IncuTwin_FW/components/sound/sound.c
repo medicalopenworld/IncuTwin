@@ -47,7 +47,6 @@ static atomic_int s_req = SOUND_NONE;
 static atomic_int s_hb_req = 0; /* 1 = abrir ventana de latido, 2 = cerrarla */
 static atomic_uint s_bpm = 0;
 static atomic_uint s_volume = 3;
-static atomic_bool s_quiet; /* horario nocturno: sin melodias automaticas */
 
 /* estado de la tarea LVGL */
 static const note_t *s_seq;
@@ -183,11 +182,11 @@ static void sound_tick(lv_timer_t *t)
     }
 }
 
-static void quiet_refresh(lv_timer_t *t)
+/* Horario nocturno en el momento de la peticion (sin hora valida: no es de noche). */
+static bool quiet_now(void)
 {
-    (void)t;
-    atomic_store(&s_quiet, quiet_hours_active(settings_local_hour(), settings_quiet_on(),
-                                              settings_quiet_from(), settings_quiet_to()));
+    return quiet_hours_active(settings_local_hour(), settings_quiet_on(), settings_quiet_from(),
+                              settings_quiet_to());
 }
 
 /* ----------------------------------------------------------------- events */
@@ -205,7 +204,7 @@ static void on_notice(void *arg, esp_event_base_t base, int32_t id, void *data)
     }
     if (m == SOUND_NONE) return;
     ESP_LOGI(TAG, "aviso 0x%02lx -> melodia %d%s", (unsigned long)n->mask, (int)m,
-             atomic_load(&s_quiet) ? " (se silencia si es de noche)" : "");
+             quiet_now() ? " (se silencia si es de noche)" : "");
     sound_request_auto(m);
 }
 
@@ -231,8 +230,6 @@ void sound_init(void)
     board_buzzer_tone(0, 0);
     if (lvgl_port_lock(1000)) {
         lv_timer_create(sound_tick, 15, NULL);
-        quiet_refresh(NULL);
-        lv_timer_create(quiet_refresh, 30000, NULL);
         lvgl_port_unlock();
     } else {
         ESP_LOGE(TAG, "sin lock de LVGL: sonido deshabilitado");
@@ -249,7 +246,7 @@ void sound_request(sound_melody_t m)
 
 void sound_request_auto(sound_melody_t m)
 {
-    if (atomic_load(&s_quiet)) {
+    if (quiet_now()) {
         ESP_LOGI(TAG, "melodia %d silenciada (horario nocturno)", (int)m);
         return;
     }
