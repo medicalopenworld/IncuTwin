@@ -3,7 +3,8 @@
 ## Purpose
 
 Pantalla de ajustes y persistencia de preferencias del panel. Todo lo que aquí se cambia
-sobrevive al reinicio; nada requiere teclear.
+sobrevive al reinicio; nada requiere teclear. Se llega a ella con el botón Ajustes de la barra de
+navegación (ver `twin-display`); no tiene botón "Volver".
 
 ## Requirements
 
@@ -46,6 +47,21 @@ persistir en NVS. Por defecto: 100 %. El mismo valor es el que fija el comando `
 - **WHEN** llega `cmd/brightness {"value": 60}` con la pantalla de ajustes abierta
 - **THEN** el control de brillo pasa a mostrar 60 %
 
+### Requirement: Horario nocturno [manual]
+Ajustes SHALL mostrar «De noche, sin sonido» / «Quiet at night» con un interruptor y, debajo, las
+horas «Desde» / «Hasta» (en horas enteras, 0–23, con botones − y +, cíclicas). Con el interruptor
+apagado los botones − y + SHALL verse atenuados y deshabilitados. Por defecto: activado, de 21 a 9.
+Los cambios SHALL aplicarse al instante y persistir en NVS. Qué silencia el horario se define en
+`sound`.
+
+#### Scenario: Cambiar la hora de inicio
+- **WHEN** se pulsa + en «Desde» con el valor 21
+- **THEN** pasa a 22 y tras reiniciar sigue en 22
+
+#### Scenario: Apagar el horario
+- **WHEN** se apaga el interruptor
+- **THEN** las horas quedan atenuadas y deshabilitadas y nada se silencia por la hora
+
 ### Requirement: Tono de piel informativo [manual]
 Ajustes SHALL mostrar los 6 tonos de piel como círculos de color con el tono actual resaltado y el
 texto "Según el país de la IncuNest asignada" / "Based on the assigned IncuNest's country". Los
@@ -65,7 +81,7 @@ v<versión de firmware>".
 - **THEN** el pie muestra las cuatro líneas con esos valores y la versión del firmware en marcha
 
 ### Requirement: Restablecer de fábrica [manual]
-Mantener pulsado el engranaje de la pantalla principal ≥ 1000 ms SHALL abrir un diálogo
+Mantener pulsado el botón Ajustes de la barra de navegación ≥ 1000 ms SHALL abrir un diálogo
 "¿Restablecer de fábrica?" / "Factory reset?" con botones "Reset" y cerrar. Los diálogos del
 panel SHALL usar las fuentes con glifos del español (sin cuadros de sustitución) y un ancho de
 208 px centrado, sin llegar a los bordes de la pantalla. Confirmar SHALL
@@ -74,7 +90,7 @@ del gemelo cacheado) y reiniciar al onboarding. NO SHALL borrar la identidad de 
 credenciales MQTT) ni los contadores de uso.
 
 #### Scenario: Reset confirmado
-- **WHEN** se mantiene el engranaje 1 s, aparece el diálogo y se pulsa "Reset"
+- **WHEN** se mantiene el botón Ajustes 1 s, aparece el diálogo y se pulsa "Reset"
 - **THEN** el panel reinicia en < 2 s, arranca en la pantalla de idioma del onboarding, y tras
   completarlo vuelve a conectar al broker con las mismas credenciales de siempre
 
@@ -83,9 +99,9 @@ credenciales MQTT) ni los contadores de uso.
 - **THEN** el diálogo desaparece y nada cambia
 
 ### Requirement: Persistencia agrupada [test-unity]
-Las preferencias (idioma, volumen, brillo) SHALL guardarse en el namespace NVS `settings` y
+Las preferencias (idioma, volumen, brillo y horario nocturno) SHALL guardarse en el namespace NVS `settings` y
 leerse una sola vez al arrancar; valores ausentes o fuera de rango SHALL sustituirse por los
-valores por defecto (ES, Alto, 100 %).
+valores por defecto (ES, Alto, 100 %, horario nocturno activado de 21 a 9).
 
 #### Scenario: NVS corrupta
 - **WHEN** `settings/vol` contiene 9

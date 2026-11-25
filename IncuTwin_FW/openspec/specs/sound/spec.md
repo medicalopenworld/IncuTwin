@@ -14,30 +14,34 @@ El panel SHALL disponer de estas melodías (frecuencia Hz, duración ms; 0 Hz = 
 
 | Nombre | Secuencia | Cuándo |
 |---|---|---|
-| Arranque | C5 70 · E5 70 · G5 70 · C6 180 | al arrancar, con el splash |
-| Bebé detectado | G5 90 · C6 90 · E6 220 | transición del gemelo a `baby = in` (ver `twin-state-ingest`) |
-| Con sus papás | C5 80 E5 80 G5 80 C6 80 · E5 80 G5 80 C6 80 E6 80 · G5 80 C6 80 E6 80 G6 200 · 0 60 · G6 80 · 0 40 · C7 400 | transición a `baby ∈ {parents, home}` |
+| Arranque | C5 70 · E5 70 · G5 70 · C6 180 | al arrancar con el splash, solo tras un reinicio por encendido (`ESP_RST_POWERON`) |
+| Bebé detectado | G5 90 · C6 90 · E6 220 | aviso de ingreso: `baby` pasa de `none`/`home` a `in` o `parents` (ver `event-history`) |
+| Con sus papás | C5 80 E5 80 G5 80 C6 80 · E5 80 G5 80 C6 80 E6 80 · G5 80 C6 80 E6 80 G6 200 · 0 60 · G6 80 · 0 40 · C7 400 | aviso «con sus papás»: `baby` pasa a `parents` desde `in` |
 | Prueba | C6 120 | cambio de volumen, entrada/salida de demo, `cmd/test_melody` |
 
 #### Scenario: Bebé detectado
 - **WHEN** el gemelo pasa de `baby = none` a `baby = in` con volumen Alto
-- **THEN** suenan tres notas ascendentes (~400 ms en total) y a continuación el latido audible
-  durante 3000 ms (si `bpm > 0`)
+- **THEN** suenan tres notas ascendentes (~400 ms en total) y nada más
 
 #### Scenario: Fanfarria
-- **WHEN** el gemelo pasa a `baby = parents`
+- **WHEN** el gemelo pasa de `baby = in` a `baby = parents`
 - **THEN** suena la fanfarria completa (~1,9 s) una sola vez
+
+#### Scenario: Cambios en silencio
+- **WHEN** el bebé pasa a `home`, vuelve de `parents` a `in`, sale (`none`) o cambian calor o
+  fototerapia
+- **THEN** no suena ninguna melodía (solo se ve el aviso en pantalla)
 
 ### Requirement: Latido audible [manual]
 El latido "lub-dub" SHALL sonar al ritmo `bpm` del gemelo: 330 Hz 50 ms · silencio 110 ms ·
 262 Hz 40 ms · silencio hasta completar 60000/`bpm` ms (mínimo 50 ms de silencio). Suena solo
-(a) durante la ventana de 3000 ms tras "Bebé detectado" y (b) mientras el usuario toca al bebé o
-el botón "Agarra mi mano". Con `bpm = 0` o volumen Apagado no suena. El latido en pantalla es
+mientras el usuario toca al bebé o el botón "Agarra mi mano" (ya no hay ventana de latido tras
+"Bebé detectado"). Con `bpm = 0` o volumen Apagado no suena. El latido en pantalla es
 independiente (siempre late).
 
-#### Scenario: Ventana tras detección
+#### Scenario: Sin ventana tras detección
 - **WHEN** termina la melodía "Bebé detectado" con `bpm = 120`
-- **THEN** se oyen ~6 latidos (uno cada 500 ms) y después silencio
+- **THEN** no suena ningún latido hasta que alguien toque al bebé
 
 #### Scenario: Toque con pulso
 - **WHEN** se toca al bebé 2 s con `bpm = 150`
@@ -86,3 +90,37 @@ inicializar), ni al cambiar el brillo, ni al reiniciar por OTA.
 #### Scenario: Arranque limpio
 - **WHEN** se enciende el panel
 - **THEN** el primer sonido audible es la melodía de arranque
+
+### Requirement: Horario nocturno [test-unity]
+El panel SHALL tener un único horario nocturno: activado/desactivado y horas «desde» y «hasta»
+(horas enteras, intervalo [desde, hasta); si desde > hasta cruza la medianoche; desde = hasta o
+apagado = nunca), por defecto **activado de 21 a 9**, en hora de España
+(`CET-1CEST,M3.5.0,M10.5.0/3`). Se guarda en NVS (namespace `settings`). Sin hora válida (SNTP
+aún no sincronizado) NO SHALL considerarse de noche.
+
+De noche SHALL quedar en silencio toda melodía que la persona no haya provocado tocando la pantalla:
+melodías de aviso (ingreso, con sus papás), melodías de comandos remotos y recordatorios del modo
+acompañar (que usa este mismo horario, antes 22–9 fijo). Seguirán sonando el clic táctil, el latido
+al tocar al bebé, el pitido de prueba de volumen y los botones de la demo. El silencio no afecta a lo
+que se ve: el aviso en pantalla aparece igual.
+
+#### Scenario: Ingreso de noche
+- **WHEN** son las 23:00, el horario está activado y llega un aviso de ingreso
+- **THEN** se ve la franja del aviso, no suena «Bebé detectado» y el log dice que se silencia
+
+#### Scenario: Cruce de medianoche
+- **WHEN** el horario es de 21 a 9 y son las 2:00
+- **THEN** es de noche; a las 9:00 ya no lo es
+
+#### Scenario: Pulsar de noche
+- **WHEN** es de noche y se pulsa un botón
+- **THEN** suena el clic
+
+### Requirement: Melodía de arranque solo al enchufar [test-unity]
+La melodía de arranque SHALL sonar únicamente cuando el motivo de reinicio es `ESP_RST_POWERON`, a
+cualquier hora. NO SHALL sonar tras un reinicio por software, OTA, comando remoto, caída ni
+perro guardián. El log del arranque SHALL indicar el motivo y si suena o no.
+
+#### Scenario: Reinicio por OTA
+- **WHEN** el panel reinicia tras una OTA
+- **THEN** el splash se ve sin melodía y el log dice "sin melodia de arranque"

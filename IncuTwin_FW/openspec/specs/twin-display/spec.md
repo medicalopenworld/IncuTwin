@@ -24,7 +24,8 @@ Vocabulario del modelo del gemelo usado en esta spec:
 ### Requirement: Splash de arranque [manual]
 Al arrancar, el panel SHALL mostrar durante 2500 ms una pantalla blanca con el logo de IncuTwin
 centrado y un indicador de actividad (spinner coral) abajo, y después SHALL fundir (400 ms) a la
-pantalla principal. Durante el splash suena la melodía de arranque (ver `sound`).
+pantalla principal. Durante el splash suena la melodía de arranque solo si el reinicio fue por
+encendido (ver `sound`). La barra de navegación NO SHALL verse durante el splash.
 
 #### Scenario: Arranque normal
 - **WHEN** el panel arranca con onboarding ya completado
@@ -34,13 +35,16 @@ pantalla principal. Durante el splash suena la melodía de arranque (ver `sound`
 ### Requirement: Tres vistas del centro de la pantalla [manual]
 La zona central SHALL mostrar exactamente una de tres vistas:
 
-- **BEBÉ** cuando `show_baby`: bebé animado con halo, fila de tres iconos de estado y botón
-  "Agarra mi mano".
+- **BEBÉ** cuando `show_baby`: bebé animado con halo, país y nombre, fila de tres iconos de estado
+  y botón "Agarra mi mano". Disposición de Inicio (240×320): bebé, país y nombre 24 px más arriba que
+  sin barra de navegación; marca IncuTwin a media escala arriba a la derecha (donde estaba el
+  engranaje); fila de iconos en y 211–248 (iconos de 38 px); barra de estado en y 257–278; barra de
+  navegación en y 280–320.
 - **CON SUS PAPÁS** cuando `parents_view`: imagen a pantalla completa del bebé con sus padres.
 - **VACÍA** en cualquier otro caso: imagen a pantalla completa de la incubadora vacía.
 
-La barra superior (icono WiFi, marca IncuTwin, engranaje) y la barra de estado inferior SHALL
-permanecer visibles y por encima en las tres vistas.
+La barra superior (icono WiFi a la izquierda, marca IncuTwin a la derecha; sin engranaje), la barra
+de estado y la barra de navegación SHALL permanecer visibles y por encima en las tres vistas.
 
 #### Scenario: Bebé dentro
 - **WHEN** `link_ok` y el estado dice `baby = in`
@@ -187,14 +191,55 @@ insignia "DEMO" coral, para que nadie confunda los datos mostrados con datos rea
 - **THEN** la insignia DEMO aparece donde estaba el icono WiFi; al salir, reaparece el icono WiFi
   con la cobertura real
 
-### Requirement: Acceso a ajustes [manual]
-Una pulsación corta del engranaje SHALL abrir la pantalla de ajustes con animación de
-desplazamiento (220 ms); "Volver" SHALL regresar con la animación inversa.
+### Requirement: Barra de navegación [manual]
+Una barra fija de 40 px en la parte inferior (y 280–320) SHALL mostrar tres botones: Inicio (casa),
+Historial (pollito, imagen propia) y Ajustes (engranaje). El botón de la pantalla activa SHALL verse
+resaltado y los otros atenuados. Pulsar un botón SHALL cambiar de pantalla con la animación de
+desplazamiento de 220 ms, hacia la izquierda o la derecha según el orden de los botones
+(Inicio, Historial, Ajustes); pulsar el de la pantalla activa no hace nada. El pollito SHALL llevar un
+punto cuando haya avisos sin ver (ver `event-history`). Ajustes NO SHALL tener botón "Volver": la
+barra lo sustituye. Al volver a Inicio la pantalla principal SHALL reaparecer con el estado al día.
+
+La barra NO SHALL verse en el splash, el onboarding, la despedida del modo acompañar, los mensajes
+"Coge mi mano" de agradecimiento y fin, el aviso de poner nombre al bebé ni su teclado, ni mientras
+haya un diálogo abierto; reaparece al cerrarse. Ningún elemento de Inicio SHALL quedar tapado por
+ella y "Coge mi mano" SHALL seguir siendo accesible.
 
 #### Scenario: Ida y vuelta
-- **WHEN** se pulsa el engranaje y luego "Volver"
+- **WHEN** se pulsa Ajustes y luego Inicio
 - **THEN** la pantalla principal reaparece con el estado al día (no congelado en el momento de
   salir)
+
+#### Scenario: Orden de las animaciones
+- **WHEN** se pulsa Historial desde Ajustes
+- **THEN** la pantalla entra deslizando desde la izquierda; desde Inicio entra desde la derecha
+
+#### Scenario: Barra oculta
+- **WHEN** aparece el diálogo "¿Restablecer de fábrica?" o el teclado del nombre del bebé
+- **THEN** la barra de navegación no se ve hasta cerrarlo
+
+### Requirement: Aviso en pantalla [test-unity]
+Cada aviso de `event-history` (ingreso, con sus papás, salida, calor y fototerapia, empieza y acaba)
+SHALL mostrarse como una franja de 224×44 px que baja desde la parte superior (capa superior de
+LVGL) con el icono y el texto del aviso durante 4 s. Los avisos SHALL mostrarse de uno en uno con una
+cola de 8 (si llegan más, se pierde el más antiguo de la cola, que sigue en el Historial). Tocar la
+franja SHALL abrir el Historial. La franja SHALL mostrarse también en horario nocturno.
+
+La franja NO SHALL mostrarse mientras la pantalla esté ocupada: los mismos casos en que se oculta la
+barra de navegación más el teclado del nombre del bebé. Los avisos SHALL esperar en la cola y
+mostrarse al quedar libre.
+
+#### Scenario: Varios a la vez
+- **WHEN** llegan ingreso y calor en el mismo mensaje
+- **THEN** se ve primero uno 4 s y después el otro
+
+#### Scenario: Tocar la franja
+- **WHEN** se toca la franja mientras se ve
+- **THEN** se abre el Historial y la cola se vacía
+
+#### Scenario: Pantalla ocupada
+- **WHEN** llega un aviso con el teclado del nombre abierto
+- **THEN** no se ve franja; al cerrar el teclado aparece
 
 ### Requirement: Refresco del estado en pantalla [test-unity]
 La pantalla SHALL reflejar cualquier cambio del modelo del gemelo en ≤ 300 ms y SHALL

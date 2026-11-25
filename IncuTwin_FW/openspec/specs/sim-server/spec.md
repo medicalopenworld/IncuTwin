@@ -56,3 +56,15 @@ firmware (sobrevive al cierre del navegador) hasta `{"run":false}`.
 #### Scenario: Feria
 - **WHEN** se arranca la demo con 10 s y se cierra la pestaña
 - **THEN** el panel sigue cambiando de escenario cada 10 s
+
+### Requirement: Comando de consola sim_state [manual]
+El build sim SHALL registrar el comando de consola `sim_state <json>`, que mete el JSON por el mismo
+camino que `POST /incubator`, y `sim_state demo-on` / `sim_state demo-off`, que entran y salen de la
+demo. NO SHALL existir fuera del build sim. Para pruebas sin acceso a la pantalla (ver el log serie
+con `tools/serial_capture.py --send`). El historial del build sim usa su propio namespace NVS
+(`evlogsim`) y borra `evlog` al arrancar.
+
+#### Scenario: Aviso por consola
+- **WHEN** se envía `sim_state {"incubator_id":"SIM","state":"baby","event_seq":2}` con la IncuNest
+  `SIM` en estado `free`
+- **THEN** el log muestra el aviso de ingreso, la franja y la melodía (salvo en horario nocturno)
