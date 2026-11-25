@@ -85,7 +85,8 @@ actualiza el modelo pero no se generan transiciones (y por tanto no suena nada).
 `event_seq` mayor, o sin `event_seq`, SHALL aplicarse como **nuevo**. El `event_seq` SHALL
 persistirse en NVS cuando `last_event` ≠ `heartbeat` o cuando el mensaje produzca una transición
 de `baby`; junto a él SHALL persistirse el `baby` resultante (`twin/baby`). Al emparejar con otra
-incubadora ambos SHALL ponerse a cero.
+incubadora (o desemparejar) ambos SHALL borrarse de NVS y ponerse a cero en RAM. El build sim
+NO SHALL leerlos ni escribirlos.
 
 #### Scenario: Reinicio con bebé dentro
 - **WHEN** el panel se reinicia tras haber aplicado `event_seq = 1287` con `baby = in`, y al

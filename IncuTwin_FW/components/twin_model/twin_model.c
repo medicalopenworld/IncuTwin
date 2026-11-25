@@ -85,8 +85,21 @@ static void post_notice(uint32_t mask, bool demo, const char *inc)
 
 static void persist_locked(void)
 {
+#if CONFIG_INCUTWIN_SIM
+    return; /* el build sim no escribe en el espacio del producto (twin/seq, twin/baby) */
+#endif
     storage_set_u32(STORAGE_NS_TWIN, "seq", s_last_seq);
     storage_set_u8(STORAGE_NS_TWIN, "baby", (uint8_t)s_inc.baby);
+}
+
+/* Persistencia al desemparejar/emparejar de nuevo: son cachés, se borran las claves en vez de escribir
+ * "ninguno"; el primer mensaje tras el siguiente arranque arma la base sin avisar. */
+static void erase_persisted_locked(void)
+{
+#if !CONFIG_INCUTWIN_SIM
+    storage_erase_key(STORAGE_NS_TWIN, "seq");
+    storage_erase_key(STORAGE_NS_TWIN, "baby");
+#endif
 }
 
 /* ----------------------------------------------------------------- events */
@@ -123,6 +136,11 @@ void twin_model_init(uint8_t default_skin, bool has_creds, const char *incubator
     app_events_subscribe(TWIN_EVT_MQTT, on_mqtt, NULL);
     app_events_subscribe(TWIN_EVT_PAIRING_CHANGED, on_pairing, NULL);
     s_default_skin = default_skin;
+#if CONFIG_INCUTWIN_SIM
+    /* el sim no usa twin/seq ni twin/baby: borra los que dejo un sim anterior (son cachés) */
+    storage_erase_key(STORAGE_NS_TWIN, "seq");
+    storage_erase_key(STORAGE_NS_TWIN, "baby");
+#endif
     twin_incubator_reset(&s_inc, default_skin);
     memset(&s_link, 0, sizeof(s_link));
     s_link.has_creds = has_creds;
@@ -130,8 +148,12 @@ void twin_model_init(uint8_t default_skin, bool has_creds, const char *incubator
         strncpy(s_link.incubator_id, incubator_id, TWIN_INCUBATOR_ID_LEN - 1);
         s_link.paired = true;
         uint8_t b = 0;
+#if CONFIG_INCUTWIN_SIM
+        bool has_baby = false; /* el sim no lee twin/seq ni twin/baby */
+#else
         storage_get_u32(STORAGE_NS_TWIN, "seq", &s_last_seq);
         bool has_baby = storage_get_u8(STORAGE_NS_TWIN, "baby", &b) && b <= TWIN_BABY_HOME;
+#endif
         if (has_baby) {
             s_inc.baby = (twin_baby_t)b; /* para no repetir avisos tras reiniciar */
         }
@@ -211,7 +233,7 @@ void twin_model_set_pairing(const char *incubator_id)
             s_last_seq = 0;
             twin_incubator_reset(&s_inc, s_default_skin);
             s_base.valid = false; /* otra incubadora: el primer estado no avisa */
-            persist_locked();
+            erase_persisted_locked();
             ESP_LOGI(TAG, "emparejado con %s", s_link.incubator_id);
             publish_locked();
         }
@@ -222,7 +244,7 @@ void twin_model_set_pairing(const char *incubator_id)
         s_last_seq = 0;
         twin_incubator_reset(&s_inc, s_default_skin);
         s_base.valid = false;
-        persist_locked();
+        erase_persisted_locked();
         ESP_LOGI(TAG, "desemparejado");
         publish_locked();
     }

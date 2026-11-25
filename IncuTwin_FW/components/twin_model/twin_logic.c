@@ -21,6 +21,7 @@ twin_apply_result_t twin_apply(twin_incubator_t *inc, uint32_t *last_seq, const 
 
     /* mapeo base (estado completo: lo ausente se apaga) */
     inc->online = m->state != TWIN_MSG_STATE_OFFLINE;
+    /* un "offline" sin baby da none; ThingsBoard siempre manda baby (itw_state_machine.js), asi que persistirlo es seguro */
     inc->baby = m->state == TWIN_MSG_STATE_BABY ? TWIN_BABY_IN : TWIN_BABY_NONE;
     inc->thermo = m->heat ? TWIN_THERMO_STABLE : TWIN_THERMO_OFF;
     inc->photo = m->photo;

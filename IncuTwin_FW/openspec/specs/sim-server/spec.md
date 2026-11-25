@@ -62,7 +62,8 @@ El build sim SHALL registrar el comando de consola `sim_state <json>`, que mete 
 camino que `POST /incubator`, y `sim_state demo-on` / `sim_state demo-off`, que entran y salen de la
 demo. NO SHALL existir fuera del build sim. Para pruebas sin acceso a la pantalla (ver el log serie
 con `tools/serial_capture.py --send`). El historial del build sim usa su propio namespace NVS
-(`evlogsim`) y borra `evlog` al arrancar.
+(`evlogsim`) y no toca `evlog`. Tampoco escribe ni lee `twin/seq` ni `twin/baby`: los borra al arrancar
+(son cachés; el primer mensaje tras el siguiente arranque del producto arma la base sin avisar).
 
 #### Scenario: Aviso por consola
 - **WHEN** se envía `sim_state {"incubator_id":"SIM","state":"baby","event_seq":2}` con la IncuNest

@@ -62,7 +62,7 @@ como base sin avisar.
 
 ### Requirement: Historial persistente [manual]
 El panel SHALL guardar los **50** últimos avisos en un anillo en NVS (namespace `evlog`; el build sim
-usa `evlogsim` y borra `evlog` al arrancar, para no mezclar avisos de prueba con los reales). Cada
+usa `evlogsim` y no toca `evlog`, para no mezclar avisos de prueba con los reales). Cada
 entrada guarda el tipo, la hora (epoch SNTP; 0 si aún no hay hora) y el id de la IncuNest (no se
 muestra). Al llenarse se pisa la más antigua; el anillo sobrevive a un reinicio y se descarta si su
 tamaño no cuadra. Los avisos reales SHALL guardarse también mientras se ve la demo; los avisos de la

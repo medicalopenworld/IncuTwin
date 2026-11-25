@@ -46,9 +46,6 @@ static void on_notice(void *arg, esp_event_base_t base, int32_t id, void *data)
 void event_log_init(void)
 {
     if (!s_mutex) s_mutex = xSemaphoreCreateMutex();
-#if CONFIG_INCUTWIN_SIM
-    storage_erase_ns(STORAGE_NS_EVLOG); /* quita los avisos falsos que un sim anterior dejo en el espacio del producto */
-#endif
     LOCK();
     memset(&s_ring, 0, sizeof(s_ring));
     if (!storage_get_blob(EVLOG_NS, KEY_RING, &s_ring, sizeof(s_ring))) {
