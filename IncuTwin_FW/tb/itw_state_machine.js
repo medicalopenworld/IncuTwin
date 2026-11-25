@@ -33,7 +33,11 @@
 //                  en los eventos del webhook, nunca al panel.
 // Salida: [ITW_STATE, ITW_PANEL, ITW_EVENT*]
 
-var now = metadata.ts ? parseInt(metadata.ts) : new Date().getTime();
+// Hora del mensaje (la IncuNest manda telemetría atrasada con su propio ts), pero nunca por delante
+// del servidor: un reloj de IncuNest adelantado (353, 25-nov-2026: +1 h 42 min) dejaba fechas
+// futuras en el estado y frenaba el debounce de tratamientos y el heartbeat hasta alcanzarlas.
+var srvNow = new Date().getTime();
+var now = metadata.ts ? Math.min(parseInt(metadata.ts) || srvNow, srvNow) : srvNow;
 var incubator = metadata.SN ? String(metadata.SN) : String(metadata.deviceName || metadata.originatorName || 'unknown');
 
 var st = null;
@@ -41,11 +45,19 @@ try { if (metadata.ss_itw_state) st = JSON.parse(metadata.ss_itw_state); } catch
 if (!st || st.v !== 2) {
   st = { v: 2, seq: 0, online: true, last_seen: 0,
     control_active: false, photo: false, spo2: false, hr: null, hr_q: 'none',
-    control_mode: null, temp_desired: null, alarms: {}, stable_since: null, heat: 'off',
+    control_mode: null, temp_desired: null, stable_since: null, heat: 'off',
     baby_seq: 0, admission_epoch: 0, kangaroo_count: 0, thermo_min: 0, photo_min: 0,
     baby_state: 'none', stay_seq: 0, stay_id: null, in_since: null, idle_since: null,
     parents_since: null, out_since: null, out_seq: 0, last_hb: 0, last_tx: null, last_tx_change: 0, care: false };
 }
+// estados guardados con la versión anterior: fechas futuras (ver srvNow) y las alarmas, que ya no
+// se usan (IncuTwin nunca enseña alarmas)
+var TIMES = ['last_seen', 'stable_since', 'in_since', 'idle_since', 'parents_since', 'out_since'];
+for (var ti = 0; ti < TIMES.length; ti++) { if (st[TIMES[ti]] && st[TIMES[ti]] > srvNow) { st[TIMES[ti]] = now; } }
+if (st.last_hb > srvNow) { st.last_hb = 0; }               // que el próximo latido salga ya
+if (st.last_tx_change > srvNow) { st.last_tx_change = 0; } // y el cambio de tratamiento pendiente
+delete st.alarms;
+if (st.heat === 'alarm') { st.heat = st.control_active ? 'heating' : 'off'; }
 
 var cfg = {
   t_parents_ms: (parseInt(metadata.ss_itw_t_parents_min) || 240) * 60000,
@@ -168,8 +180,6 @@ function clipUtf8(s, max) {
   return out;
 }
 
-var THERMAL = ['air_temp_high_alarm','air_temp_low_alarm','skin_temp_high_alarm','skin_temp_low_alarm',
-  'air_TC_alarm','skin_TC_alarm','heater_alarm','heater_sensor_alarm','air_sensor_alarm','skin_sensor_alarm','air_blocked_alarm','temp_alarm'];
 
 // client attributes ya guardados: la fuente de verdad del episodio aunque el mensaje no los traiga
 if (metadata.cs_baby_seq !== undefined && msgType !== 'POST_ATTRIBUTES_REQUEST') {
@@ -201,7 +211,6 @@ if (msgType === 'INACTIVITY_EVENT') {
 } else if (msgType === 'POST_TELEMETRY_REQUEST') {
   st.last_seen = now;
   if (!st.online) { st.online = true; var p1 = tx(); p1.offline_min = null; p1.baby_state = st.baby_state; emit('incubator_online', p1); }
-  for (var k in msg) { if (k.length > 6 && k.substring(k.length - 6) === '_alarm') st.alarms[k] = truthy(msg[k]); }
   // La IncuNest manda algunas claves solo al cambiar: sin ellas en el mensaje vale el último valor
   // guardado (metadata, latestTsKeyNames del nodo "estado previo + SN").
   var ca = lastOf('Control_active'), pa = lastOf('Phototherapy_active');
@@ -219,11 +228,9 @@ if (msgType === 'INACTIVITY_EVENT') {
   if (best !== null && bestQ >= 0.5) { st.hr = Math.round(best / 5) * 5; st.hr_q = 'good'; }
   else if (best !== null && bestQ > 0) { st.hr = null; st.hr_q = 'poor'; }
   else { st.hr = null; st.hr_q = 'none'; }
-  // calor
-  var thermalAlarm = false;
-  for (var a = 0; a < THERMAL.length; a++) if (st.alarms[THERMAL[a]]) thermalAlarm = true;
-  if (thermalAlarm) { st.heat = 'alarm'; st.stable_since = null; }
-  else if (!st.control_active) { st.heat = 'off'; st.stable_since = null; }
+  // calor: solo del control. Las alarmas de la IncuNest no cuentan: IncuTwin nunca enseña alarmas
+  // (tono sin sustos) y una alarma colgada dejaba "calor" con el control apagado (353, 25-nov).
+  if (!st.control_active) { st.heat = 'off'; st.stable_since = null; }
   else {
     var meas = (st.control_mode === 'SKIN') ? num(msg.Skin_temp) : num(msg.Air_temp);
     if (st.temp_desired !== null && meas !== null && Math.abs(meas - st.temp_desired) <= 0.5) {
