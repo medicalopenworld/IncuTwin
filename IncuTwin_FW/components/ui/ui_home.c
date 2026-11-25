@@ -18,6 +18,7 @@
 #include "assets.h"
 #include "baby_name.h"
 #include "baby_widget.h"
+#include "esp_log.h"
 #include "hand_hold.h"
 #include "sdkconfig.h"
 #include "sound.h"
@@ -27,6 +28,8 @@
 #include "ui_onboarding.h"
 #include "ui_pages.h"
 #include "usage_stats.h"
+
+static const char *TAG = "home";
 
 /* Todo el bloque del bebe esta 24 px mas arriba que antes de la barra de navegacion (BABY_Y era
  * 38, COUNTRY_Y 164, NAME_Y 206) para que fila y estado quepan encima de ella. Medido con la
@@ -90,10 +93,12 @@ static bool s_have_last;
 static bool s_row_shown; /* la fila se ve: bebe a la vista y sin gesto */
 static uint32_t s_farewell_ms; /* lv_tick al entrar en la despedida del modo acompañar */
 static bool s_farewell;
+static lv_obj_t *s_nav; /* barra de abajo; fuera en la despedida y al final del gesto */
 #define FAREWELL_TOUCH_MIN_MS 5000 /* que no la cierre un toque fantasma nada mas salir */
 
 static void hold_refresh(bool force);
 static void overlay_refresh(void);
+static void nav_apply(void);
 static void name_clicked_cb(lv_event_t *e);
 static void name_done(void);
 static void name_maybe_ask(void);
@@ -730,7 +735,7 @@ lv_obj_t *ui_home_create(void)
     lv_obj_set_size(wm, 72, 13);
     lv_obj_align(wm, LV_ALIGN_TOP_RIGHT, -6, 14);
 
-    ui_nav_create(s_scr, UI_TAB_HOME); /* lo ultimo: encima de todo, tambien del agradecimiento */
+    s_nav = ui_nav_create(s_scr, UI_TAB_HOME); /* lo ultimo: encima de todo */
     return s_scr;
 }
 
@@ -1033,6 +1038,7 @@ static void hold_refresh(bool force)
         hearts_run(baby_view && (st == HH_HOLDING || st == HH_DONE));
         thanks_show(baby_view && st == HH_THANKS);
         overlay_refresh();
+        nav_apply();
         if (idle) {
             s_ring_lap = -1;
             s_super_sent = false;
@@ -1100,6 +1106,22 @@ static void hold_refresh(bool force)
     }
 }
 
+/* La barra no sale en la despedida del modo acompañar ni en el final del gesto (completado con el
+ * dedo puesto y el agradecimiento a pantalla completa): spec hmi-navegacion-avisos, "la barra no
+ * aparece en ... la despedida". Oculta, tampoco se puede pulsar: un toque no cierra la despedida y
+ * a la vez cambia de pantalla. */
+static void nav_apply(void)
+{
+    if (!s_nav) return;
+    hh_state_t st = hh_state(&s_hh);
+    bool baby_view = s_have_last && s_last.show_baby && ui_pages_current() == 0;
+    bool hide = (s_have_last && s_last.acc == TWIN_ACC_FAREWELL) ||
+                (baby_view && (st == HH_DONE || st == HH_THANKS));
+    if (hide == lv_obj_is_hidden(s_nav)) return;
+    lv_obj_set_hidden(s_nav, hide);
+    ESP_LOGI(TAG, "barra de navegacion %s", hide ? "oculta" : "visible");
+}
+
 void ui_home_apply(const twin_snapshot_t *s)
 {
     const twin_incubator_t *inc = &s->inc;
@@ -1110,6 +1132,7 @@ void ui_home_apply(const twin_snapshot_t *s)
     bool farewell = s->acc == TWIN_ACC_FAREWELL;
     if (farewell && !s_farewell) s_farewell_ms = lv_tick_get();
     s_farewell = farewell;
+    nav_apply();
     ui_pages_apply(s);
     hh_set_available(&s_hh, s->show_baby && ui_pages_current() == 0,
                      !s->demo && s->link.broker_connected && s->link.paired, lv_tick_get());
