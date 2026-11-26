@@ -17,6 +17,7 @@
 #include "rewards.h"
 #include "sdkconfig.h"
 #include "storage.h"
+#include "telemetry.h"
 #include "twin_model.h"
 #include "usage_stats.h"
 
@@ -48,6 +49,14 @@ static int cmd_info(int argc, char **argv)
         printf("hora       sin SNTP\n");
     }
     board_log_memory(TAG);
+    return 0;
+}
+
+/* Telemetria de uso: identidades, cola y lote en vuelo (soporte y verificacion) */
+static int cmd_tel(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    telemetry_print_status();
     return 0;
 }
 
@@ -198,6 +207,7 @@ void console_start(void)
     const esp_console_cmd_t cmds[] = {
         { .command = "info", .help = "identidad, enlace y estado", .func = cmd_info },
         { .command = "usage", .help = "contadores de uso", .func = cmd_usage },
+        { .command = "tel", .help = "telemetria: gen, boot_n, next_seq, pending, lost y lote en vuelo", .func = cmd_tel },
         { .command = "rewards", .help = "corazones, racha, sellos y pasaporte (solo lectura)", .func = cmd_rewards },
         { .command = "incupray", .help = "incupray [demo|stop|join|leave|hold <s>]: estado de la IncuPray", .func = cmd_incupray },
         { .command = "unpair", .help = "borra el incubator_id local", .func = cmd_unpair },
