@@ -38,7 +38,8 @@ está apagado hasta que la API publique `incupray/next`. Lanzarla = solo servido
 - [x] 4.6 Ajustes: «Nombre de tu IncuTwin» con el teclado de `ui_name`
 - [x] 4.7 Demo: IncuPray simulada de 3 min (botón BOOT: pulsación corta tras el último escenario;
       consola `incupray demo`)
-- [ ] 4.8 Revisión visual de Pablo: pantalla, vista del bebé, gracias, fila del nombre y teclado
+- [x] 4.8 Revisión visual de Pablo: pantalla, vista del bebé, gracias, fila del nombre y teclado
+      (OK con la demo, 26-nov; sigue apagada hasta que se decida lanzarla)
 
 ## 5. API (repo incutwin-app)
 
