@@ -90,7 +90,7 @@ bool tel_screen_should_log(int page, uint32_t now_ms, int *last_page, uint32_t *
 - `passport` por país nuevo o estrella nueva: `{"cc":"TG","star":0|1}`
 - `spend` si `balance` baja sin `earned` que suba y cambia `unlocked`: `{"item":<bit>,"price":<n>,"bal":<n>}`
 
-- [ ] 1.1 Tests Unity que fallan:
+- [x] 1.1 Tests Unity que fallan:
   - `tel: evento codificado` → `{"s":7,"t":0,"up":100,"k":"boot","d":{"reason":"poweron","fw":"2.1.0"}}`
   - `tel: lote de 2` igual al escenario «Dos eventos» de la spec
   - `tel: lote parte a 20` (25 eventos → `used` 20) y `tel: lote parte por tamaño` (eventos con
@@ -99,10 +99,10 @@ bool tel_screen_should_log(int page, uint32_t now_ms, int *last_page, uint32_t *
   - `tel: diff racha rota y abrazo guardado`, `tel: diff compra`, `tel: diff país nuevo con estrella`
   - `tel: pantalla repetida en < 5 s no se registra; otra pantalla sí`
   - `tel: t=0 antes de hora y t>0 después` (encode respeta `t`)
-- [ ] 1.2 `idf.py -C test_apps build flash monitor -p COM12` → los nuevos FAIL.
-- [ ] 1.3 Implementa `tel_logic.c`.
-- [ ] 1.4 → todos los tests en verde (también los 146 de antes).
-- [ ] 1.5 Commit `Añade la lógica de eventos de telemetría con sus tests`.
+- [x] 1.2 `idf.py -C test_apps build flash monitor -p COM12` → los nuevos FAIL.
+- [x] 1.3 Implementa `tel_logic.c`.
+- [x] 1.4 → todos los tests en verde (también los 146 de antes).
+- [x] 1.5 Commit `Añade la lógica de eventos de telemetría con sus tests`.
 
 ## 2. Cola persistente (`tel_queue`)
 
@@ -138,7 +138,7 @@ Formato fijado por el plan: registros de 256 B (cabecera con magia, `seq`, longi
 Un registro con CRC malo o a medias se ignora. Al llenarse, se borra el sector más viejo (sus
 registros sin confirmar suman a `lost`).
 
-- [ ] 2.1 Tests Unity que fallan (doble de flash en RAM):
+- [x] 2.1 Tests Unity que fallan (doble de flash en RAM):
   - `telq: push, peek y ack`; `telq: reabrir conserva pendientes y next_seq` (300 eventos, reabrir 2
     veces, peek devuelve 1..300 en orden)
   - `telq: reabrir con acked_seq no devuelve los confirmados`
@@ -146,8 +146,8 @@ registros sin confirmar suman a `lost`).
     el más viejo pendiente es el 11 o posterior y los últimos siempre están)
   - `telq: registro a medias se ignora` (escribir medio registro en el doble y reabrir)
   - `telq: next_seq tras borrar la NVS` (acked 0, flash con seq hasta 900 → 901)
-- [ ] 2.2 → FAIL. 2.3 Implementa `tel_queue.c`. 2.4 → verde.
-- [ ] 2.5 Commit `Añade la cola persistente de eventos de telemetría`.
+- [x] 2.2 → FAIL. 2.3 Implementa `tel_queue.c`. 2.4 → verde.
+- [x] 2.5 Commit `Añade la cola persistente de eventos de telemetría`.
 
 ## 3. PUBACK en `mqtt_link`
 
@@ -160,8 +160,8 @@ registros sin confirmar suman a `lost`).
 - Evento `TWIN_EVT_MQTT_PUBACK` con `typedef struct { int msg_id; } app_evt_puback_t;` publicado en
   `MQTT_EVENT_PUBLISHED`.
 
-- [ ] 3.1 Implementa; `idf.py build` sin avisos nuevos.
-- [ ] 3.2 Commit `Avisa del PUBACK de los mensajes publicados`.
+- [x] 3.1 Implementa; `idf.py build` sin avisos nuevos.
+- [x] 3.2 Commit `Avisa del PUBACK de los mensajes publicados`.
 
 ## 4. Pegamento `telemetry.c`, identidades y reset
 
@@ -186,14 +186,14 @@ void     telemetry_flush_now(uint32_t wait_ms);         /* para el reset: intent
 NVS `tel`: `gen` (empieza en 1), `boot_n`, `acked`, `fw` (último firmware visto: si cambia → evento
 `ota {"from","to","ok":1}`; un arranque tras rollback → `ok:0`), `demo_n`.
 
-- [ ] 4.1 Implementa. Evento `boot {"reason":"<esp_reset_reason>","fw":"<versión>"}` en cada arranque;
+- [x] 4.1 Implementa. Evento `boot {"reason":"<esp_reset_reason>","fw":"<versión>"}` en cada arranque;
   `net {"off_s":n}` al conectar tras ≥ 600 s sin broker.
-- [ ] 4.2 Comando serie `tel`: imprime `gen`, `boot_n`, `next_seq`, `pending`, `lost`, en vuelo.
-- [ ] 4.3 Flash en COM12 con el recolector local (o `mosquitto_sub -t 'incutwin/+/ev' -v` contra el
+- [x] 4.2 Comando serie `tel`: imprime `gen`, `boot_n`, `next_seq`, `pending`, `lost`, en vuelo.
+- [x] 4.3 Flash en COM12 con el recolector local (o `mosquitto_sub -t 'incutwin/+/ev' -v` contra el
   broker de pruebas): tras arrancar llega un lote con `boot`; `tel` muestra `pending 0`.
-- [ ] 4.4 Sin WiFi: generar eventos, reiniciar dos veces, conectar → llegan todos en orden, `seq`
+- [x] 4.4 Sin WiFi: generar eventos, reiniciar dos veces, conectar → llegan todos en orden, `seq`
   sin huecos.
-- [ ] 4.5 Commit `Registra y envía los eventos de telemetría con cola y PUBACK`.
+- [x] 4.5 Commit `Registra y envía los eventos de telemetría con cola y PUBACK`.
 
 ## 5. Foto ampliada en `metrics`
 
@@ -213,11 +213,11 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
                           const metrics_extra_t *x);
 ```
 
-- [ ] 5.1 Tests que fallan: los escenarios «Acompañando» y «Buscando» de la spec `device-metrics`
+- [x] 5.1 Tests que fallan: los escenarios «Acompañando» y «Buscando» de la spec `device-metrics`
   de este cambio; «pasaporte lleno cabe» con `x` al máximo (`fw` de 31 caracteres, `inc` de 15).
-- [ ] 5.2 → FAIL. 5.3 Implementa; `cloud_status` rellena `x` con `accompany_current()`, la fase de
+- [x] 5.2 → FAIL. 5.3 Implementa; `cloud_status` rellena `x` con `accompany_current()`, la fase de
   `twin_model_get()`, `settings_*()` y `telemetry_*()`. 5.4 → verde.
-- [ ] 5.5 Commit `Amplía la foto de métricas con fase, IncuNest, ajustes y cola`.
+- [x] 5.5 Commit `Amplía la foto de métricas con fase, IncuNest, ajustes y cola`.
 
 ## 6. Productores de eventos
 
@@ -237,20 +237,37 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
 | `demo_mode` al entrar y salir | `telemetry_set_demo()`, `demo {"ev":"on"}` / `{"ev":"off","dur_s":n}`, `demo_n++` |
 | `ui_nav.c` `reset_confirmed` y consola `factory_reset` | `reset {"gen":<gen actual>}` y `telemetry_flush_now(2000)` antes de `storage_factory_reset()` |
 
-- [ ] 6.1 Cablea los productores de la tabla; `idf.py build` sin avisos nuevos.
+- [x] 6.1 Cablea los productores de la tabla; `idf.py build` sin avisos nuevos.
 - [ ] 6.2 Flash en COM12 y prueba manual con `mosquitto_sub`: gesto → `gesture` + `heart` (+ `seal`
   la primera vez); cambiar de pestaña → `screen`; brillo → `setting`; demo → solo `demo on/off`;
   restablecer de fábrica → `reset` y después `gen` 2.
-- [ ] 6.3 IncuPray ya está en el firmware (9a10908, apagada): donde publica su participación,
+- [x] 6.3 IncuPray ya está en el firmware (9a10908, apagada): donde publica su participación,
   registra también `incupray {"id","ev":"join|leave|close","held_s","hearts"}` con `telemetry_log`
   (nunca en la IncuPray simulada de la demo).
-- [ ] 6.4 Commit `Registra gestos, recompensas, pantallas, ajustes, demo y reset`.
+- [x] 6.4 Commit `Registra gestos, recompensas, pantallas, ajustes, demo y reset`.
 
 ## 7. Documentación y cierre
 
-- [ ] 7.1 `docs/BROKER-MQTT-CONTEXT.md` §3: fila de `incutwin/<id>/ev`; `metrics` lo lee
-  `collector`. (El rol `collector` lo añade el plan del recolector, tarea 7.)
+- [x] 7.1 `docs/BROKER-MQTT-CONTEXT.md` §3: fila de `incutwin/<id>/ev`; `metrics` lo lee
+  `collector`. (Hecho aquí también: rol `collector` en `tools/broker_bootstrap.py`, quitado `metrics` del gateway.)
 - [ ] 7.2 `idf.py -C test_apps` en COM12: todo en verde; `idf.py build` sin avisos nuevos.
 - [ ] 7.3 Prueba de extremo a extremo con el recolector local: un día de uso normal en COM12 →
   `events` sin huecos de `seq`, `snapshots` con `phase` e `inc`.
-- [ ] 7.4 `openspec validate device-telemetry` y commit `Documenta la telemetría de eventos`.
+- [x] 7.4 `openspec validate device-telemetry` y commit `Documenta la telemetría de eventos`.
+
+## Pendiente en placa
+
+COM12 está reservado por otra sesión; estos pasos se hacen juntos cuando quede libre. Los builds de
+`idf.py build` y `idf.py -C test_apps build` están hechos y limpios (desde PowerShell).
+
+- [ ] T5: Unity en placa tras `43020ee` (`idf.py -C test_apps` en COM12, todo en verde); publicación
+  de `metrics` disparada por el temporizador; marca de agua de pila de la tarea de `esp_timer`
+  (`uxTaskGetStackHighWaterMark`) con margen.
+- [ ] 6.2: checklist manual de `.superpowers/sdd/tasks/task-6-report.md` («Pendiente 6.2» y ronda 1) con
+  `mosquitto_sub -t 'incutwin/<id>/ev'`: gesto, pestañas, ajustes, demo, onboarding, `acc`, IncuPray,
+  restablecimiento de fábrica.
+- [ ] 7.2: `idf.py -C test_apps` en COM12, todo en verde.
+- [ ] 7.3: un día de uso normal con el recolector local: `events` sin huecos de `seq`, `snapshots` con
+  `phase` e `inc`.
+- [ ] Desplegar en el broker real: `python tools/broker_bootstrap.py` (rol y cliente `collector`;
+  `removeRoleACL gateway ... metrics` a mano; `persistence true` y `max_queued_messages` ~100000).

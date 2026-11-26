@@ -54,7 +54,8 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/cmd/<otros>` | Pablo / Cloud Function | la IncuTwin | no | 1 |
 | `incutwin/<client_id>/cmd/fw` y `incutwin/all/cmd/fw` | `tools/release.py --set-target` (firmware objetivo: `{"version","url","sha256"}`; vacío = sin objetivo) | la IncuTwin | **sí** | 1 |
 | `incutwin/<client_id>/hand` | la IncuTwin, al completar "Coge mi mano" (spec `hold-my-hand`) | gateway → ThingsBoard (`IncuTwin_hand_hold`) | no | 1 |
-| `incutwin/<client_id>/metrics` | la IncuTwin: al conectar, cada hora y 30 s después de cambiar sus recompensas (spec `device-metrics`) | gateway → ThingsBoard (telemetría del panel) | no | 1 |
+| `incutwin/<client_id>/metrics` | la IncuTwin: al conectar, cada hora y 30 s después de cambiar sus recompensas (spec `device-metrics`) | `collector` (analítica; ya no gateway → ThingsBoard) | no | 1 |
+| `incutwin/<client_id>/ev` | la IncuTwin: lotes de eventos de uso con cola persistente en flash, hasta 20 eventos o 4096 bytes por lote (spec `telemetry-events`) | `collector` | no | 1 |
 | `incutwin/<client_id>/redeem` | la IncuTwin, al canjear «Una IncuNest con tu nombre», hasta que llega una vez | gateway → ThingsBoard (aviso a MOW) | no | 1 |
 | `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`) | la IncuTwin | **sí** | 1 |
 | `incupray/next` | la API de la IncuPray (VPS; hasta entonces `publisher`) | todas las IncuTwin | **sí** | 1 |
@@ -153,6 +154,22 @@ $CTRL createRole publisher              # Pablo / Cloud Function: emparejar y ma
 $CTRL addRoleACL publisher publishClientSend 'incutwin/+/cmd/#' allow
 $CTRL addRoleACL publisher subscribePattern 'incutwin/+/status' allow
 $CTRL addRoleACL publisher subscribePattern 'incubators/#' allow
+
+$CTRL createRole collector              # recolector de analítica (incutwin-app): solo lectura
+$CTRL addRoleACL collector subscribePattern 'incutwin/+/status' allow
+$CTRL addRoleACL collector subscribePattern 'incutwin/+/metrics' allow
+$CTRL addRoleACL collector subscribePattern 'incutwin/+/ev' allow
+$CTRL addRoleACL collector subscribePattern 'incutwin/+/hand' allow
+$CTRL addRoleACL collector subscribePattern 'incutwin/+/incupray' allow
+$CTRL addRoleACL collector subscribePattern 'incutwin/+/redeem' allow
+$CTRL addRoleACL collector subscribePattern 'incubators/+/state' allow
+$CTRL createClient collector            # contraseña → MQTT_COLLECTOR_PASS del recolector
+$CTRL addClientRole collector collector
+$CTRL removeRoleACL gateway subscribePattern 'incutwin/+/metrics'   # si el gateway ya lo tenía
+# (`tools/broker_bootstrap.py` hace lo mismo salvo el removeRoleACL: no quita ACL de roles existentes.)
+# El recolector se conecta con sesión persistente (clean session off) para no perder lotes si se
+# cae: el broker necesita `persistence true` y un `max_queued_messages` alto (p. ej. 100000;
+# el valor por defecto, 1000, descartaría eventos en una caída larga). Los lotes son QoS 1.
 
 # Una vez por incubadora
 $CTRL createRole incubator-353
@@ -341,7 +358,7 @@ espera la telemetría `hand_hold` y la lleva a `IncuTwin_hand_hold`:
                     { "type": "int", "key": "hold_s", "value": "${hold_s}" } ] } }
 ```
 
-Métricas de uso y recompensas (spec `device-metrics`): una tercera entrada en `mapping` y
+**No se despliega: la analítica va al recolector (incutwin-app, `docs/analitica.md`).** Métricas de uso y recompensas (spec `device-metrics`): una tercera entrada en `mapping` y
 `$CTRL addRoleACL gateway subscribePattern 'incutwin/+/metrics' allow`. El panel publica, por
 ejemplo, `{"ts":1764100000,"on_s":3600,"conn_s":3500,"hand_s":120,"hand_n":4,"hearts":23,
 "earned":30,"level":1,"streak":9,"saved":1,"days":12,"babies":2,"seals":3,"seals_n":2,
