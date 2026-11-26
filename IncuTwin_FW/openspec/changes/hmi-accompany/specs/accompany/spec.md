@@ -76,6 +76,10 @@ vista y elegir otra al tocar la pantalla o al cambiar el día. Si deja de tener 
 (libre, desconectada), SHALL esperar 2 h; si el bebé vuelve sigue con ella, y si no, elige otra.
 Si tras conectar y recibir los retenidos no llega ningún estado de la actual, SHALL tratarlo igual
 que un fin de estancia sin alta.
+Las 2 h SHALL contarse en hora real desde que empezó el fin de estancia, también a través de
+reinicios: el panel guarda esa hora y, al volver con hora SNTP y tras los retenidos, sigue contando
+desde ella (con tope en 2 h; si el bebé ha vuelto, se descarta). Sin hora SNTP cuenta desde el
+arranque.
 
 #### Scenario: Se va a casa
 - **WHEN** 353 publica `baby: "home"` y después `state: "free"`
@@ -93,6 +97,11 @@ que un fin de estancia sin alta.
 #### Scenario: La actual ya no publica
 - **WHEN** el panel se reinicia acompañando a una IncuNest sin estado retenido
 - **THEN** pasada la espera de los retenidos cuenta como fin de estancia y a las 2 h elige otra
+
+#### Scenario: Reinicio en fin de estancia
+- **WHEN** 353 lleva 1 h 30 min libre y el panel se reinicia
+- **THEN** al conectar con hora SNTP elige otra a los 30 min, no a las 2 h; si estuvo apagado más de
+  2 h, la elige al conectar
 
 ### Requirement: Tiempo acompañado [test-unity]
 El panel SHALL sumar 1 s por segundo a la IncuNest actual solo si hoy se ha completado

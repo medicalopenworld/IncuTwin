@@ -82,6 +82,14 @@ void acc_init(acc_t *a, uint32_t seed);
 void acc_restore(acc_t *a, const acc_persist_t *p, uint32_t seed, uint32_t now_s);
 /* No elegir hasta now_s >= until_s (al conectar llegan de golpe los retenidos). */
 void acc_hold_pick(acc_t *a, uint32_t until_s);
+/* Segundos en fin de estancia (0 si no lo esta). El pegamento guarda con esto la hora real en
+ * que empezo, para que un reinicio no vuelva a contar las 2 h desde cero. */
+uint32_t acc_ending_elapsed(const acc_t *a, uint32_t now_s);
+/* Fin de estancia que venia de antes de reiniciar y empezo hace elapsed_s (por la hora real).
+ * Solo pasada la espera de los retenidos: si el bebe ha vuelto ya no hay fin de estancia y se
+ * descarta. Nunca acorta lo ya contado y no pasa de ACC_ENDING_S. Devuelve false si aun no toca
+ * (volver a llamar) y true si se ha aplicado o ya no hace falta. */
+bool acc_ending_resume(acc_t *a, uint32_t now_s, uint32_t elapsed_s);
 
 /* Estado recibido de una IncuNest. present = bebe dentro o con sus papas; home = alta. */
 uint32_t acc_seen_update(acc_t *a, const char *id, bool present, bool home, uint32_t now_s);

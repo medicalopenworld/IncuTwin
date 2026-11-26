@@ -54,6 +54,22 @@ void acc_restore(acc_t *a, const acc_persist_t *p, uint32_t seed, uint32_t now_s
 
 void acc_hold_pick(acc_t *a, uint32_t until_s) { a->pick_after = until_s; }
 
+uint32_t acc_ending_elapsed(const acc_t *a, uint32_t now_s)
+{
+    return a->p.phase == TWIN_ACC_ENDING ? since(now_s, a->ending_since) : 0;
+}
+
+bool acc_ending_resume(acc_t *a, uint32_t now_s, uint32_t elapsed_s)
+{
+    if (since(now_s, a->pick_after) > 0x7fffffffu) return false; /* aun en la espera de los retenidos */
+    if (a->p.phase != TWIN_ACC_ENDING) return true;
+    uint32_t counted = since(now_s, a->ending_since);
+    uint32_t e = elapsed_s > counted ? elapsed_s : counted;
+    if (e > ACC_ENDING_S) e = ACC_ENDING_S;
+    a->ending_since = now_s - e;
+    return true;
+}
+
 int acc_seen_index(const acc_t *a, const char *id)
 {
     for (int i = 0; i < a->n_seen; i++) {

@@ -26,6 +26,7 @@ static const char *TAG = "acc";
 #define PICK_WAIT_S    5 /* tras conectar: dejar llegar todos los retenidos antes de elegir */
 #define KEY_MODE       "acc_mode"
 #define KEY_STATE      "state"
+#define KEY_ENDING     "ending_at" /* hora real (unix, s) en que empezo el fin de estancia actual */
 
 typedef struct {
     uint16_t len;
@@ -74,6 +75,12 @@ static void local_now(int32_t *day, int *hour)
 /* "Coge mi mano" hecho sin hora SNTP: se apunta en su dia en cuanto llega la hora */
 static bool s_gesture_pending, s_super_pending;
 static uint32_t s_gesture_at; /* now_s() del gesto */
+
+/* Fin de estancia frente a reinicios: su comienzo en hora real va en KEY_ENDING (aparte del blob,
+ * que no cambia de forma). Sin esto cada reinicio volvia a contar las 2 h desde cero. */
+static bool s_ending_stored;   /* hay KEY_ENDING en NVS */
+static uint32_t s_ending_mark; /* ending_since del fin de estancia guardado */
+static uint32_t s_resume_at;   /* KEY_ENDING leido al arrancar, aun por aplicar (0 = nada) */
 
 /* ------------------------------------------------------------- con el mutex */
 
@@ -174,6 +181,43 @@ static void handle_locked(uint32_t r)
     publish_ui_locked();
 }
 
+/* El fin de estancia de antes de reiniciar sigue contando desde que empezo, no desde el arranque.
+ * Espera a la hora SNTP y a los retenidos (si el bebe ha vuelto, se descarta). */
+static void ending_resume_locked(void)
+{
+    if (!s_resume_at) return;
+    bool wall_ok = net_wifi_time_valid();
+    if (!wall_ok && acc_phase(&s_acc) == TWIN_ACC_ENDING) return;
+    time_t w = time(NULL);
+    uint32_t elapsed = wall_ok && w > (time_t)s_resume_at ? (uint32_t)(w - (time_t)s_resume_at) : 0;
+    if (!acc_ending_resume(&s_acc, now_s(), elapsed)) return;
+    s_resume_at = 0;
+    if (acc_phase(&s_acc) == TWIN_ACC_ENDING) {
+        s_ending_mark = s_acc.ending_since; /* lo guardado sigue valiendo */
+        ESP_LOGI(TAG, "fin de estancia de antes de reiniciar: lleva %lu s",
+                 (unsigned long)acc_ending_elapsed(&s_acc, now_s()));
+    }
+}
+
+/* Guarda la hora real en que empieza cada fin de estancia y la borra al salir de el. */
+static void ending_save_locked(void)
+{
+    bool ending = acc_phase(&s_acc) == TWIN_ACC_ENDING;
+    if (!ending) {
+        if (s_ending_stored && storage_erase_key(STORAGE_NS_ACC, KEY_ENDING)) s_ending_stored = false;
+        return;
+    }
+    if (s_resume_at || !net_wifi_time_valid()) return; /* no pisar el de antes de reiniciar */
+    if (s_ending_stored && s_ending_mark == s_acc.ending_since) return;
+    uint32_t at = (uint32_t)(time(NULL) - (time_t)acc_ending_elapsed(&s_acc, now_s()));
+    if (storage_set_u32(STORAGE_NS_ACC, KEY_ENDING, at)) {
+        s_ending_stored = true;
+        s_ending_mark = s_acc.ending_since;
+    } else {
+        ESP_LOGW(TAG, "no se pudo guardar el comienzo del fin de estancia");
+    }
+}
+
 /* ------------------------------------------------------------------ eventos */
 
 static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -232,6 +276,9 @@ void accompany_init(void)
     } else {
         acc_init(&s_acc, seed);
     }
+    uint32_t ending_at = 0;
+    s_ending_stored = storage_get_u32(STORAGE_NS_ACC, KEY_ENDING, &ending_at);
+    if (s_ending_stored && acc_phase(&s_acc) == TWIN_ACC_ENDING) s_resume_at = ending_at;
     /* no elegir hasta conectar con el broker (on_mqtt pone la espera de verdad); el reloj se
      * compara con desbordamiento, asi que "nunca" es media vuelta por delante, no 0xFFFFFFFF */
     acc_hold_pick(&s_acc, now_s() + 0x70000000u);
@@ -348,6 +395,8 @@ void accompany_tick_1s(void)
         ESP_LOGI(TAG, "hora disponible: el gesto pendiente cuenta para el dia %ld%s", (long)gday,
                  r ? "" : " (ya sin bebe: no)");
     }
+    ending_resume_locked();
     handle_locked(r | acc_tick(&s_acc, now_s(), day, hour, shown));
+    ending_save_locked();
     UNLOCK();
 }

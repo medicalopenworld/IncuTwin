@@ -272,6 +272,71 @@ TEST_CASE("acc: la actual no llega tras reiniciar, cuenta como fin de estancia",
     TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
 }
 
+/* Reinicio en fin de estancia: el panel arranca con el reloj a 50 s; el fin de estancia
+ * empezo (por la hora real) hace elapsed s. */
+static void restart_ending(void)
+{
+    fresh();
+    baby("353", 0);
+    free_("353", 1000);
+    TEST_ASSERT_EQUAL(TWIN_ACC_ENDING, acc_phase(&a));
+    TEST_ASSERT_EQUAL_UINT32(600, acc_ending_elapsed(&a, 1600));
+    acc_persist_t p = a.p;
+    acc_restore(&a, &p, 7, 50);
+    acc_hold_pick(&a, 50 + 0x70000000u); /* sin conexion */
+}
+
+TEST_CASE("acc: reiniciar en fin de estancia no vuelve a contar las 2 h", "[acc]")
+{
+    restart_ending();
+    TEST_ASSERT_FALSE(acc_ending_resume(&a, 60, 5455)); /* sin los retenidos aun: no toca */
+    acc_hold_pick(&a, 105);                             /* conecta; llegan los retenidos */
+    baby("297", 101);
+    free_("353", 101);
+    acc_tick(&a, 104, DAY, 10, false);
+    TEST_ASSERT_TRUE(acc_ending_resume(&a, 105, 5455));
+    TEST_ASSERT_EQUAL_UINT32(5455, acc_ending_elapsed(&a, 105));
+    acc_tick(&a, 105 + (ACC_ENDING_S - 5455) - 1, DAY, 10, false);
+    TEST_ASSERT_EQUAL_STRING("353", acc_current(&a));
+    acc_tick(&a, 105 + (ACC_ENDING_S - 5455), DAY, 10, false);
+    TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
+}
+
+TEST_CASE("acc: apagada mas de 2 h en fin de estancia, al conectar elige otra", "[acc]")
+{
+    restart_ending();
+    acc_hold_pick(&a, 105);
+    baby("297", 101);
+    free_("353", 101);
+    TEST_ASSERT_TRUE(acc_ending_resume(&a, 105, 5 * 3600));
+    TEST_ASSERT_EQUAL_UINT32(ACC_ENDING_S, acc_ending_elapsed(&a, 105)); /* con tope */
+    uint32_t r = acc_tick(&a, 105, DAY, 10, false);
+    TEST_ASSERT_TRUE(r & ACC_R_SWITCH);
+    TEST_ASSERT_EQUAL_STRING("297", acc_current(&a));
+}
+
+TEST_CASE("acc: el bebe vuelve tras reiniciar, el fin de estancia guardado no cuenta", "[acc]")
+{
+    restart_ending();
+    acc_hold_pick(&a, 105);
+    baby("297", 101);
+    baby("353", 101); /* su retenido ya tiene bebe */
+    TEST_ASSERT_EQUAL(TWIN_ACC_WAITING, acc_phase(&a));
+    TEST_ASSERT_TRUE(acc_ending_resume(&a, 105, 9000)); /* no hace falta: se descarta */
+    TEST_ASSERT_EQUAL_UINT32(0, acc_ending_elapsed(&a, 105));
+    acc_tick(&a, 106, DAY, 10, false);
+    TEST_ASSERT_EQUAL(TWIN_ACC_WAITING, acc_phase(&a));
+    TEST_ASSERT_EQUAL_STRING("353", acc_current(&a));
+}
+
+TEST_CASE("acc: una hora real mas corta no acorta lo ya contado", "[acc]")
+{
+    restart_ending();
+    acc_hold_pick(&a, 105);
+    TEST_ASSERT_TRUE(acc_ending_resume(&a, 1050, 10)); /* reloj mal puesto: lleva 1000 s contados */
+    TEST_ASSERT_EQUAL_UINT32(1000, acc_ending_elapsed(&a, 1050));
+}
+
 /* ------------------------------------------------------ tiempo acompañado */
 
 TEST_CASE("acc: sin gesto hoy no cuenta", "[acc]")
