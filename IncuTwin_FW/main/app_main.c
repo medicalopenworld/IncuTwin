@@ -37,6 +37,7 @@
 #include "sim_server.h"
 #include "sound.h"
 #include "storage.h"
+#include "telemetry.h"
 #include "twin_model.h"
 #include "ui.h"
 #include "ui_onboarding.h"
@@ -95,6 +96,9 @@ void app_main(void)
     setenv("TZ", "CET-1CEST,M3.5.0,M10.5.0/3", 1); /* hora de España: antes de que nada lea la hora local */
     tzset();
     ESP_ERROR_CHECK(storage_init());
+#if !CONFIG_INCUTWIN_SIM
+    telemetry_init(); /* identidades y evento boot; la cola de flash la abre su tarea */
+#endif
     ESP_ERROR_CHECK(app_events_init());
     event_log_init(); /* notificaciones: tras storage y bus */
     stays_init();     /* bebes de cada IncuNest (Historial): tras storage y bus */
@@ -122,6 +126,7 @@ void app_main(void)
         mqtt_link_set_accompany(accompany_enabled());
         cloud_status_start();
         commands_start();
+        telemetry_start(); /* lotes de eventos a incutwin/<id>/ev */
     }
     ota_update_start(); /* tambien sin credenciales: arma el watchdog de rollback si procede */
 #else

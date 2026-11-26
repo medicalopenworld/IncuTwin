@@ -23,6 +23,12 @@ typedef struct {
     uint32_t up;                /* s desde el arranque */
     char     kind[TEL_KIND_MAX];
     char     d[TEL_D_MAX];      /* objeto JSON ya armado, "{}" si nada */
+    /* Identidad del lote al que pertenece: la pone telemetry.c al registrar el evento y viaja con
+     * el en la cola de flash (un evento puede salir arranques despues). tel_event_encode no la
+     * escribe: va en la cabecera del lote ({"gen","b"}). Anadidos al final del registro (ver 1 de
+     * tel_queue lo admite): un registro sin ellos se lee con 0. */
+    uint32_t gen;
+    uint32_t boot;
 } tel_event_t;
 
 /* {"s":..,"t":..,"up":..,"k":"..","d":{..}}; longitud escrita, o -1 si no cabe */

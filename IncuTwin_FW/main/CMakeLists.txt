@@ -3,6 +3,6 @@ idf_component_register(
     INCLUDE_DIRS "."
     PRIV_REQUIRES accompany app_config baby_name board bringup event_log stay_log rewards incupray storage app_events identity settings usage_stats twin_model
                   sound ui demo_mode net_wifi support_console mqtt_link cloud_status commands ota_update
-                  sim_server
+                  sim_server telemetry
                   esp_app_format app_update esp_system esp_timer
 )
