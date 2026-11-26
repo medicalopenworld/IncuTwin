@@ -1,5 +1,6 @@
 idf_component_register(
-    SRCS "cloud_status.c" "status_payload.c" "hand_payload.c"
+    SRCS "cloud_status.c" "status_payload.c" "hand_payload.c" "metrics_payload.c"
     INCLUDE_DIRS "include"
-    PRIV_REQUIRES accompany app_config app_events identity mqtt_link twin_model net_wifi esp_app_format esp_timer
+    REQUIRES rewards
+    PRIV_REQUIRES accompany app_config usage_stats app_events identity mqtt_link twin_model net_wifi esp_app_format esp_timer
 )

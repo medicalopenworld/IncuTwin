@@ -50,6 +50,13 @@ typedef enum {
     TWIN_EVT_NOTICE,
     /* event_log -> ui: cambio el historial de avisos o el contador de no vistos. data: ninguno */
     TWIN_EVT_LOG_CHANGED,
+    /* stays -> ui: cambiaron los bebes de las IncuNest (Historial). data: ninguno */
+    TWIN_EVT_STAYS_CHANGED,
+    /* rewards -> ui: cambiaron corazones, sellos, pasaporte o lo elegido. data: app_evt_rewards_t */
+    TWIN_EVT_REWARDS_CHANGED,
+    /* ota_update -> ui: hay una OTA lista para descargar; la UI abre su ventana y llama a
+     * ota_update_go() (spec ota-update). data: ninguno */
+    TWIN_EVT_OTA_PENDING,
 } app_event_id_t;
 
 typedef enum {
@@ -95,7 +102,18 @@ typedef struct {
     uint32_t mask;
     bool demo;
     char inc[TWIN_INCUBATOR_ID_LEN];
+    char country[TWIN_COUNTRY_LEN]; /* pais de la incubadora; "" = no compartido */
+    uint8_t sex;                    /* twin_sex_t del bebe (icono nino / nina) */
 } app_evt_notice_t;
+
+/* Novedades de recompensas (franja y «+N»); todo a 0 si solo cambio lo elegido */
+typedef struct {
+    uint8_t hearts;    /* corazones ganados ahora */
+    uint8_t new_seals; /* bits de rw_seal_t */
+    bool level_up;
+    bool garland;
+    bool demo;         /* del estado simulado de la demo */
+} app_evt_rewards_t;
 
 esp_err_t app_events_init(void);
 esp_err_t app_events_post(app_event_id_t id, const void *data, size_t size);

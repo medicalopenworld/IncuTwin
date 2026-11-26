@@ -14,6 +14,8 @@
 #include "accompany.h"
 #include "app_events.h"
 #include "event_log.h"
+#include "rewards.h"
+#include "stays.h"
 #include "baby_name.h"
 #include "board.h"
 #include "bringup_screen.h"
@@ -93,7 +95,9 @@ void app_main(void)
     tzset();
     ESP_ERROR_CHECK(storage_init());
     ESP_ERROR_CHECK(app_events_init());
-    event_log_init(); /* historial de avisos: tras storage y bus */
+    event_log_init(); /* notificaciones: tras storage y bus */
+    stays_init();     /* bebes de cada IncuNest (Historial): tras storage y bus */
+    rewards_init();   /* corazones y sellos: tras stays (lee su estancia con el mismo estado) */
     ESP_ERROR_CHECK(board_init());
 
     identity_init();

@@ -72,6 +72,56 @@ const char *ota_cmd_result_str(ota_cmd_result_t r)
     case OTA_CMD_BAD_JSON:   return "json invalido";
     case OTA_CMD_BAD_URL:    return "url ausente, no https o host no permitido";
     case OTA_CMD_BAD_SHA256: return "sha256 ausente o mal formado";
+    case OTA_CMD_BAD_VERSION: return "version ausente o demasiado larga";
     default:                 return "?";
     }
+}
+
+/* Siguiente numero de una version ("2.10.1-dev"): avanza *p; 0 si no hay mas */
+static long next_num(const char **p)
+{
+    const char *s = *p;
+    if (!*s || *s == '-' || *s == '+') return 0;
+    long v = 0;
+    while (*s >= '0' && *s <= '9') v = v * 10 + (*s++ - '0');
+    if (*s == '.') s++;
+    else while (*s && *s != '-' && *s != '+') s++; /* basura: se ignora hasta el sufijo */
+    *p = s;
+    return v;
+}
+
+int ota_version_cmp(const char *a, const char *b)
+{
+    if (!a) a = "";
+    if (!b) b = "";
+    for (int i = 0; i < 4; i++) {
+        long x = next_num(&a), y = next_num(&b);
+        if (x != y) return x > y ? 1 : -1;
+    }
+    return 0;
+}
+
+ota_cmd_result_t ota_validate_target(const char *payload, size_t len, const char *host_suffix,
+                                     bool allow_any_host, ota_target_t *out)
+{
+    memset(out, 0, sizeof(*out));
+    ota_cmd_result_t r = ota_validate_cmd(payload, len, host_suffix, allow_any_host, &out->job);
+    if (r != OTA_CMD_OK) return r;
+    cJSON *root = cJSON_ParseWithLength(payload, len);
+    if (!root) return OTA_CMD_BAD_JSON;
+    const cJSON *v = cJSON_GetObjectItemCaseSensitive(root, "version");
+    if (!cJSON_IsString(v) || !v->valuestring || !v->valuestring[0] || strlen(v->valuestring) > OTA_VERSION_MAX) {
+        r = OTA_CMD_BAD_VERSION;
+    } else {
+        strcpy(out->version, v->valuestring);
+    }
+    cJSON_Delete(root);
+    return r;
+}
+
+bool ota_target_wanted(const char *running, const ota_target_t *t, const uint8_t *bad_sha)
+{
+    if (!t || !t->version[0]) return false;
+    if (bad_sha && memcmp(bad_sha, t->job.sha256, 32) == 0) return false;
+    return ota_version_cmp(t->version, running) > 0;
 }

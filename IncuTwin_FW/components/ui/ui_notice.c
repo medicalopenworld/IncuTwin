@@ -1,8 +1,13 @@
 /* Franja de aviso en pantalla (spec hmi-navegacion-avisos, "Aviso en pantalla"): baja desde arriba
  * en la capa superior de LVGL con el icono y el texto del aviso, se queda 4 s y sube. Si llegan
- * varios a la vez salen uno detras de otro. Tocarla abre el Historial y vacia la cola. No sale en
- * el splash, el onboarding, la despedida ni con el aviso o el teclado del nombre abiertos: se
- * encola y sale al cerrarse. Todo en la tarea de LVGL. */
+ * varios a la vez salen uno detras de otro. Dos clases de aviso en la misma cola:
+ *   - lo que vive el bebe (twin_notice_t): tocarla abre Notificaciones y vacia la cola;
+ *   - recompensas (sello nuevo, subida de nivel, guirnalda; spec rewards): tocarla abre Corazones.
+ *     No se guardan en Notificaciones.
+ * No sale en el splash, el onboarding, la despedida ni con el aviso o el teclado del nombre
+ * abiertos: se encola y sale al cerrarse. Todo en la tarea de LVGL. */
+#include <stdio.h>
+
 #include "assets.h"
 #include "esp_log.h"
 #include "ui_internal.h"
@@ -20,13 +25,21 @@ static const char *TAG = "aviso";
 #define QUEUE_LEN  8
 
 typedef enum { N_IDLE, N_IN, N_HOLD, N_OUT } notice_state_t;
+typedef enum { Q_NOTICE = 0, Q_SEAL, Q_LEVEL, Q_GARLAND } q_type_t;
+
+typedef struct {
+    uint8_t type; /* q_type_t */
+    uint8_t arg;  /* bit de twin_notice_t (0..6), rw_seal_t o rw_level_t */
+    uint8_t sex;  /* twin_sex_t del bebe (avisos del bebe) */
+} q_item_t;
 
 static lv_obj_t *s_bar, *s_lbl;
 static lv_timer_t *s_hold_timer;
 static notice_state_t s_state = N_IDLE;
-static uint8_t s_queue[QUEUE_LEN]; /* bit de twin_notice_t (0..6) de cada aviso pendiente */
+static q_item_t s_queue[QUEUE_LEN];
 static uint8_t s_count;
 static bool s_blocked_logged;
+static uint8_t s_shown_type; /* q_type_t de la que se ve (a donde lleva el toque) */
 
 static void y_cb(void *var, int32_t v) { lv_obj_set_y((lv_obj_t *)var, v); }
 
@@ -67,17 +80,47 @@ static void in_done_cb(lv_anim_t *a)
     lv_timer_set_repeat_count(s_hold_timer, 1);
 }
 
-static void show(uint8_t kind)
+/* Icono de una recompensa en el sitio del icono del aviso (34 px) */
+static void reward_icon(const q_item_t *q)
 {
-    /* el icono se rehace: es el mismo del Historial (ui_notice_icon) */
+    if (q->type == Q_SEAL) {
+        ui_seal_icon(s_bar, (rw_seal_t)q->arg, true, 34);
+        return;
+    }
+    lv_obj_t *c = lv_obj_create(s_bar);
+    lv_obj_set_size(c, 34, 34);
+    lv_obj_set_style_radius(c, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(c, COL_CARD, 0);
+    lv_obj_set_style_border_width(c, 2, 0);
+    lv_obj_set_style_border_color(c, q->type == Q_GARLAND ? COL_OK : COL_CORAL, 0);
+    lv_obj_set_style_pad_all(c, 0, 0);
+    lv_obj_set_scrollable(c, false);
+    lv_obj_set_clickable(c, false);
+    lv_obj_t *i = lv_image_create(c);
+    lv_image_set_src(i, &img_heart);
+    lv_image_set_scale(i, 180);
+    lv_obj_center(i);
+}
+
+static void show(const q_item_t *q)
+{
+    /* el icono se rehace: el de los avisos del bebe es el mismo de Notificaciones (ui_notice_icon,
+     * que quiere el bit ya desplazado: con el indice, un ingreso salia con el icono de la salida) */
     lv_obj_clean(s_bar);
-    ui_notice_icon(s_bar, kind);
+    if (q->type == Q_NOTICE) ui_notice_icon(s_bar, (uint8_t)(1u << q->arg), q->sex);
+    else reward_icon(q);
     s_lbl = lv_label_create(s_bar);
     lv_obj_set_size(s_lbl, BANNER_W - 34 - 8 - 16, 34);
     lv_label_set_long_mode(s_lbl, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_style_text_font(s_lbl, &lv_font_es_14, 0);
     lv_obj_set_style_text_color(s_lbl, COL_NAVY_DARK, 0);
-    lv_label_set_text(s_lbl, ui_notice_text((twin_notice_t)(1u << kind)));
+    switch (q->type) {
+    case Q_SEAL:    lv_label_set_text_fmt(s_lbl, tr(STR_RW_NEW_SEAL), ui_seal_name((rw_seal_t)q->arg)); break;
+    case Q_LEVEL:   lv_label_set_text_fmt(s_lbl, tr(STR_RW_LEVEL_UP), ui_level_name((rw_level_t)q->arg)); break;
+    case Q_GARLAND: lv_label_set_text(s_lbl, tr(STR_RW_GARLAND)); break;
+    default:        lv_label_set_text(s_lbl, ui_notice_text((twin_notice_t)(1u << q->arg))); break;
+    }
+    s_shown_type = q->type;
     ESP_LOGI(TAG, "franja: \"%s\" (quedan %u)", lv_label_get_text(s_lbl), (unsigned)s_count);
     lv_obj_set_y(s_bar, Y_HIDDEN);
     lv_obj_set_hidden(s_bar, false);
@@ -88,7 +131,8 @@ static void show(uint8_t kind)
 static void bar_clicked_cb(lv_event_t *e)
 {
     (void)e;
-    ESP_LOGI(TAG, "franja tocada: Historial, cola vaciada (%u)", (unsigned)s_count);
+    bool reward = s_shown_type != Q_NOTICE;
+    ESP_LOGI(TAG, "franja tocada: %s, cola vaciada (%u)", reward ? "Corazones" : "Notificaciones", (unsigned)s_count);
     s_count = 0;
     lv_anim_delete(s_bar, y_cb);
     if (s_hold_timer) {
@@ -97,7 +141,12 @@ static void bar_clicked_cb(lv_event_t *e)
     }
     lv_obj_set_hidden(s_bar, true);
     s_state = N_IDLE;
-    ui_go(UI_TAB_HISTORY);
+    if (reward) {
+        ui_go(UI_TAB_HEARTS);
+        ui_hearts_show_top();
+    } else {
+        ui_go(UI_TAB_NOTICES);
+    }
 }
 
 void ui_notice_init(void)
@@ -126,21 +175,35 @@ bool ui_notice_layer_busy(void)
     uint32_t n = lv_obj_get_child_count(top);
     for (uint32_t i = 0; i < n; i++) {
         lv_obj_t *c = lv_obj_get_child(top, i);
-        if (c && c != s_bar && !lv_obj_is_hidden(c)) return true;
+        if (c && c != s_bar && c != ui_nav_obj() && !lv_obj_is_hidden(c)) return true;
     }
     return false;
 }
 
-void ui_notice_push(uint32_t mask)
+static void enqueue(q_item_t q)
+{
+    if (s_count >= QUEUE_LEN) { /* mas de 8 sin ver: se pierde el mas antiguo (los avisos siguen en
+                                 * Notificaciones; los sellos, en Logros) */
+        for (uint8_t i = 1; i < QUEUE_LEN; i++) s_queue[i - 1] = s_queue[i];
+        s_count--;
+    }
+    s_queue[s_count++] = q;
+}
+
+void ui_notice_push(uint32_t mask, uint8_t sex)
 {
     for (uint8_t bit = 0; bit < 32; bit++) {
-        if (!(mask & (1u << bit))) continue;
-        if (s_count >= QUEUE_LEN) { /* mas de 8 sin ver: se pierde el mas antiguo (sigue en el Historial) */
-            for (uint8_t i = 1; i < QUEUE_LEN; i++) s_queue[i - 1] = s_queue[i];
-            s_count--;
-        }
-        s_queue[s_count++] = bit;
+        if (mask & (1u << bit)) enqueue((q_item_t){ .type = Q_NOTICE, .arg = bit, .sex = sex });
     }
+}
+
+void ui_notice_push_reward(uint8_t new_seals, bool level_up, uint8_t level, bool garland)
+{
+    for (uint8_t i = 0; i < RW_SEAL_COUNT; i++) {
+        if (new_seals & (1u << i)) enqueue((q_item_t){ .type = Q_SEAL, .arg = i });
+    }
+    if (level_up) enqueue((q_item_t){ .type = Q_LEVEL, .arg = level });
+    if (garland) enqueue((q_item_t){ .type = Q_GARLAND });
 }
 
 void ui_notice_poll(bool blocked)
@@ -156,8 +219,8 @@ void ui_notice_poll(bool blocked)
         return;
     }
     s_blocked_logged = false;
-    uint8_t kind = s_queue[0];
+    q_item_t q = s_queue[0];
     for (uint8_t i = 1; i < s_count; i++) s_queue[i - 1] = s_queue[i];
     s_count--;
-    show(kind);
+    show(&q);
 }

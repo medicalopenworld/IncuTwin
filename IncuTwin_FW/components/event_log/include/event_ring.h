@@ -20,6 +20,8 @@ typedef struct {
     uint32_t at;                      /* epoch en segundos; 0 si el reloj aun no estaba en hora */
     uint8_t kind;                     /* un solo bit de twin_notice_t */
     char inc[TWIN_INCUBATOR_ID_LEN];  /* incubadora a la que se refiere */
+    char country[TWIN_COUNTRY_LEN];   /* su pais ("CM"); "" = no se sabia (o historial antiguo) */
+    uint8_t sex;                      /* twin_sex_t del bebe; cabe en el relleno: mismo tamano */
 } event_entry_t;
 
 typedef struct {

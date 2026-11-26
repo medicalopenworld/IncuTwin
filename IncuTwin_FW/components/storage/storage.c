@@ -139,12 +139,13 @@ bool storage_erase_ns(const char *ns)
 
 void storage_factory_reset(void)
 {
-    ESP_LOGW(TAG, "factory reset: borrando prov, settings, twin, acc y bname");
+    ESP_LOGW(TAG, "factory reset: borrando prov, settings, twin, acc, bname y rewards");
     storage_erase_ns(STORAGE_NS_PROV);
     storage_erase_ns(STORAGE_NS_SETTINGS);
     storage_erase_ns(STORAGE_NS_TWIN);
     storage_erase_ns(STORAGE_NS_ACC);
     storage_erase_ns(STORAGE_NS_BNAME);
+    storage_erase_ns(STORAGE_NS_REWARDS);
     vTaskDelay(pdMS_TO_TICKS(200)); /* que salga el log */
     esp_restart();
 }

@@ -19,25 +19,25 @@
 static const char *TAG = "pages";
 
 /* Zona que tapan las paginas: empieza donde el bebe (BABY_Y de ui_home, para taparlo entero,
- * gorro incluido) y acaba en la barra de estado (y 257). Su franja de arriba (PG_TOP) queda bajo
- * la barra del WiFi: sin contenido. Los puntos de pagina van en el margen de abajo. Antes: PG_Y 38,
- * PG_H 240, DOTS_Y 280 (por debajo quedaba la barra de estado en 288). */
+ * gorro incluido) y acaba en la barra de navegacion (UI_NAV_Y). Su franja de arriba (PG_TOP)
+ * queda bajo la barra de la marca y el pais: sin contenido. Los puntos de pagina van en el margen
+ * de abajo. Antes, con barra de estado: PG_H 243 y DOTS_Y 250. */
 #define PG_Y      14
-#define PG_H      243
+#define PG_H      (UI_NAV_Y - PG_Y)
 #define PG_TOP    22
-#define DOTS_Y    250 /* entre la fila de Inicio (211..248) y la barra de estado (257) */
+#define DOTS_Y    273 /* entre la fila de Inicio (232..270) y la barra de navegacion (280) */
 #define SLIDE_MS  260
 /* logros, dentro de su caja (que empieza en PG_TOP): antes titulo 8 y subtitulo 36 */
 #define ACH_T_Y   4
 #define ACH_SUB_Y 28
 
 /* Mapa a toda la pagina, pintado en el panel (components/world_map) con el zoom justo para ver
- * tu IncuTwin y la IncuNest; arriba la etiqueta del pais y los km sobre la linea que los une.
- * La hora del pais va en la barra de estado (ui_pages_status_text). */
+ * tu IncuTwin y la IncuNest; arriba la etiqueta del pais con su hora y los km sobre la linea que
+ * los une. La IncuNest esta dibujada en su sitio y al tocarla se vuelve al bebe. */
 #define MAP_W       240
 #define MAP_H       PG_H
-#define CHIP_H      40  /* bandera + nombre */
-#define CHIP_H_DEMO 58  /* + hospital */
+#define CHIP_H      56  /* bandera + nombre, hora */
+#define CHIP_H_DEMO 72  /* + hospital */
 #define MAP_BOTTOM  16  /* margen de abajo del encuadre (los puntos de pagina) */
 #define MAP_TOP     PG_TOP /* el mapa llega hasta arriba, pero el encuadre empieza bajo la barra */
 #define COL_LAND    lv_color_hex(0xEEE8D8)
@@ -53,14 +53,18 @@ static const char *TAG = "pages";
 
 static lv_obj_t *s_pg[UI_PAGES_COUNT]; /* s_pg[0] no existe: la pagina 0 es la pantalla */
 static lv_obj_t *s_dots[UI_PAGES_COUNT];
-static lv_obj_t *s_canvas, *s_chip, *s_flag, *s_lbl_country, *s_lbl_hosp;
+static lv_obj_t *s_canvas, *s_chip, *s_flag, *s_lbl_country, *s_lbl_time, *s_lbl_hosp;
 static lv_obj_t *s_km, *s_lbl_km; /* pastilla con los km, en el centro de la linea */
-static lv_obj_t *s_dot_home, *s_dot_inc, *s_ping, *s_route;
+static lv_obj_t *s_dot_home, *s_nest, *s_ping, *s_route; /* s_nest: la IncuNest, vuelve al bebe */
 static uint16_t *s_map_buf; /* 240x240 RGB565 en PSRAM */
 static lv_point_precise_t s_route_pts[2];
-static int s_avail = 1;    /* paginas: 1 (solo bebe), 2 (+ pais), 3 (+ logros o racha) */
+/* Paginas que se ven, en orden (indices de panel: 0 bebe, 1 mapa, 2 racha o logros de la demo).
+ * Sellos, pasaporte y tienda estan en la pantalla Corazones. s_pos es la posicion en ese orden; s_page, el panel que se ve. */
+static int s_order[UI_PAGES_COUNT] = { UI_PAGE_BABY };
+static int s_avail = 1;
+static int s_pos;
 static int16_t s_utc_min;  /* hora local del pais de la IncuNest */
-static char s_clock[8];    /* "HH:MM" del pais pintado en la barra; "" = sin hora */
+static char s_clock[8];    /* "HH:MM" del pais pintado en la etiqueta; "" = sin hora */
 static lv_obj_t *s_ach_box, *s_lbl_ach_t, *s_lbl_ach_sub;
 static lv_obj_t *s_tile_num[4], *s_tile_cap[4];
 static int s_page;
@@ -76,6 +80,8 @@ static int s_week_mask = -1; /* pintado; -1 = forzar */
 static uint8_t s_super_mask;  /* super corazones, mismos bits */
 static uint8_t s_rest_mask;   /* dias sin bebes (no rompen la racha), mismos bits */
 static int32_t s_week_day_drawn = -1; /* dia (tm_yday) de las iniciales pintadas */
+/* saldo y nivel en la pagina de la racha */
+static lv_obj_t *s_lbl_bal, *s_lbl_level, *s_saved[RW_SAVED_MAX];
 
 /* ------------------------------------------------------------- helpers */
 
@@ -118,8 +124,7 @@ static lv_obj_t *text(lv_obj_t *parent, const lv_font_t *font, lv_color_t col, i
     return l;
 }
 
-/* Hora del pais de la IncuNest; si cambia y se esta viendo el mapa, la barra de estado se
- * vuelve a pintar (la pinta ui_home con ui_pages_status_text). */
+/* Hora del pais de la IncuNest, debajo de su nombre en la etiqueta del mapa */
 static void clock_refresh(void)
 {
     char buf[sizeof(s_clock)] = "";
@@ -131,7 +136,8 @@ static void clock_refresh(void)
     }
     if (strcmp(buf, s_clock) == 0) return;
     memcpy(s_clock, buf, sizeof(s_clock));
-    if (s_page == 1) ui_home_status_refresh();
+    if (buf[0]) lv_label_set_text_fmt(s_lbl_time, tr(STR_PG_TIME_THERE), buf);
+    else lv_label_set_text(s_lbl_time, "");
 }
 
 static void streak_days_refresh(void);
@@ -156,9 +162,9 @@ static void dots_refresh(void)
     /* el punto de la pagina actual es una pildora de 14 px; los otros, puntos de 6 */
     int32_t x = 120 - (14 + 6 * (s_avail - 1) + 6 * (s_avail - 1)) / 2;
     for (int i = 0; i < UI_PAGES_COUNT; i++) {
-        int32_t w = i == s_page ? 14 : 6;
+        int32_t w = i == s_pos ? 14 : 6;
         lv_obj_set_hidden(s_dots[i], i >= s_avail || s_avail < 2);
-        lv_obj_set_style_bg_color(s_dots[i], i == s_page ? COL_CORAL : COL_OFFLINE, 0);
+        lv_obj_set_style_bg_color(s_dots[i], i == s_pos ? COL_CORAL : COL_OFFLINE, 0);
         lv_obj_set_size(s_dots[i], w, 6);
         lv_obj_set_pos(s_dots[i], x, DOTS_Y);
         x += w + 6;
@@ -177,13 +183,30 @@ static void anim_done_cb(lv_anim_t *a)
     if (idx != s_page) lv_obj_set_hidden(p, true);
 }
 
-/* Cada panel i se coloca en (i - pagina) * 240: el actual en 0, los demas a los lados */
-static void slide_to(int page, bool animate)
+static int pos_of(int panel)
 {
-    s_page = page;
+    for (int i = 0; i < s_avail; i++) {
+        if (s_order[i] == panel) return i;
+    }
+    return -1;
+}
+
+/* Cada panel se coloca en (su posicion - la actual) * 240: el actual en 0, los demas a los lados;
+ * los que no estan en el orden, escondidos */
+static void slide_to(int pos, bool animate)
+{
+    s_pos = pos;
+    s_page = s_order[pos];
+    int page = pos;
     for (int i = 1; i < UI_PAGES_COUNT; i++) {
-        int32_t to = (i - page) * 240;
+        int pi = pos_of(i);
         lv_anim_delete(s_pg[i], anim_x_cb);
+        if (pi < 0) {
+            lv_obj_set_x(s_pg[i], 240 * UI_PAGES_COUNT);
+            lv_obj_set_hidden(s_pg[i], true);
+            continue;
+        }
+        int32_t to = (pi - page) * 240;
         if (!animate) {
             lv_obj_set_x(s_pg[i], to);
             lv_obj_set_hidden(s_pg[i], to != 0);
@@ -202,8 +225,8 @@ static void slide_to(int page, bool animate)
         lv_anim_set_completed_cb(&a, anim_done_cb);
         lv_anim_start(&a);
     }
-    if (page == 1) clock_refresh();
-    if (page == 2 && s_acc_on) streak_days_refresh();
+    if (s_page == UI_PAGE_MAP) clock_refresh();
+    if (s_page == UI_PAGE_STREAK && s_acc_on) streak_days_refresh();
     dots_refresh();
 }
 
@@ -250,7 +273,7 @@ static void fmt_km(char *buf, size_t n, uint32_t km)
     else snprintf(buf, n, "%u", (unsigned)km);
 }
 
-static void chip_clicked(lv_event_t *e)
+static void nest_clicked(lv_event_t *e)
 {
     (void)e;
     ui_home_goto_baby();
@@ -277,10 +300,7 @@ static void streak_draw(void)
         bool on = valid && off >= 0 && (mask & (1u << off));
         bool super = on && (s_super_mask & (1u << off));
         bool rest = valid && !on && off >= 0 && (s_rest_mask & (1u << off));
-        lv_obj_t *h = s_week[i];
-        lv_obj_set_style_image_recolor(h, super ? COL_SUPER : rest ? COL_REST : COL_OFFLINE, 0);
-        lv_obj_set_style_image_recolor_opa(h, on && !super ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
-        lv_obj_set_style_image_opa(h, on || rest ? LV_OPA_COVER : (valid && off < 0) ? LV_OPA_20 : LV_OPA_40, 0);
+        ui_week_heart_style(s_week[i], on, super, rest, valid && off < 0);
         char s[2] = { valid && strlen(ini) == 7 ? ini[(i + 1) % 7] : '\0', '\0' };
         lv_label_set_text(s_week_day[i], s);
         lv_obj_set_style_text_color(s_week_day[i], valid && off == 0 ? COL_CORAL : COL_OFFLINE, 0);
@@ -368,7 +388,8 @@ static void country_page_refresh(void)
         s_route_pts[1] = (lv_point_precise_t){ s_inc_x, s_inc_y };
         lv_line_set_points(s_route, s_route_pts, 2);
         dot_at(s_dot_home, (int32_t)hx, (int32_t)hy);
-        dot_at(s_dot_inc, s_inc_x, s_inc_y);
+        lv_obj_set_pos(s_nest, s_inc_x - (int32_t)img_incunest_map.header.w / 2,
+                       s_inc_y - (int32_t)img_incunest_map.header.h / 2);
         /* los km, en el centro de la linea */
         lv_obj_align(s_km, LV_ALIGN_CENTER, ((int32_t)hx + s_inc_x) / 2 - MAP_W / 2,
                      ((int32_t)hy + s_inc_y) / 2 - MAP_H / 2);
@@ -380,6 +401,23 @@ static void country_page_refresh(void)
     s_clock[0] = '\0';
     clock_refresh();
 }
+
+static void balance_set(lv_obj_t *bal, lv_obj_t *level, const rw_state_t *r)
+{
+    lv_label_set_text_fmt(bal, "%u", (unsigned)r->balance);
+    lv_label_set_text(level, ui_level_name(rw_level(r->earned)));
+}
+
+/* Saldo, nivel y abrazos de la pagina de la racha, y el fondo elegido, desde ui_rewards() */
+static void rewards_refresh(void)
+{
+    const rw_state_t *r = ui_rewards();
+    balance_set(s_lbl_bal, s_lbl_level, r);
+    for (int i = 0; i < RW_SAVED_MAX; i++) lv_obj_set_hidden(s_saved[i], i >= r->saved);
+    lv_obj_set_style_bg_color(s_pg[UI_PAGE_STREAK], ui_theme_bg(), 0);
+}
+
+void ui_pages_rewards_apply(void) { rewards_refresh(); }
 
 /* ----------------------------------------------------------------- build */
 
@@ -407,7 +445,15 @@ void ui_pages_create(lv_obj_t *scr)
     lv_obj_set_style_line_dash_gap(s_route, 4, 0);
     s_ping = dot(p, 12, COL_CORAL, 0);
     s_dot_home = dot(p, 14, COL_NAVY, 3);
-    s_dot_inc = dot(p, 14, COL_CORAL, 3);
+    /* la IncuNest en su sitio, con la onda debajo: tocarla vuelve al bebe */
+    s_nest = lv_image_create(p);
+    lv_image_set_src(s_nest, &img_incunest_map);
+    lv_obj_set_clickable(s_nest, true);
+    lv_obj_add_flag(s_nest, UI_FLAG_CLICK_SOUND);
+    lv_obj_set_ext_click_area(s_nest, 10);
+    lv_obj_set_style_image_recolor(s_nest, COL_NAVY, LV_STATE_PRESSED);
+    lv_obj_set_style_image_recolor_opa(s_nest, LV_OPA_20, LV_STATE_PRESSED);
+    lv_obj_add_event_cb(s_nest, nest_clicked, LV_EVENT_CLICKED, NULL);
     lv_anim_t a;
     lv_anim_init(&a);
     lv_anim_set_var(&a, s_ping);
@@ -417,7 +463,7 @@ void ui_pages_create(lv_obj_t *scr)
     lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
     lv_anim_start(&a);
 
-    /* arriba a la izquierda: bandera + pais (+ hospital en la demo) */
+    /* arriba a la izquierda: bandera + pais, su hora (+ hospital en la demo) */
     s_chip = overlay(p);
     lv_obj_set_pos(s_chip, 8, MAP_TOP + 8);
     lv_obj_set_width(s_chip, LV_SIZE_CONTENT);
@@ -440,19 +486,12 @@ void ui_pages_create(lv_obj_t *scr)
     s_lbl_country = lv_label_create(row);
     lv_obj_set_style_text_font(s_lbl_country, &lv_font_es_20, 0);
     lv_obj_set_style_text_color(s_lbl_country, COL_NAVY_DARK, 0);
-    lv_obj_set_style_max_width(s_lbl_country, 130, 0);
+    lv_obj_set_style_max_width(s_lbl_country, 150, 0);
     lv_label_set_long_mode(s_lbl_country, LV_LABEL_LONG_MODE_DOTS);
-    /* el bebe en pequeno: la etiqueta es un boton que vuelve a su pagina */
-    lv_obj_t *baby = lv_image_create(row);
-    lv_image_set_src(baby, &img_baby_sleep);
-    lv_image_set_inner_align(baby, LV_IMAGE_ALIGN_STRETCH); /* 114x185 a 16x26 */
-    lv_obj_set_size(baby, 16, 26);
-    lv_obj_set_clickable(baby, false);
-    lv_obj_set_clickable(s_chip, true);
-    lv_obj_set_style_bg_color(s_chip, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_add_flag(s_chip, UI_FLAG_CLICK_SOUND);
-    lv_obj_set_ext_click_area(s_chip, 6);
-    lv_obj_add_event_cb(s_chip, chip_clicked, LV_EVENT_CLICKED, NULL);
+    s_lbl_time = lv_label_create(s_chip);
+    lv_obj_set_style_text_font(s_lbl_time, &lv_font_es_12, 0);
+    lv_obj_set_style_text_color(s_lbl_time, COL_NAVY_DARK, 0);
+    lv_label_set_text(s_lbl_time, "");
     s_lbl_hosp = lv_label_create(s_chip);
     lv_obj_set_style_text_font(s_lbl_hosp, &lv_font_es_12, 0);
     lv_obj_set_style_text_color(s_lbl_hosp, COL_NAVY_DARK, 0);
@@ -511,7 +550,34 @@ void ui_pages_create(lv_obj_t *scr)
         lv_obj_set_x(s_week_day[i], x);
         lv_obj_set_style_text_align(s_week_day[i], LV_TEXT_ALIGN_CENTER, 0);
     }
-    s_lbl_streak = text(s_streak_box, &lv_font_es_16, COL_NAVY_DARK, 20, 124);
+    /* saldo y nivel debajo de la semana: corazon + saldo + nivel + abrazos guardados */
+    lv_obj_t *bal = lv_obj_create(s_streak_box);
+    lv_obj_set_size(bal, LV_SIZE_CONTENT, 26);
+    lv_obj_set_style_bg_opa(bal, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(bal, 0, 0);
+    lv_obj_set_style_pad_all(bal, 0, 0);
+    lv_obj_set_style_pad_column(bal, 6, 0);
+    lv_obj_set_flex_flow(bal, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(bal, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_scrollable(bal, false);
+    lv_obj_set_clickable(bal, false);
+    lv_obj_align(bal, LV_ALIGN_TOP_MID, 0, 120);
+    lv_obj_t *bh = lv_image_create(bal);
+    lv_image_set_src(bh, &img_heart);
+    lv_image_set_inner_align(bh, LV_IMAGE_ALIGN_STRETCH);
+    lv_obj_set_size(bh, 22, 19);
+    s_lbl_bal = text(bal, &lv_font_es_20, COL_CORAL, 0, 0);
+    s_lbl_level = text(bal, &lv_font_es_14, COL_NAVY_DARK, 0, 0);
+    for (int i = 0; i < RW_SAVED_MAX; i++) { /* abrazos guardados: corazones azul claro */
+        lv_obj_t *h = s_saved[i] = lv_image_create(bal);
+        lv_image_set_src(h, &img_heart);
+        lv_image_set_inner_align(h, LV_IMAGE_ALIGN_STRETCH);
+        lv_obj_set_size(h, 15, 13);
+        lv_obj_set_style_image_recolor(h, COL_REST, 0);
+        lv_obj_set_style_image_recolor_opa(h, LV_OPA_COVER, 0);
+        lv_obj_set_hidden(h, true);
+    }
+    s_lbl_streak = text(s_streak_box, &lv_font_es_16, COL_NAVY_DARK, 20, 156);
     lv_obj_set_width(s_lbl_streak, 200);
     lv_obj_set_style_text_align(s_lbl_streak, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(s_lbl_streak, LV_LABEL_LONG_MODE_WRAP);
@@ -549,6 +615,7 @@ void ui_pages_create(lv_obj_t *scr)
     }
     lv_timer_create(clock_timer_cb, 5000, NULL);
     ui_pages_retranslate();
+    rewards_refresh();
     slide_to(0, false);
 }
 
@@ -559,6 +626,7 @@ void ui_pages_retranslate(void)
     lv_obj_align(s_lbl_streak_t, LV_ALIGN_TOP_MID, 0, 4);
     streak_draw(); /* iniciales y frase en el idioma nuevo */
     lv_label_set_text(s_lbl_ach_t, tr(STR_PG_ACHIEVEMENTS));
+    if (s_lbl_bal) rewards_refresh(); /* el nombre del nivel */
     lv_label_set_text(s_lbl_ach_sub, tr(STR_PG_ACH_SUB));
     static const ui_str_t CAP[4] = { STR_PG_MY_DAYS, STR_PG_STREAK, STR_PG_FAMILIES, STR_PG_DAYS };
     for (int i = 0; i < 4; i++) lv_label_set_text(s_tile_cap[i], tr(CAP[i]));
@@ -574,13 +642,6 @@ static void week_refresh(uint8_t mask, uint8_t super, uint8_t rest)
     s_super_mask = super;
     s_rest_mask = rest;
     streak_draw();
-}
-
-bool ui_pages_status_text(char *buf, size_t n)
-{
-    if (s_page != 1 || !s_clock[0] || !s_country[0]) return false;
-    snprintf(buf, n, tr(STR_PG_TIME_IN), tr_country(s_country), s_clock);
-    return true;
 }
 
 /* ------------------------------------------------------------------- API */
@@ -607,28 +668,35 @@ void ui_pages_apply(const twin_snapshot_t *s)
         memcpy(s_country, cc, TWIN_COUNTRY_LEN);
         country_page_refresh();
     }
-    /* fuera de la demo: bebe + pais (si se sabe) + la racha en modo acompañar */
-    int avail = s_enabled ? UI_PAGES_COUNT : !known ? 1 : acc_on ? 3 : 2;
-    if (avail != s_avail || demo_changed) {
-        s_avail = avail;
-        slide_to(s_page < avail && !demo_changed ? s_page : 0, false);
+    /* bebe, mapa (si se sabe el pais) y la racha (acompañar) o los logros simulados (demo) */
+    int order[UI_PAGES_COUNT], n = 0;
+    order[n++] = UI_PAGE_BABY;
+    if (known) order[n++] = UI_PAGE_MAP;
+    if (s_enabled || acc_on) order[n++] = UI_PAGE_STREAK;
+    if (n != s_avail || memcmp(order, s_order, sizeof(int) * (size_t)n) != 0 || demo_changed) {
+        int keep = s_page;
+        s_avail = n;
+        memcpy(s_order, order, sizeof(int) * (size_t)n);
+        int pos = demo_changed ? 0 : pos_of(keep);
+        slide_to(pos < 0 ? 0 : pos, false);
     }
 }
 
 bool ui_pages_swipe(int dir)
 {
-    int to = s_page + (dir < 0 ? 1 : -1);
+    int to = s_pos + (dir < 0 ? 1 : -1);
     if (to < 0 || to >= s_avail) return false;
-    ESP_LOGI(TAG, "pagina %d -> %d", s_page + 1, to + 1);
+    ESP_LOGI(TAG, "pagina %d -> %d", s_order[s_pos], s_order[to]);
     slide_to(to, true);
     return true;
 }
 
 bool ui_pages_goto(int page)
 {
-    if (page < 0 || page >= s_avail || page == s_page) return false;
-    ESP_LOGI(TAG, "pagina %d -> %d (toque)", s_page + 1, page + 1);
-    slide_to(page, true);
+    int to = pos_of(page);
+    if (to < 0 || to == s_pos) return false;
+    ESP_LOGI(TAG, "pagina %d -> %d (toque)", s_page, page);
+    slide_to(to, true);
     return true;
 }
 
@@ -640,3 +708,12 @@ void ui_pages_note_hand(void)
     s_hands++;
     hands_refresh();
 }
+
+uint8_t ui_pages_demo_week(void)
+{
+    uint8_t m = 0;
+    for (int d = 1; d <= DEMO_STREAK && d < 7; d++) m |= (uint8_t)(1u << d);
+    return s_hands > 0 ? (uint8_t)(m | 1u) : m;
+}
+
+bool ui_pages_demo_today(void) { return s_hands > 0; }

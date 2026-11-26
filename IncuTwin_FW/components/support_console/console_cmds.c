@@ -12,6 +12,7 @@
 #include "esp_ota_ops.h"
 #include "esp_system.h"
 #include "identity.h"
+#include "rewards.h"
 #include "sdkconfig.h"
 #include "storage.h"
 #include "twin_model.h"
@@ -54,6 +55,24 @@ static int cmd_usage(int argc, char **argv)
     usage_stats_t u = usage_get();
     printf("on_s=%lu conn_s=%lu hand_s=%lu hand_n=%lu\n", (unsigned long)u.on_s,
            (unsigned long)u.conn_s, (unsigned long)u.hand_s, (unsigned long)u.hand_n);
+    return 0;
+}
+
+/* Solo lectura: lo que lleva ganado este panel (soporte y verificacion) */
+static int cmd_rewards(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    rw_state_t r;
+    bool demo = false;
+    rewards_copy(&r, &demo);
+    printf("%ssaldo=%u ganados=%lu nivel=%d racha=%u abrazos=%u dias=%u bebes=%u sellos=0x%02x\n",
+           demo ? "(demo) " : "", r.balance, (unsigned long)r.earned, (int)rw_level(r.earned), r.streak, r.saved,
+           r.total_days, r.babies, r.seals);
+    printf("ultimo_dia=%ld super_dia=%ld desbloqueados=0x%04x halo=%u fondo=%u guirnalda=%u pasaporte=",
+           (long)r.last_day, (long)r.super_day, r.unlocked, r.halo, r.bg, r.garland_on);
+    for (int i = 0; i < r.n_countries; i++) printf("%c%c%s ", r.passport[i].iso[0], r.passport[i].iso[1],
+                                                   r.passport[i].star ? "*" : "");
+    printf("\n");
     return 0;
 }
 
@@ -139,6 +158,7 @@ void console_start(void)
     const esp_console_cmd_t cmds[] = {
         { .command = "info", .help = "identidad, enlace y estado", .func = cmd_info },
         { .command = "usage", .help = "contadores de uso", .func = cmd_usage },
+        { .command = "rewards", .help = "corazones, racha, sellos y pasaporte (solo lectura)", .func = cmd_rewards },
         { .command = "unpair", .help = "borra el incubator_id local", .func = cmd_unpair },
         { .command = "reboot", .help = "reinicia el panel", .func = cmd_reboot },
         { .command = "factory-reset", .help = "borra WiFi y ajustes; vuelve al onboarding",

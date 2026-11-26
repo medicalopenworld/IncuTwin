@@ -52,7 +52,10 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/status` | la IncuTwin (+ LWT) | monitorización (v1: nadie) | sí | 1 |
 | `incutwin/<client_id>/cmd/pair` | Pablo / Cloud Function | la IncuTwin | **sí** | 1 |
 | `incutwin/<client_id>/cmd/<otros>` | Pablo / Cloud Function | la IncuTwin | no | 1 |
+| `incutwin/<client_id>/cmd/fw` y `incutwin/all/cmd/fw` | `tools/release.py --set-target` (firmware objetivo: `{"version","url","sha256"}`; vacío = sin objetivo) | la IncuTwin | **sí** | 1 |
 | `incutwin/<client_id>/hand` | la IncuTwin, al completar "Coge mi mano" (spec `hold-my-hand`) | gateway → ThingsBoard (`IncuTwin_hand_hold`) | no | 1 |
+| `incutwin/<client_id>/metrics` | la IncuTwin: al conectar, cada hora y 30 s después de cambiar sus recompensas (spec `device-metrics`) | gateway → ThingsBoard (telemetría del panel) | no | 1 |
+| `incutwin/<client_id>/redeem` | la IncuTwin, al canjear «Una IncuNest con tu nombre», hasta que llega una vez | gateway → ThingsBoard (aviso a MOW) | no | 1 |
 | `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`) | la IncuTwin | **sí** | 1 |
 
 `<incubator_id>` = número de serie de la IncuNest tal como se llama el dispositivo en ThingsBoard
@@ -304,6 +307,51 @@ espera la telemetría `hand_hold` y la lleva a `IncuTwin_hand_hold`:
                     { "type": "int", "key": "hold_s", "value": "${hold_s}" } ] } }
 ```
 
+Métricas de uso y recompensas (spec `device-metrics`): una tercera entrada en `mapping` y
+`$CTRL addRoleACL gateway subscribePattern 'incutwin/+/metrics' allow`. El panel publica, por
+ejemplo, `{"ts":1764100000,"on_s":3600,"conn_s":3500,"hand_s":120,"hand_n":4,"hearts":23,
+"earned":30,"level":1,"streak":9,"saved":1,"days":12,"babies":2,"seals":3,"seals_n":2,
+"countries":"TG,CM","countries_n":2,"stars":1,"unlocked":35,"halo":1,"bg":5,"garland":0,
+"named_incunest":0}` (`level` 0..4 = Chispa..Sol; `seals` y `unlocked` son máscaras de bits):
+
+```json
+{ "topicFilter": "incutwin/+/metrics",
+  "converter": { "type": "json",
+    "deviceInfo": { "deviceNameExpressionSource": "topic",
+                    "deviceNameExpression": "(?<=incutwin/)(.*?)(?=/metrics)",
+                    "deviceProfileExpressionSource": "constant", "deviceProfileExpression": "IncuTwin" },
+    "attributes": [ { "type": "string", "key": "countries", "value": "${countries}" },
+                    { "type": "int", "key": "named_incunest", "value": "${named_incunest}" } ],
+    "timeseries": [ { "type": "int", "key": "on_s", "value": "${on_s}" },
+                    { "type": "int", "key": "conn_s", "value": "${conn_s}" },
+                    { "type": "int", "key": "hand_s", "value": "${hand_s}" },
+                    { "type": "int", "key": "hand_n", "value": "${hand_n}" },
+                    { "type": "int", "key": "hearts", "value": "${hearts}" },
+                    { "type": "int", "key": "earned", "value": "${earned}" },
+                    { "type": "int", "key": "level", "value": "${level}" },
+                    { "type": "int", "key": "streak", "value": "${streak}" },
+                    { "type": "int", "key": "saved", "value": "${saved}" },
+                    { "type": "int", "key": "days", "value": "${days}" },
+                    { "type": "int", "key": "babies", "value": "${babies}" },
+                    { "type": "int", "key": "seals_n", "value": "${seals_n}" },
+                    { "type": "int", "key": "countries_n", "value": "${countries_n}" },
+                    { "type": "int", "key": "stars", "value": "${stars}" } ] } }
+```
+
+El canje de «Una IncuNest con tu nombre» (365 corazones) llega por `incutwin/+/redeem`
+(`{"redeem":"named_incunest","hearts":365,"ts":...}`; `subscribePattern 'incutwin/+/redeem'`).
+Mapearlo como telemetría `redeem` y, en la rule chain `IncuTwin`, crear una alarma o un correo a
+MOW: el panel no sabe quién es su dueño, MOW sí (número de serie → suscripción).
+
+```json
+{ "topicFilter": "incutwin/+/redeem",
+  "converter": { "type": "json",
+    "deviceInfo": { "deviceNameExpressionSource": "topic",
+                    "deviceNameExpression": "(?<=incutwin/)(.*?)(?=/redeem)",
+                    "deviceProfileExpressionSource": "constant", "deviceProfileExpression": "IncuTwin" },
+    "timeseries": [ { "type": "string", "key": "redeem", "value": "${redeem}" } ] } }
+```
+
 El gateway no toca `incubators/#`. Un RPC `ota` o `reboot` lanzado desde ThingsBoard sobre
 `incutwin-0001` acaba publicado en `incutwin/incutwin-0001/cmd/ota`.
 
@@ -312,8 +360,21 @@ Regla de firmware para que escale: `status` **al conectar y luego una vez por ho
 
 ## 10. OTA de las IncuTwins
 
-Mecanismo: `cmd/ota` por el broker (apartado 3) + `esp_https_ota` en el firmware. Tres decisiones
-que **no se pueden cambiar por OTA** y van en la primera versión:
+Mecanismo: el **firmware objetivo** retenido `cmd/fw` (o una orden puntual `cmd/ota`) por el
+broker (apartado 3) + descarga HTTPS con sha256 en el firmware.
+
+- **Firmware objetivo** (lo normal, también para OTAs masivas): `release.py --upload ... --set-target
+  all` publica retenido `incutwin/all/cmd/fw` `{"version":"2.1.0","url":...,"sha256":...}`. Cada
+  panel lo recibe al conectar; si su versión es más vieja, se actualiza (los de la flota con un
+  retardo aleatorio de 0 a 60 min). Un panel apagado se pone al día al volver. Nunca baja de
+  versión. Un objetivo propio `incutwin/<id>/cmd/fw` manda sobre el de la flota (pilotos: primero
+  unos pocos paneles, luego `all`). Un binario que falla (hash, 3 descargas cortadas o rollback) no
+  se reintenta aunque siga retenido. `--clear-target <id|all>` lo borra.
+- **Orden puntual** `cmd/ota` `{"url","sha256"}`: para pruebas; no es retenida.
+- En los dos casos el panel abre una ventana con barra de progreso cuando no molesta (spec
+  `ota-update`) y reintenta sola una descarga cortada.
+
+Tres decisiones que **no se pueden cambiar por OTA** y van en la primera versión:
 
 1. **Particiones**: sin `factory`; `ota_0` + `ota_1` + `otadata`. La CrowPanel 2.8" (ESP32-S3,
    8 MB de flash) admite dos slots de 3 MB. Activar `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE`: el

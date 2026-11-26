@@ -2,7 +2,8 @@
 """Assets adicionales (LVGL 9): marca IncuTwin (del logo), iconos de estado (termometro,
 lampara), pollito del historial, iconos de cobertura WiFi (0..3 barras + sin WiFi) y las imagenes a pantalla
 completa en vertical 240x320: incubadora vacia, bebe con sus padres (nino y nina, y en
-piel oscura), corazon de IncuNest al terminar "Coge mi mano".
+piel oscura), corazon de IncuNest al terminar "Coge mi mano" la IncuNest pequena (mapa e
+historial) y la cabeza del bebe, nino y nina (icono de sus avisos).
 Uso: python tools/gen_extra.py"""
 import colorsys
 import os
@@ -16,7 +17,7 @@ ROOT = os.path.dirname(HERE)
 IMAGES = os.path.join(ROOT, "Images")
 sys.path.insert(0, HERE)
 from gen_assets import (ASSETS, GIRL_HUE, GIRL_SAT_GAIN, PREVIEW, draw_bow,  # noqa: E402
-                        load_logo)
+                        load_baby, load_logo)
 from lvgl9_c import c_header, emit_argb8888, emit_rgb565, write_header  # noqa: E402
 
 NAVY = (30, 62, 110)
@@ -229,6 +230,98 @@ def fullscreen_from(png, transform=None):
     return ImageOps.pad(im, (SCREEN_W, SCREEN_H), Image.LANCZOS, color=(255, 255, 255))
 
 
+def incunest_cutout():
+    """IncuNest_empty.png sin el fondo blanco: se rellena el blanco desde los bordes (el blanco
+    de dentro de la incubadora se queda) y se recorta al dibujo."""
+    src = Image.open(os.path.join(IMAGES, "IncuNest_empty.png")).convert("RGBA")
+    w, h = src.size
+    px = src.load()
+    bg = Image.new("L", src.size, 0)
+    bpx = bg.load()
+
+    def white(x, y):
+        r, g, b, a = px[x, y]
+        return a < 40 or (r > 235 and g > 235 and b > 235)
+
+    dq = deque([(x, 0) for x in range(w)] + [(x, h - 1) for x in range(w)] +
+               [(0, y) for y in range(h)] + [(w - 1, y) for y in range(h)])
+    while dq:
+        x, y = dq.popleft()
+        if x < 0 or y < 0 or x >= w or y >= h or bpx[x, y] or not white(x, y):
+            continue
+        bpx[x, y] = 255
+        dq.extend(((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)))
+    alpha = ImageOps.invert(bg).filter(ImageFilter.GaussianBlur(1.2))
+    out = src.copy()
+    out.putalpha(alpha)
+    return out.crop(alpha.point(lambda v: 255 if v > 24 else 0).getbbox())
+
+
+def make_incunest_icon(cut, width, halo):
+    """IncuNest pequena: `width` px de ancho; con `halo` px de borde blanco para el mapa."""
+    ratio = width / cut.width
+    im = cut.resize((width, max(1, round(cut.height * ratio))), Image.LANCZOS)
+    if not halo:
+        return im
+    W, H = im.width + 2 * halo, im.height + 2 * halo
+    a = Image.new("L", (W, H), 0)
+    a.paste(im.getchannel("A"), (halo, halo))
+    a = a.point(lambda v: 255 if v > 60 else 0).filter(ImageFilter.MaxFilter(2 * halo + 1))
+    a = a.filter(ImageFilter.GaussianBlur(0.6))
+    out = Image.new("RGBA", (W, H), (255, 255, 255, 0))
+    out.putalpha(a)
+    out.alpha_composite(im, (halo, halo))
+    return out
+
+
+def make_baby_head(girl, width):
+    """Cabeza del bebe (gorro y cara) para el icono de los avisos: nino (gorro azul) o nina
+    (gorro rosa con lazo). El sprite del bebe recortado por arriba, a `width` px de ancho."""
+    full, _ = load_baby(girl)
+    head = full.crop((0, 0, full.width, round(full.height * 0.56)))
+    head = head.crop(head.getchannel("A").point(lambda v: 255 if v > 24 else 0).getbbox())
+    ratio = width / head.width
+    return head.resize((width, max(1, round(head.height * ratio))), Image.LANCZOS)
+
+
+def make_garland():
+    """Guirnalda de Navidad para lo alto de Inicio (240x22): un cordon verde que cuelga en tres
+    curvas entre cuatro lazos rojos, con bombillas de colores de la marca. Va detras de la marca y
+    del boton del pais."""
+    import math
+    s = 4
+    W, H = 240, 22
+    im = Image.new("RGBA", (W * s, H * s), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    green = (46, 125, 80, 255)
+    bulbs = [(222, 111, 99, 255), (245, 169, 59, 255), (5, 78, 146, 255), (63, 158, 99, 255)]
+    anchors = [0, 80, 160, 240]
+    sag = 11
+    k = 0
+    for a, b in zip(anchors, anchors[1:]):
+        pts = []
+        for i in range(41):
+            t = i / 40
+            x = a + (b - a) * t
+            y = 3 + sag * math.sin(math.pi * t)
+            pts.append((x * s, y * s))
+        d.line(pts, fill=green, width=2 * s, joint="curve")
+        for t in (0.2, 0.4, 0.6, 0.8):
+            x = a + (b - a) * t
+            y = 3 + sag * math.sin(math.pi * t)
+            c = bulbs[k % len(bulbs)]
+            k += 1
+            d.rectangle(((x - 1.2) * s, (y + 0.5) * s, (x + 1.2) * s, (y + 2.5) * s), fill=(120, 120, 120, 255))
+            d.ellipse(((x - 2.6) * s, (y + 2) * s, (x + 2.6) * s, (y + 8) * s), fill=c)
+            d.ellipse(((x - 1.4) * s, (y + 3) * s, (x - 0.2) * s, (y + 4.6) * s), fill=(255, 255, 255, 160))
+    for x in anchors:  # lazos
+        x = min(max(x, 6), W - 6)
+        d.polygon([(x * s, 4 * s), ((x - 6) * s, 0), ((x - 6) * s, 8 * s)], fill=(206, 43, 55, 255))
+        d.polygon([(x * s, 4 * s), ((x + 6) * s, 0), ((x + 6) * s, 8 * s)], fill=(206, 43, 55, 255))
+        d.ellipse(((x - 2) * s, 2 * s, (x + 2) * s, 6 * s), fill=(160, 20, 30, 255))
+    return im.resize((W, H), Image.LANCZOS)
+
+
 def save_chick_preview(c28, c64):
     """tools/preview/chick.png: ambos tamanos sobre el fondo claro de la UI, 28 px a x1 y x4
     (como se vera en pantalla y ampliado) y a 50 % de opacidad (pestana inactiva)."""
@@ -260,6 +353,12 @@ def main():
     thanks = fullscreen_from("Corazon_IncuNest.png")  # fin de "Coge mi mano"
     flag_cm = make_flag_cm()  # pagina del pais en la demo
     parents_g = fullscreen_from("Baby_with_parents.png", parents_girl)
+    nest = incunest_cutout()
+    nest_map = make_incunest_icon(nest, 40, 2)  # mapa: la IncuNest que vuelve al bebe
+    nest_28 = make_incunest_icon(nest, 28, 0)   # historial: cabecera de cada incubadora
+    head_boy = make_baby_head(False, 26)       # avisos del bebe: nino (o sin sexo)
+    head_girl = make_baby_head(True, 26)       # avisos del bebe: nina
+    garland = make_garland()                    # Navidad en lo alto de Inicio
 
     wm.save(os.path.join(PREVIEW, "wordmark.png"))
     th.save(os.path.join(PREVIEW, "icon_thermo.png"))
@@ -276,6 +375,13 @@ def main():
     thanks.save(os.path.join(PREVIEW, "hand_thanks.png"))
     flag_cm.save(os.path.join(PREVIEW, "flag_cm.png"))
     parents_g.save(os.path.join(PREVIEW, "baby_parents_girl.png"))
+    nest_map.save(os.path.join(PREVIEW, "incunest_map.png"))
+    nest_28.save(os.path.join(PREVIEW, "incunest_28.png"))
+    print("incunest_map:", nest_map.size, " incunest_28:", nest_28.size)
+    head_boy.save(os.path.join(PREVIEW, "baby_head_boy.png"))
+    head_girl.save(os.path.join(PREVIEW, "baby_head_girl.png"))
+    garland.save(os.path.join(PREVIEW, "garland.png"))
+    print("baby_head:", head_boy.size, head_girl.size)
     print("wordmark:", wm.size, " empty:", empty.size)
 
     with open(os.path.join(ASSETS, "img_extra.c"), "w", encoding="utf-8", newline="\n") as f:
@@ -294,6 +400,11 @@ def main():
         emit_rgb565(f, "img_hand_thanks", thanks)
         emit_argb8888(f, "img_flag_cm", flag_cm)
         emit_rgb565(f, "img_baby_parents_girl", parents_g)
+        emit_argb8888(f, "img_incunest_map", nest_map)
+        emit_argb8888(f, "img_incunest_28", nest_28)
+        emit_argb8888(f, "img_baby_head_boy", head_boy)
+        emit_argb8888(f, "img_baby_head_girl", head_girl)
+        emit_argb8888(f, "img_garland", garland)
 
     write_header(
         os.path.join(ASSETS, "include", "assets_extra.h"),
@@ -302,7 +413,8 @@ def main():
          "img_chick_28", "img_chick_64",
          "img_wifi_0", "img_wifi_1", "img_wifi_2", "img_wifi_3",
          "img_incunest_empty", "img_baby_parents", "img_baby_parents_black", "img_hand_thanks",
-         "img_flag_cm", "img_baby_parents_girl"],
+         "img_flag_cm", "img_baby_parents_girl", "img_incunest_map", "img_incunest_28",
+         "img_baby_head_boy", "img_baby_head_girl", "img_garland"],
     )
     print("img_extra.c escrito")
 

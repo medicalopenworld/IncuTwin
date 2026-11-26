@@ -20,7 +20,8 @@ static const char *TAG = "onboarding";
 #define WIFI_TIMEOUT_MS   25000
 #define SERVER_TIMEOUT_MS 30000
 
-typedef enum { OB_LANG = 0, OB_CONNECT, OB_WIFI_TRY, OB_SERVER, OB_DONE } ob_step_t;
+/* Sin paso de idioma: arranca en español (settings) y se cambia en Ajustes */
+typedef enum { OB_CONNECT = 0, OB_WIFI_TRY, OB_SERVER, OB_DONE } ob_step_t;
 
 static ob_step_t s_step;
 static lv_obj_t *s_scr;
@@ -114,33 +115,6 @@ static void progress_screen(const char *txt)
 
 /* ------------------------------------------------------------------- steps */
 
-static void lang_clicked(lv_event_t *e)
-{
-    settings_set_lang((uint8_t)(intptr_t)lv_event_get_user_data(e));
-    show_step(OB_CONNECT);
-}
-
-static void build_lang(void)
-{
-    lv_obj_t *scr = new_screen();
-    lv_obj_t *logo = lv_image_create(scr);
-    lv_image_set_src(logo, &img_wordmark);
-    lv_obj_align(logo, LV_ALIGN_TOP_MID, 0, 14);
-    body_label(scr, "Elige tu idioma /\nChoose your language", 90, &lv_font_es_16, COL_NAVY_DARK);
-
-    const char *names[2] = { "Español", "English" };
-    for (int i = 0; i < 2; i++) {
-        lv_obj_t *b = primary_button(scr, names[i], lang_clicked, (void *)(intptr_t)i);
-        lv_obj_align(b, LV_ALIGN_CENTER, 0, i == 0 ? 10 : 76);
-        if (i == 1) {
-            lv_obj_set_style_bg_color(b, COL_CARD, 0);
-            lv_obj_set_style_border_width(b, 2, 0);
-            lv_obj_set_style_border_color(b, COL_NAVY, 0);
-            lv_obj_set_style_text_color(lv_obj_get_child(b, 0), COL_NAVY, 0);
-        }
-    }
-}
-
 static void build_connect(void)
 {
     if (portal_start() != ESP_OK) {
@@ -214,7 +188,6 @@ static void show_step(ob_step_t step)
     s_step = step;
     s_step_t0 = lv_tick_get();
     switch (step) {
-    case OB_LANG:    build_lang(); break;
     case OB_CONNECT: build_connect(); break;
     case OB_WIFI_TRY: {
         progress_screen(tr(STR_OB_CONNECTING_WIFI));
@@ -308,7 +281,7 @@ void ui_onboarding_start(void)
         ESP_LOGE(TAG, "sin lock de LVGL");
         return;
     }
-    show_step(OB_LANG);
+    show_step(OB_CONNECT);
     lv_timer_create(ob_timer_cb, 400, NULL);
     lvgl_port_unlock();
     ESP_LOGI(TAG, "asistente de primer arranque");

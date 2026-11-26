@@ -23,6 +23,11 @@ extern const lv_image_dsc_t img_baby_parents_black;
 extern const lv_image_dsc_t img_hand_thanks;
 extern const lv_image_dsc_t img_flag_cm;
 extern const lv_image_dsc_t img_baby_parents_girl;
+extern const lv_image_dsc_t img_incunest_map;
+extern const lv_image_dsc_t img_incunest_28;
+extern const lv_image_dsc_t img_baby_head_boy;
+extern const lv_image_dsc_t img_baby_head_girl;
+extern const lv_image_dsc_t img_garland;
 
 #ifdef __cplusplus
 }

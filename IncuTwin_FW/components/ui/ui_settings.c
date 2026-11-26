@@ -1,6 +1,7 @@
 /* Pantalla de ajustes (spec settings, hmi-navegacion-avisos): idioma, volumen, brillo, horario
- * nocturno ("De noche, sin sonido": interruptor y horas desde/hasta) y pie de informacion (red y
- * version). Sin tono de piel ni numero de IncuNest. Sin boton "atras": la barra de navegacion de
+ * nocturno ("De noche, sin sonido": interruptor y horas desde/hasta) y pie con el estado de la red,
+ * la version y el boton WiFi (antes en Inicio): enseña la red y deja cambiarla. Sin tono de piel ni
+ * numero de IncuNest. Sin boton "atras": la barra de navegacion de
  * abajo (y 280..320) lo sustituye; todo lo demas acaba por encima de ella. */
 #include <stdio.h>
 
@@ -10,14 +11,19 @@
 #include "settings.h"
 #include "sound.h"
 #include "twin_model.h"
+#include "twin_logic.h"
 #include "ui_internal.h"
+#include "ui_onboarding.h"
 
-static lv_obj_t *s_scr;
+static lv_obj_t *s_scr, *s_body, *s_content;
+#define CUSTOM_ROW_H 0 /* sin fila extra: la tienda esta en Corazones */
 static lv_obj_t *s_lbl_title, *s_lbl_lang, *s_lbl_sound, *s_lbl_bright;
 static lv_obj_t *s_btn_es, *s_btn_en;
 static lv_obj_t *s_btn_vol[4];
 static lv_obj_t *s_slider;
 static lv_obj_t *s_lbl_net, *s_lbl_ver;
+static lv_obj_t *s_btn_wifi, *s_img_wifi;
+static twin_link_t s_link; /* ultimo estado de la red, para el dialogo WiFi */
 static lv_obj_t *s_lbl_quiet, *s_sw_quiet;
 /* horario nocturno: [0] desde, [1] hasta */
 static lv_obj_t *s_lbl_qcap[2], *s_lbl_qval[2], *s_btn_qminus[2], *s_btn_qplus[2];
@@ -62,6 +68,32 @@ static void quiet_step(lv_event_t *e)
     } else {
         settings_set_quiet_from((uint8_t)((settings_quiet_from() + step) % 24));
     }
+}
+
+/* Boton WiFi -> estado de la red y cambiarla (spec onboarding) */
+static void wifi_change_confirmed(lv_event_t *e)
+{
+    lv_obj_t *mb = lv_event_get_user_data(e);
+    lv_msgbox_close(mb);
+    ui_onboarding_start_wifi_only();
+}
+
+void ui_settings_wifi_dialog(void)
+{
+    char txt[128];
+    if (s_link.wifi) {
+        snprintf(txt, sizeof(txt), "IP %s\n%s: %s\n\n%s", s_link.ip, tr(STR_SERVER),
+                 tr(s_link.broker_connected ? STR_CONNECTED : STR_NO_CONNECTION), tr(STR_WIFI_CHANGE_Q));
+    } else {
+        snprintf(txt, sizeof(txt), "%s\n\n%s", tr(STR_NO_CONNECTION), tr(STR_WIFI_CHANGE_Q));
+    }
+    ui_msgbox(tr(STR_WIFI), txt, tr(STR_WIFI_CHANGE), COL_NAVY, wifi_change_confirmed, NULL);
+}
+
+static void wifi_clicked(lv_event_t *e)
+{
+    (void)e;
+    ui_settings_wifi_dialog();
 }
 
 /* ----------------------------------------------------------- helpers */
@@ -117,32 +149,51 @@ static lv_obj_t *small_label(lv_obj_t *parent, int32_t x, int32_t y, lv_color_t 
 lv_obj_t *ui_settings_create(void)
 {
     s_scr = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(s_scr, COL_BG, 0);
-    lv_obj_set_scrollable(s_scr, false);
+    lv_obj_set_style_bg_color(s_content, COL_BG, 0);
+    lv_obj_set_scrollable(s_content, false);
+
+    /* todo va en un cuerpo con scroll vertical hasta la barra de navegacion (por si crece) */
+    s_body = lv_obj_create(s_scr);
+    lv_obj_set_size(s_body, 240, UI_NAV_Y);
+    lv_obj_set_pos(s_body, 0, 0);
+    lv_obj_set_style_bg_opa(s_body, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(s_body, 0, 0);
+    lv_obj_set_style_radius(s_body, 0, 0);
+    lv_obj_set_style_pad_all(s_body, 0, 0);
+    lv_obj_set_scroll_dir(s_body, LV_DIR_VER);
+    lv_obj_set_scrollbar_mode(s_body, LV_SCROLLBAR_MODE_ACTIVE);
+    s_content = lv_obj_create(s_body);
+    lv_obj_set_size(s_content, 240, UI_NAV_Y);
+    lv_obj_set_pos(s_content, 0, CUSTOM_ROW_H);
+    lv_obj_set_style_bg_opa(s_content, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_border_width(s_content, 0, 0);
+    lv_obj_set_style_radius(s_content, 0, 0);
+    lv_obj_set_style_pad_all(s_content, 0, 0);
+    lv_obj_set_scrollable(s_content, false);
 
     /* titulo arriba, centrado (como el del Historial) */
-    s_lbl_title = lv_label_create(s_scr);
+    s_lbl_title = lv_label_create(s_body);
     lv_obj_set_style_text_font(s_lbl_title, &lv_font_es_20, 0);
     lv_obj_set_style_text_color(s_lbl_title, COL_NAVY, 0);
     lv_obj_align(s_lbl_title, LV_ALIGN_TOP_MID, 0, 9);
 
     /* idioma */
-    s_lbl_lang = section_label(s_scr, 12, 38);
-    s_btn_es = toggle_button(s_scr, 12, 56, 104, 30, "Español", &lv_font_es_16, lang_clicked, 0);
-    s_btn_en = toggle_button(s_scr, 124, 56, 104, 30, "English", &lv_font_es_16, lang_clicked, 1);
+    s_lbl_lang = section_label(s_content, 12, 38);
+    s_btn_es = toggle_button(s_content, 12, 56, 104, 30, "Español", &lv_font_es_16, lang_clicked, 0);
+    s_btn_en = toggle_button(s_content, 124, 56, 104, 30, "English", &lv_font_es_16, lang_clicked, 1);
 
     /* volumen */
-    s_lbl_sound = section_label(s_scr, 12, 92);
+    s_lbl_sound = section_label(s_content, 12, 92);
     static const int32_t VOL_X[4] = { 12, 74, 124, 182 };
     static const int32_t VOL_W[4] = { 56, 44, 52, 46 };
     for (int i = 0; i < 4; i++) {
-        s_btn_vol[i] = toggle_button(s_scr, VOL_X[i], 110, VOL_W[i], 30, "", &lv_font_es_12,
+        s_btn_vol[i] = toggle_button(s_content, VOL_X[i], 110, VOL_W[i], 30, "", &lv_font_es_12,
                                      vol_clicked, i);
     }
 
     /* brillo */
-    s_lbl_bright = section_label(s_scr, 12, 146);
-    s_slider = lv_slider_create(s_scr);
+    s_lbl_bright = section_label(s_content, 12, 146);
+    s_slider = lv_slider_create(s_content);
     lv_obj_set_size(s_slider, 130, 10);
     lv_obj_set_pos(s_slider, 96, 151);
     lv_slider_set_range(s_slider, SETTINGS_BRIGHT_MIN, SETTINGS_BRIGHT_MAX);
@@ -151,10 +202,10 @@ lv_obj_t *ui_settings_create(void)
     lv_obj_add_event_cb(s_slider, slider_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
     /* de noche, sin sonido: interruptor y, debajo, desde / hasta en horas enteras */
-    s_lbl_quiet = section_label(s_scr, 12, 172);
+    s_lbl_quiet = section_label(s_content, 12, 172);
     lv_obj_set_width(s_lbl_quiet, 164);
     lv_label_set_long_mode(s_lbl_quiet, LV_LABEL_LONG_MODE_DOTS);
-    s_sw_quiet = lv_switch_create(s_scr);
+    s_sw_quiet = lv_switch_create(s_content);
     lv_obj_set_size(s_sw_quiet, 44, 24);
     lv_obj_set_pos(s_sw_quiet, 184, 168);
     lv_obj_set_style_bg_color(s_sw_quiet, COL_NAVY, LV_PART_INDICATOR | LV_STATE_CHECKED);
@@ -162,14 +213,14 @@ lv_obj_t *ui_settings_create(void)
     lv_obj_add_event_cb(s_sw_quiet, quiet_switched, LV_EVENT_VALUE_CHANGED, NULL);
     for (int i = 0; i < 2; i++) {
         int32_t x = 12 + i * 112;
-        s_lbl_qcap[i] = small_label(s_scr, x, 196, COL_NAVY_DARK);
+        s_lbl_qcap[i] = small_label(s_content, x, 196, COL_NAVY_DARK);
         lv_obj_set_width(s_lbl_qcap[i], 104);
-        s_btn_qminus[i] = toggle_button(s_scr, x, 212, 30, 28, LV_SYMBOL_MINUS, &lv_font_es_14, quiet_step, i);
-        s_btn_qplus[i] = toggle_button(s_scr, x + 74, 212, 30, 28, LV_SYMBOL_PLUS, &lv_font_es_14, quiet_step,
+        s_btn_qminus[i] = toggle_button(s_content, x, 212, 30, 28, LV_SYMBOL_MINUS, &lv_font_es_14, quiet_step, i);
+        s_btn_qplus[i] = toggle_button(s_content, x + 74, 212, 30, 28, LV_SYMBOL_PLUS, &lv_font_es_14, quiet_step,
                                        i | 2);
         toggle_set(s_btn_qminus[i], false);
         toggle_set(s_btn_qplus[i], false);
-        s_lbl_qval[i] = lv_label_create(s_scr);
+        s_lbl_qval[i] = lv_label_create(s_content);
         lv_obj_set_style_text_font(s_lbl_qval[i], &lv_font_es_16, 0);
         lv_obj_set_style_text_color(s_lbl_qval[i], COL_NAVY, 0);
         lv_obj_set_style_text_align(s_lbl_qval[i], LV_TEXT_ALIGN_CENTER, 0);
@@ -177,9 +228,33 @@ lv_obj_t *ui_settings_create(void)
         lv_obj_set_pos(s_lbl_qval[i], x + 30, 217);
     }
 
-    /* pie, encima de la barra de navegacion */
-    s_lbl_net = small_label(s_scr, 12, 246, COL_NAVY_DARK);
-    s_lbl_ver = small_label(s_scr, 12, 262, COL_OFFLINE);
+    /* pie, encima de la barra de navegacion: red y version a la izquierda, boton WiFi a la derecha
+     * (con las barras de cobertura; ambar = WiFi sin servidor) */
+    s_lbl_net = small_label(s_content, 12, 247, COL_NAVY_DARK);
+    lv_obj_set_width(s_lbl_net, 140);
+    s_lbl_ver = small_label(s_content, 12, 263, COL_OFFLINE);
+    lv_obj_set_width(s_lbl_ver, 140);
+    s_btn_wifi = lv_button_create(s_content);
+    lv_obj_set_size(s_btn_wifi, 76, 32);
+    lv_obj_set_pos(s_btn_wifi, 152, 245);
+    lv_obj_set_style_radius(s_btn_wifi, 10, 0);
+    lv_obj_set_style_bg_color(s_btn_wifi, COL_CARD, 0);
+    lv_obj_set_style_bg_color(s_btn_wifi, COL_BG_PHOTO, LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(s_btn_wifi, 2, 0);
+    lv_obj_set_style_border_color(s_btn_wifi, COL_NAVY, 0);
+    lv_obj_set_style_shadow_width(s_btn_wifi, 0, 0);
+    lv_obj_set_style_pad_hor(s_btn_wifi, 6, 0);
+    lv_obj_set_style_pad_column(s_btn_wifi, 5, 0);
+    lv_obj_set_flex_flow(s_btn_wifi, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(s_btn_wifi, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_ext_click_area(s_btn_wifi, 4);
+    lv_obj_add_event_cb(s_btn_wifi, wifi_clicked, LV_EVENT_CLICKED, NULL);
+    s_img_wifi = lv_image_create(s_btn_wifi);
+    lv_image_set_src(s_img_wifi, &img_wifi_off);
+    lv_obj_t *wl = lv_label_create(s_btn_wifi);
+    lv_label_set_text(wl, "WiFi");
+    lv_obj_set_style_text_font(wl, &lv_font_es_14, 0);
+    lv_obj_set_style_text_color(wl, COL_NAVY, 0);
     lv_label_set_text_fmt(s_lbl_ver, "%s · v%s", identity_sn(), esp_app_get_description()->version);
 
     ui_settings_retranslate();
@@ -188,7 +263,6 @@ lv_obj_t *ui_settings_create(void)
                               .quiet_on = settings_quiet_on(), .quiet_from = settings_quiet_from(),
                               .quiet_to = settings_quiet_to() };
     ui_settings_update(&st);
-    ui_nav_create(s_scr, UI_TAB_SETTINGS);
     return s_scr;
 }
 
@@ -228,10 +302,21 @@ void ui_settings_update(const app_evt_settings_t *st)
 
 void ui_settings_apply(const twin_snapshot_t *s)
 {
-    if (s->link.wifi) {
-        lv_label_set_text_fmt(s_lbl_net, "%s: %s · %s: %s", tr(STR_WIFI), s->link.ip, tr(STR_SERVER),
-                              tr(s->link.broker_connected ? STR_CONNECTED : STR_NO_CONNECTION));
+    s_link = s->link;
+    if (s->link.wifi && !s->link.broker_connected) {
+        lv_label_set_text_fmt(s_lbl_net, "%s: %s", tr(STR_SERVER), tr(STR_NO_CONNECTION));
     } else {
-        lv_label_set_text_fmt(s_lbl_net, "%s: %s", tr(STR_WIFI), tr(STR_NO_CONNECTION));
+        lv_label_set_text_fmt(s_lbl_net, "%s: %s", tr(STR_WIFI),
+                              tr(s->link.wifi ? STR_CONNECTED : STR_NO_CONNECTION));
     }
+    /* el icono del boton: barras de cobertura; ambar sin servidor; tachado sin WiFi */
+    if (!s->link.wifi) {
+        lv_image_set_src(s_img_wifi, &img_wifi_off);
+        lv_obj_set_style_image_recolor_opa(s_img_wifi, LV_OPA_TRANSP, 0);
+        return;
+    }
+    static const lv_image_dsc_t *const LVL[] = { &img_wifi_0, &img_wifi_1, &img_wifi_2, &img_wifi_3 };
+    lv_image_set_src(s_img_wifi, LVL[twin_rssi_level(s->link.rssi)]);
+    lv_obj_set_style_image_recolor(s_img_wifi, COL_WARM, 0);
+    lv_obj_set_style_image_recolor_opa(s_img_wifi, s->link.broker_connected ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
 }

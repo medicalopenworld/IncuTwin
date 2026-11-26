@@ -23,6 +23,12 @@ static const char *TAG = "cmd";
 static esp_timer_handle_t s_reboot_timer;
 
 /* Gancho de la OTA (tarea 5): hasta entonces solo se registra. */
+void __attribute__((weak)) ota_update_target(const char *payload, size_t len, bool fleet)
+{
+    (void)payload; (void)len;
+    ESP_LOGW(TAG, "cmd/fw recibido (%s): OTA no disponible en esta build", fleet ? "flota" : "unicast");
+}
+
 void __attribute__((weak)) ota_update_request(const char *payload, size_t len, bool fleet)
 {
     (void)payload; (void)len;
@@ -90,6 +96,8 @@ static void on_msg(void *arg, esp_event_base_t base, int32_t id, void *data)
         else pairing_handle(m->payload, m->len);
     } else if (!strcmp(name, "ota")) {
         ota_update_request(m->payload, m->len, fleet);
+    } else if (!strcmp(name, "fw")) { /* firmware objetivo, retenido */
+        ota_update_target(m->payload, m->len, fleet);
     } else if (!strcmp(name, "reboot")) {
         cmd_reboot(fleet);
     } else if (!strcmp(name, "test_melody")) {

@@ -1,6 +1,7 @@
 /* Paginas deslizables de la pantalla principal (spec twin-display, "Páginas de la demo").
- * Solo con la demo activa: pagina 0 = el bebe (lo de siempre), 1 = pais, hospital y hora local,
- * 2 = logros acumulados. Los datos de las paginas 1 y 2 son simulados (Camerun). */
+ * Bebe (lo de siempre), mapa con el pais, la distancia y la hora local (la IncuNest dibujada vuelve
+ * al bebe; solo si se sabe el pais) y la racha con el saldo y el nivel (acompañar) o los logros
+ * simulados (demo). Sellos, pasaporte y tienda: pantalla Corazones (ui_hearts.c). */
 #pragma once
 
 #include <stdbool.h>
@@ -10,6 +11,8 @@
 #include "twin_types.h"
 
 #define UI_PAGES_COUNT 3
+/* Paneles (indices fijos; los que no tocan no estan en el orden de deslizar) */
+enum { UI_PAGE_BABY = 0, UI_PAGE_MAP, UI_PAGE_STREAK };
 
 /* Crea los paneles y los puntos sobre `scr`. Llamar despues de los objetos del bebe y antes de
  * la barra de estado y la barra superior, para que las tapen. */
@@ -22,16 +25,20 @@ void ui_pages_apply(const twin_snapshot_t *s);
  * Devuelve true si ha cambiado de pagina. */
 bool ui_pages_swipe(int dir);
 
-/* Desliza hasta la pagina indicada si se puede ver; false si no (o si ya esta en ella). */
+/* Desliza hasta el panel indicado (UI_PAGE_*) si se puede ver; false si no (o si ya esta en el). */
 bool ui_pages_goto(int page);
 
-int ui_pages_current(void);
+int ui_pages_current(void); /* el panel que se ve (UI_PAGE_*) */
 
 /* Gesto "Coge mi mano" completado (suma a los logros de la demo). */
 void ui_pages_note_hand(void);
 
 void ui_pages_retranslate(void);
 
-/* En la pagina del mapa: la hora del pais para la barra de estado ("En Togo son las 17:43").
- * false si no se esta viendo el mapa o aun no hay hora. */
-bool ui_pages_status_text(char *buf, size_t n);
+/* Saldo, nivel y fondo elegido (tras ui_rewards_refresh) */
+void ui_pages_rewards_apply(void);
+
+/* Demo: la semana simulada de la racha (bit 0 = hoy, que cuenta tras un gesto en esta demo) y si
+ * hoy ya hay gesto. */
+uint8_t ui_pages_demo_week(void);
+bool ui_pages_demo_today(void);

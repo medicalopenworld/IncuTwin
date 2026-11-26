@@ -74,11 +74,12 @@ static void publish_locked(void)
 }
 
 /* Fuera del mutex. Sin incubadora (demo) el id va vacio. */
-static void post_notice(uint32_t mask, bool demo, const char *inc)
+static void post_notice(uint32_t mask, bool demo, const char *inc, const char *country, twin_sex_t sex)
 {
     if (mask == 0) return;
-    app_evt_notice_t ev = { .mask = mask, .demo = demo };
+    app_evt_notice_t ev = { .mask = mask, .demo = demo, .sex = (uint8_t)sex };
     if (inc) strncpy(ev.inc, inc, TWIN_INCUBATOR_ID_LEN - 1);
+    if (country) strncpy(ev.country, country, TWIN_COUNTRY_LEN - 1);
     ESP_LOGI(TAG, "aviso 0x%02lx%s", (unsigned long)mask, demo ? " (demo)" : "");
     app_events_post(TWIN_EVT_NOTICE, &ev, sizeof(ev));
 }
@@ -275,13 +276,17 @@ void twin_model_ingest(const char *json, size_t len)
     char inc_id[TWIN_INCUBATOR_ID_LEN];
     strncpy(inc_id, s_link.incubator_id, sizeof(inc_id));
     inc_id[sizeof(inc_id) - 1] = '\0';
+    char country[TWIN_COUNTRY_LEN];
+    memcpy(country, s_inc.country, sizeof(country));
+    country[sizeof(country) - 1] = '\0';
+    twin_sex_t sex = s_inc.sex;
     if (ar.is_new) {
         /* avisos reales aunque la demo este en pantalla: la base no se congela */
         notice = twin_notices_update(&s_base, &s_inc);
     }
     publish_locked();
     UNLOCK();
-    post_notice(notice, false, inc_id);
+    post_notice(notice, false, inc_id, country, sex);
 }
 
 /* ------------------------------------------------------------------- demo */
@@ -319,9 +324,10 @@ void twin_model_demo_apply(const twin_incubator_t *inc, bool linked)
     s_demo_inc.skin = s_demo_skin; /* el escenario no cambia el tono que se esta probando */
     s_demo_linked = linked;
     uint32_t notice = twin_notices_update(&s_demo_base, &s_demo_inc);
+    twin_sex_t sex = s_demo_inc.sex;
     publish_locked();
     UNLOCK();
-    post_notice(notice, true, "");
+    post_notice(notice, true, "", "", sex);
 }
 
 void twin_model_demo_set_skin(uint8_t skin)
@@ -384,8 +390,11 @@ void twin_model_sim_apply(const twin_incubator_t *inc, bool linked)
     s_link.paired = linked;
     s_link.state_rx = linked;
     uint32_t notice = twin_notices_update(&s_base, &s_inc);
+    char country[TWIN_COUNTRY_LEN];
+    memcpy(country, s_inc.country, sizeof(country));
+    twin_sex_t sex = s_inc.sex;
     publish_locked();
     UNLOCK();
-    post_notice(notice, false, "SIM");
+    post_notice(notice, false, "SIM", country, sex);
 }
 #endif

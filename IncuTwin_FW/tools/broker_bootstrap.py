@@ -10,6 +10,8 @@ Roles:
               (%c = client id; requiere Mosquitto >= 2.1.2, en la 2.0.22 no funcionaba)
   thingsboard publishClientSend incubators/# e incutwin/+/cmd/history (historial retenido,
               spec tb-stay-history; cliente: lo crea infra con su contrasena)
+  gateway     subscribePattern incutwin/+/status, hand, metrics y redeem · publishClientSend
+              incutwin/+/cmd/# (IoT Gateway de ThingsBoard, §9; cliente: lo crea infra)
   publisher   publishClientSend incutwin/+/cmd/# · subscribePattern incutwin/+/status e incubators/#
 Clientes:
   publisher   si MQTT_PUB_PASS esta vacio/RELLENAR en broker.env se genera una contrasena y se
@@ -39,6 +41,14 @@ ROLES = {
     "thingsboard": [
         ("publishClientSend", "incubators/#"),
         ("publishClientSend", "incutwin/+/cmd/history"),  # spec tb-stay-history
+    ],
+    # IoT Gateway de ThingsBoard (§9): lee estado, «Coge mi mano», metricas y canjes; manda RPC
+    "gateway": [
+        ("subscribePattern", "incutwin/+/status"),
+        ("subscribePattern", "incutwin/+/hand"),
+        ("subscribePattern", "incutwin/+/metrics"),  # spec device-metrics
+        ("subscribePattern", "incutwin/+/redeem"),   # «Una IncuNest con tu nombre»
+        ("publishClientSend", "incutwin/+/cmd/#"),
     ],
     "publisher": [
         ("publishClientSend", "incutwin/+/cmd/#"),

@@ -53,7 +53,7 @@ typedef enum {
     STR_INFO_HEATING,
     STR_INFO_STABLE,
     STR_INFO_PHOTO,
-    STR_INFO_HEART,       /* formato: %u latidos por minuto */
+    STR_INFO_HEART,       /* sin el numero: el latido se oye y se ve al ritmo real */
     STR_INFO_HEART_FAST,  /* solo si el pulso pasa de TWIN_BPM_FAST */
     STR_INFO_PRESS_HAND,
     /* gesto "Coge mi mano" (spec twin-display) */
@@ -130,6 +130,79 @@ typedef enum {
     STR_QUIET,
     STR_QUIET_FROM,
     STR_QUIET_TO,
+    /* mapa: hora del pais debajo de su nombre (%s = "HH:MM") */
+    STR_PG_TIME_THERE,
+    /* historial por incubadora > bebe > avisos */
+    STR_HIST_BABY,
+    STR_HIST_NOW,
+    STR_HIST_ARRIVED, /* %s = «hace 3 d» */
+    STR_HIST_LEFT,    /* %s = «hace 3 d» */
+    STR_HIST_MORE,    /* %u = bebes de antes que ya no estan guardados */
+    /* notificaciones (todos los cambios de estado) */
+    STR_NOTICES,
+    STR_NOTICES_EMPTY,
+    /* recompensas (spec rewards): niveles, sellos y sus burbujas, pasaporte, franjas, personalizar */
+    STR_LEVEL_SPARK,
+    STR_LEVEL_WARMTH,
+    STR_LEVEL_HUG,
+    STR_LEVEL_BLANKET,
+    STR_LEVEL_SUN,
+    STR_SEAL_FIRST,
+    STR_SEAL_WEEK,
+    STR_SEAL_MONTH_RUN,
+    STR_SEAL_30_DAYS,
+    STR_SEAL_SUPER,
+    STR_SEAL_3_BABIES,
+    STR_SEAL_HOME,
+    STR_SEAL_FIRST_D,
+    STR_SEAL_WEEK_D,
+    STR_SEAL_MONTH_RUN_D,
+    STR_SEAL_30_DAYS_D,
+    STR_SEAL_SUPER_D,
+    STR_SEAL_3_BABIES_D,
+    STR_SEAL_HOME_D,
+    STR_PASSPORT,
+    STR_PASSPORT_EMPTY,
+    STR_RW_NEW_SEAL,
+    STR_RW_LEVEL_UP,
+    STR_RW_GARLAND,
+    STR_CUSTOMIZE,
+    STR_CUST_HALO,
+    STR_CUST_BG,
+    STR_CUST_SEASON,
+    STR_CUST_CHOSEN,
+    STR_CUST_USE,
+    STR_CUST_UNLOCK_Q,
+    STR_CUST_UNLOCK,
+    STR_CUST_MISSING,
+    STR_CUST_GARLAND_HINT,
+    STR_OK,
+    STR_ITEM_HALO_SKY,
+    STR_ITEM_HALO_LAVENDER,
+    STR_ITEM_HALO_MINT,
+    STR_ITEM_HALO_PEACH,
+    STR_ITEM_HALO_LILAC,
+    STR_ITEM_BG_DEFAULT,
+    STR_ITEM_BG_CREAM,
+    STR_ITEM_BG_PINK,
+    STR_ITEM_BG_AQUA,
+    STR_ITEM_GARLAND,
+    STR_HEARTS,
+    STR_HEARTS_NEXT,
+    STR_HEARTS_MAX,
+    STR_HEARTS_STREAK,
+    STR_SEALS,
+    STR_SHOP,
+    STR_CUST_SPECIAL,
+    STR_ITEM_NAMED_INCUNEST,
+    STR_REDEEM_Q,
+    STR_REDEEM,
+    STR_REDEEMED,
+    STR_REDEEM_DEMO,
+    STR_OTA_UPDATING, /* ventana de la actualizacion (spec ota-update) */
+    STR_OTA_DONT_UNPLUG,
+    STR_OTA_RESTARTING,
+    STR_OTA_FAILED,
     STR_COUNT
 } ui_str_t;
 

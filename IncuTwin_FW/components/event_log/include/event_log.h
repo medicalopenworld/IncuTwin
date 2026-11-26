@@ -17,8 +17,9 @@ extern "C" {
 /* Carga el historial (anillo vacio si no existe o su tamano no cuadra) y se suscribe a los avisos.
  * Requiere storage_init() y app_events_init() hechos. */
 void event_log_init(void);
-/* Una entrada por bit de `notices_mask` (twin_notice_t), en orden de bit. */
-void event_log_add(uint32_t notices_mask, const char *inc);
+/* Una entrada por bit de `notices_mask` (twin_notice_t), en orden de bit. `country` puede ser NULL;
+ * `sex` es twin_sex_t. */
+void event_log_add(uint32_t notices_mask, const char *inc, const char *country, uint8_t sex);
 uint8_t event_log_count(void);
 bool event_log_get(uint8_t i, event_entry_t *out); /* 0 = la mas reciente */
 uint8_t event_log_unseen(void);

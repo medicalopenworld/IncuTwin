@@ -27,6 +27,11 @@ extern "C" {
 #define STORAGE_NS_BNAME    "bname"    /* nombre local del bebe (spec nombre-bebe-panel) */
 #define STORAGE_NS_EVLOG    "evlog"    /* historial de avisos (event_log) */
 #define STORAGE_NS_EVLOG_SIM "evlogsim" /* historial del build sim: no mezcla avisos falsos con los reales */
+#define STORAGE_NS_STAYS    "stays"    /* bebes que han pasado por cada IncuNest (stay_log) */
+#define STORAGE_NS_STAYS_SIM "stayssim" /* los del build sim */
+#define STORAGE_NS_REWARDS  "rewards"  /* corazones, sellos, pasaporte, personalizar */
+#define STORAGE_NS_REWARDS_SIM "rewardssim"
+#define STORAGE_NS_OTA      "ota"      /* OTA pendiente: se reintenta tras un corte (spec ota-update) */
 
 esp_err_t storage_init(void); /* nvs_flash_init con recuperacion si cambia la version */
 
