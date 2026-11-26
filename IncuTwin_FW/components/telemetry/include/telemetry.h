@@ -15,6 +15,9 @@
  * Identidad (NVS `tel`): `gen` (empieza en 1; storage_factory_reset() lo sube), `boot_n` (+1 en
  * cada arranque), `acked` (ultimo seq confirmado), `fw` (ultimo firmware visto), `demo_n`. Cada
  * evento guarda el gen y el arranque en que se registro; un lote solo junta eventos con los mismos.
+ * Si la NVS se borra y la cola de flash no, al abrir la cola gen sube al mas alto de la cola y
+ * boot_n a uno mas que el mas alto: nunca vuelven atras. boot_n y demo_n cuentan toda la vida de
+ * la IncuTwin, a traves de duenos (no se ponen a 0 con el restablecimiento).
  *
  * Nunca bloquea la UI ni ensena errores: lo que falla va al log serie.
  */

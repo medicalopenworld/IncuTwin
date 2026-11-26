@@ -75,8 +75,11 @@ typedef struct {
     int     arg;   /* msg_id del PUBACK */
 } ctl_t;
 
+/* --- gen y boot: los pone telemetry_init y la tarea los sube una vez al abrir la cola, antes de
+ * numerar ningun evento (fix_ids); luego fijos (lo leen todos) */
+static volatile uint32_t s_gen, s_boot;
+
 /* --- fijo tras telemetry_init (lo leen todos) */
-static uint32_t s_gen, s_boot;
 static QueueHandle_t s_evq, s_ctlq;
 static SemaphoreHandle_t s_flush_sem;
 static TaskHandle_t s_task;
@@ -427,6 +430,26 @@ static void on_puback(void *arg, esp_event_base_t base, int32_t id, void *data)
 
 /* ---------------------------------------------------------------- tarea */
 
+/* Si se borro la NVS (storage_init la borra entera con NO_FREE_PAGES/NEW_VERSION_FOUND, o se
+ * reaprovisiona) y la cola de flash sobrevivio, gen volveria a 1 (juntaria duenos) y boot_n a 1
+ * (el recolector reusaria el ancla de un arranque viejo para fechar los t=0). Se suben a lo que ya
+ * hay en la cola. Va antes de pasar a la flash ningun evento: push() los sella con s_gen/s_boot,
+ * asi que hasta el `boot` registrado en telemetry_init sale con los valores buenos. */
+static void fix_ids(void)
+{
+    uint32_t qg = 0, qb = 0;
+    tel_queue_max_ids(&s_q, &qg, &qb);
+    uint32_t g = s_gen, b = s_boot;
+    if (!tel_ids_floor(&g, &b, qg, qb)) return;
+    ESP_LOGW(TAG, "NVS por detras de la cola (gen %" PRIu32 " b %" PRIu32 "; cola gen %" PRIu32 " b %" PRIu32
+                  "): sigue con gen %" PRIu32 " b %" PRIu32,
+             s_gen, s_boot, qg, qb, g, b);
+    if (g != s_gen) storage_set_u32(STORAGE_NS_TEL, KEY_GEN, g);
+    if (b != s_boot) storage_set_u32(STORAGE_NS_TEL, KEY_BOOT, b);
+    s_gen = g;
+    s_boot = b;
+}
+
 static void tel_task(void *arg)
 {
     (void)arg;
@@ -437,6 +460,7 @@ static void tel_task(void *arg)
             .ctx = (void *)s_part,
         };
         tel_queue_open(&s_q, &f, s_acked);
+        fix_ids();
         s_open = true;
     }
     s_open_ms = (uint32_t)((esp_timer_get_time() - t0) / 1000);

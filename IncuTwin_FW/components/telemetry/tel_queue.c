@@ -84,6 +84,18 @@ static void decode(const uint8_t *p, const rec_hdr_t *h, tel_event_t *e)
     if (!memchr(e->d, '\0', TEL_D_MAX)) strcpy(e->d, "{}");
 }
 
+/* Sube max_gen/max_boot con los de un registro legible, si los trae donde los pone esta version. */
+static void note_ids(tel_queue_t *q, const uint8_t *ev, uint16_t len)
+{
+    if (len < offsetof(tel_event_t, boot) + sizeof(uint32_t)) return;
+    if (!memchr(ev + offsetof(tel_event_t, d), '\0', TEL_D_MAX)) return; /* `d` de otro tamano */
+    uint32_t g, b;
+    memcpy(&g, ev + offsetof(tel_event_t, gen), sizeof g);
+    memcpy(&b, ev + offsetof(tel_event_t, boot), sizeof b);
+    if (g > q->max_gen) q->max_gen = g;
+    if (b > q->max_boot) q->max_boot = b;
+}
+
 static uint32_t nxt(const tel_queue_t *q, uint32_t s)
 {
     return s + 1 == q->nslots ? 0 : s + 1;
@@ -170,6 +182,7 @@ void tel_queue_open(tel_queue_t *q, const tel_flash_t *f, uint32_t acked_seq)
             rec_hdr_t h;
             int k = parse(s_buf + i * TEL_QUEUE_REC, &h);
             if (k == SLOT_NONE) continue;
+            if (k == SLOT_OK) note_ids(q, s_buf + i * TEL_QUEUE_REC + HDR, h.len);
             if (!any || h.seq > max_seq) {
                 any = true;
                 max_seq = h.seq;
@@ -231,6 +244,8 @@ bool tel_queue_push(tel_queue_t *q, const tel_event_t *e)
     if (slot_get(q, slot, &back) != SLOT_OK || back.seq != e->seq) return false;
     if (q->pending == 0) q->tail = slot;
     q->pending++;
+    if (e->gen > q->max_gen) q->max_gen = e->gen;
+    if (e->boot > q->max_boot) q->max_boot = e->boot;
     return true;
 }
 
@@ -272,4 +287,10 @@ uint32_t tel_queue_pending(const tel_queue_t *q)
 uint32_t tel_queue_lost(const tel_queue_t *q)
 {
     return q ? q->lost : 0;
+}
+
+void tel_queue_max_ids(const tel_queue_t *q, uint32_t *gen, uint32_t *boot)
+{
+    if (gen) *gen = q ? q->max_gen : 0;
+    if (boot) *boot = q ? q->max_boot : 0;
 }

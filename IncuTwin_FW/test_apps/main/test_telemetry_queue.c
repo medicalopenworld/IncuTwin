@@ -493,3 +493,88 @@ TEST_CASE("telq: restablecimiento de fábrica sin conexión conserva el reset", 
     TEST_ASSERT_EQUAL_UINT32(0, r.bad_writes);
     free(r.mem);
 }
+
+/* NVS borrada y cola viva: gen y boot no pueden volver atras (juntarian duenos y reusarian el ancla
+ * de un arranque viejo en el recolector). La cola da los mas altos, confirmados incluidos. */
+TEST_CASE("telq: gen y boot mas altos de la cola tras borrar la NVS", "[telemetry]") {
+    tel_flash_ram_t r;
+    tel_flash_t f = tel_flash_ram_new(&r, 8);
+    static tel_queue_t q;
+    uint32_t g = 99, b = 99;
+    tel_queue_open(&q, &f, 0);
+    tel_queue_max_ids(&q, &g, &b);
+    TEST_ASSERT_EQUAL_UINT32(0, g); /* cola vacia */
+    TEST_ASSERT_EQUAL_UINT32(0, b);
+
+    const uint32_t ids[][2] = { { 2, 40 }, { 3, 41 }, { 3, 57 }, { 3, 12 } };
+    for (int i = 0; i < 4; i++) {
+        tel_event_t e = EVQ(tel_queue_next_seq(&q), "screen");
+        e.gen = ids[i][0];
+        e.boot = ids[i][1];
+        TEST_ASSERT_TRUE(tel_queue_push(&q, &e));
+    }
+    tel_queue_max_ids(&q, &g, &b);
+    TEST_ASSERT_EQUAL_UINT32(3, g);
+    TEST_ASSERT_EQUAL_UINT32(57, b);
+
+    tel_queue_ack_through(&q, tel_queue_next_seq(&q) - 1); /* confirmados: siguen contando */
+    tel_queue_open(&q, &f, 0);                             /* NVS borrada: acked 0 */
+    tel_queue_max_ids(&q, &g, &b);
+    TEST_ASSERT_EQUAL_UINT32(3, g);
+    TEST_ASSERT_EQUAL_UINT32(57, b);
+
+    /* lo que diria la NVS recien borrada: gen 1, boot_n 1 -> gen 3, boot 58 */
+    uint32_t gen = 1, boot = 1;
+    TEST_ASSERT_TRUE(tel_ids_floor(&gen, &boot, g, b));
+    TEST_ASSERT_EQUAL_UINT32(3, gen);
+    TEST_ASSERT_EQUAL_UINT32(58, boot);
+    TEST_ASSERT_EQUAL_UINT32(0, r.bad_writes);
+    free(r.mem);
+}
+
+TEST_CASE("telq: registro corto o con otro `d` no da gen ni boot", "[telemetry]") {
+    tel_flash_ram_t r;
+    tel_flash_t f = tel_flash_ram_new(&r, 8);
+    static uint8_t pl[232];
+    tel_event_t e;
+    /* ver 1 de antes de gen/boot (192 B): se lee con 0 */
+    e = EVQ(1, "boot");
+    e.gen = 7; e.boot = 70;
+    memcpy(pl, &e, sizeof e);
+    raw_put(&r, 0, 1, TEL_QUEUE_EV_VER, pl, (uint16_t)offsetof(tel_event_t, gen));
+    /* ver 1 con un `d` mas largo: los bytes donde iria gen/boot son de `d` */
+    e = EVQ(2, "screen");
+    e.gen = 9; e.boot = 90;
+    memcpy(pl, &e, sizeof e);
+    memset(pl + offsetof(tel_event_t, d), 'x', sizeof pl - offsetof(tel_event_t, d));
+    pl[sizeof pl - 1] = '\0';
+    raw_put(&r, 1, 2, TEL_QUEUE_EV_VER, pl, sizeof pl);
+    /* y uno normal */
+    e = EVQ(3, "screen");
+    e.gen = 2; e.boot = 5;
+    memcpy(pl, &e, sizeof e);
+    raw_put(&r, 2, 3, TEL_QUEUE_EV_VER, pl, sizeof e);
+
+    static tel_queue_t q;
+    tel_queue_open(&q, &f, 0);
+    uint32_t g = 0, b = 0;
+    tel_queue_max_ids(&q, &g, &b);
+    TEST_ASSERT_EQUAL_UINT32(2, g);
+    TEST_ASSERT_EQUAL_UINT32(5, b);
+    free(r.mem);
+}
+
+TEST_CASE("tel: tel_ids_floor solo sube", "[telemetry]") {
+    uint32_t gen = 4, boot = 100;
+    TEST_ASSERT_FALSE(tel_ids_floor(&gen, &boot, 0, 0));        /* cola vacia */
+    TEST_ASSERT_FALSE(tel_ids_floor(&gen, &boot, 4, 99));       /* NVS al dia: boot ya es 99 + 1 */
+    TEST_ASSERT_EQUAL_UINT32(4, gen);
+    TEST_ASSERT_EQUAL_UINT32(100, boot);
+    TEST_ASSERT_FALSE(tel_ids_floor(&gen, &boot, 2, 50));       /* la NVS manda si va por delante */
+    TEST_ASSERT_TRUE(tel_ids_floor(&gen, &boot, 4, 100));       /* boot repetido: uno mas */
+    TEST_ASSERT_EQUAL_UINT32(101, boot);
+    TEST_ASSERT_TRUE(tel_ids_floor(&gen, &boot, 6, 0));         /* solo gen */
+    TEST_ASSERT_EQUAL_UINT32(6, gen);
+    TEST_ASSERT_EQUAL_UINT32(101, boot);
+    TEST_ASSERT_FALSE(tel_ids_floor(&gen, &boot, 0, UINT32_MAX)); /* sin desbordar */
+}

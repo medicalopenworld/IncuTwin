@@ -57,3 +57,17 @@ bool tel_screen_should_log(int page, uint32_t now_ms, int *last_page, uint32_t *
     *last_ms = now_ms;
     return true;
 }
+
+bool tel_ids_floor(uint32_t *gen, uint32_t *boot, uint32_t q_gen, uint32_t q_boot)
+{
+    bool changed = false;
+    if (gen && q_gen > *gen) {
+        *gen = q_gen;
+        changed = true;
+    }
+    if (boot && q_boot != UINT32_MAX && q_boot + 1 > *boot) {
+        *boot = q_boot + 1;
+        changed = true;
+    }
+    return changed;
+}

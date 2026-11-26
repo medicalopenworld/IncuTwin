@@ -57,6 +57,8 @@ typedef struct { /* privado; tamano fijo para poder declararlo en estatico */
     uint32_t acked;    /* ultimo seq confirmado */
     uint32_t next_seq;
     uint32_t lost;
+    uint32_t max_gen;  /* gen y boot mas altos de los registros legibles (tel_queue_max_ids) */
+    uint32_t max_boot;
 } tel_queue_t;
 
 /* Reconstruye la cola leyendo la flash; acked_seq = último seq confirmado (NVS). */
@@ -69,6 +71,11 @@ int      tel_queue_peek(const tel_queue_t *q, tel_event_t *out, int max); /* los
 void     tel_queue_ack_through(tel_queue_t *q, uint32_t seq);
 uint32_t tel_queue_pending(const tel_queue_t *q);
 uint32_t tel_queue_lost(const tel_queue_t *q);                  /* desde que se abrió */
+/* gen y boot mas altos entre los registros legibles de la flash (pendientes o ya hechos) y los
+ * metidos desde que se abrio; 0 si no hay. Un registro cuyo formato no los trae donde los pone esta
+ * version (mas corto, o con un `d` que ya no acaba en su sitio) no cuenta. Sirve para que gen y
+ * boot no vuelvan atras si se borra la NVS y la cola sobrevive (telemetry.c). */
+void     tel_queue_max_ids(const tel_queue_t *q, uint32_t *gen, uint32_t *boot);
 
 #ifdef __cplusplus
 }

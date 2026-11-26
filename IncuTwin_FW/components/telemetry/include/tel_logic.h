@@ -39,6 +39,12 @@ int tel_event_encode(char *out, size_t len, const tel_event_t *e);
 int tel_batch_build(char *out, size_t len, uint32_t gen, uint32_t boot,
                     const tel_event_t *ev, int n, int *used);
 
+/* gen y boot no pueden ir hacia atras respecto a lo que ya hay en la cola de flash (la NVS se pudo
+ * borrar y la cola no): *gen = max(*gen, q_gen) y *boot = max(*boot, q_boot + 1), porque el
+ * arranque actual es posterior a todos los de la cola. q_* = tel_queue_max_ids (0 si no hay).
+ * true si cambio alguno (hay que guardarlo en la NVS). */
+bool tel_ids_floor(uint32_t *gen, uint32_t *boot, uint32_t q_gen, uint32_t q_boot);
+
 /* Filtro de pantallas: true si hay que registrar `page` (no la misma en < 5 s).
  * El que llama inicia *last_page a -1. */
 bool tel_screen_should_log(int page, uint32_t now_ms, int *last_page, uint32_t *last_ms);
