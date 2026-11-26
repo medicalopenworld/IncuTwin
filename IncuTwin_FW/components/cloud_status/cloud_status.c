@@ -13,6 +13,7 @@
 #include "metrics_payload.h"
 #include "rewards.h"
 #include "settings.h"
+#include "telemetry.h"
 #include "usage_stats.h"
 #include "mqtt_link.h"
 #include "net_wifi.h"
@@ -38,7 +39,16 @@ static void publish_metrics(const char *why)
     usage_stats_t us = usage_get();
     metrics_usage_t u = { .ts = net_wifi_time_valid() ? (int64_t)time(NULL) : 0, .on_s = us.on_s,
                           .conn_s = us.conn_s, .hand_s = us.hand_s, .hand_n = us.hand_n };
-    int n = metrics_payload_build(payload, sizeof(payload), &u, &r);
+    static const char *const PHASES[] = { "off", "searching", "waiting", "with", "ending", "farewell" };
+    char inc[TWIN_INCUBATOR_ID_LEN];
+    accompany_current(inc);
+    unsigned ph = (unsigned)twin_model_get().acc;
+    metrics_extra_t x = { .gen = telemetry_gen(), .boot_n = telemetry_boot(), .demo_n = telemetry_demo_count(),
+                          .q = telemetry_pending(), .lost = telemetry_lost(),
+                          .fw = esp_app_get_description()->version, .inc = inc,
+                          .phase = PHASES[ph < sizeof(PHASES) / sizeof(PHASES[0]) ? ph : 0],
+                          .lang = settings_lang(), .vol = settings_volume(), .bright = settings_brightness() };
+    int n = metrics_payload_build(payload, sizeof(payload), &u, &r, &x);
     if (n < 0) return;
     snprintf(topic, sizeof(topic), "incutwin/%s/metrics", mqtt_link_client_id());
     if (mqtt_link_publish(topic, payload, (size_t)n, 1, false)) ESP_LOGI(TAG, "metrics (%s): %s", why, payload);

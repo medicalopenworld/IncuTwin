@@ -4,6 +4,9 @@
 #include "metrics_payload.h"
 #include "unity.h"
 
+static const metrics_extra_t X_BASE = { .gen = 1, .boot_n = 5, .demo_n = 0, .q = 3, .lost = 0,
+                                        .fw = "1.2.3", .inc = "353", .phase = "with", .lang = 0, .vol = 2, .bright = 80 };
+
 TEST_CASE("metrics: uso, corazones y pasaporte", "[metrics]") {
     rw_state_t r; rw_init(&r);
     r.balance = 23; r.earned = 30; r.streak = 9; r.saved = 1; r.total_days = 12; r.babies = 2;
@@ -11,14 +14,53 @@ TEST_CASE("metrics: uso, corazones y pasaporte", "[metrics]") {
     r.passport[0] = (rw_country_t){ { 'T', 'G' }, 1 };
     r.passport[1] = (rw_country_t){ { 'C', 'M' }, 0 };
     metrics_usage_t u = { .ts = 1764100000, .on_s = 3600, .conn_s = 3500, .hand_s = 120, .hand_n = 4 };
+    metrics_extra_t x = X_BASE;
     char out[METRICS_PAYLOAD_MAX + 1];
-    int n = metrics_payload_build(out, sizeof(out), &u, &r);
+    int n = metrics_payload_build(out, sizeof(out), &u, &r, &x);
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NOT_NULL(strstr(out, "\"hearts\":23,"));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"level\":1,")); /* Calorcito */
     TEST_ASSERT_NOT_NULL(strstr(out, "\"seals_n\":2,"));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"countries\":\"TG,CM\",\"countries_n\":2,\"stars\":1,"));
-    TEST_ASSERT_NOT_NULL(strstr(out, "\"named_incunest\":0}"));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"named_incunest\":0,"));
+}
+
+TEST_CASE("metrics: acompanando", "[metrics]") {
+    rw_state_t r; rw_init(&r);
+    metrics_usage_t u = { .ts = 1764100000 };
+    metrics_extra_t x = X_BASE;
+    char out[METRICS_PAYLOAD_MAX + 1];
+    TEST_ASSERT_GREATER_THAN(0, metrics_payload_build(out, sizeof(out), &u, &r, &x));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"gen\":1"));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"inc\":\"353\""));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"phase\":\"with\""));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"q\":3"));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"fw\":\"1.2.3\""));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"vol\":2"));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"bright\":80"));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"boot_n\":5"));
+}
+
+TEST_CASE("metrics: buscando", "[metrics]") {
+    rw_state_t r; rw_init(&r);
+    metrics_usage_t u = { 0 };
+    metrics_extra_t x = X_BASE;
+    x.inc = ""; x.phase = "searching";
+    char out[METRICS_PAYLOAD_MAX + 1];
+    TEST_ASSERT_GREATER_THAN(0, metrics_payload_build(out, sizeof(out), &u, &r, &x));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"inc\":\"\""));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"phase\":\"searching\""));
+}
+
+TEST_CASE("metrics: inc y fw no rompen el JSON", "[metrics]") {
+    rw_state_t r; rw_init(&r);
+    metrics_usage_t u = { 0 };
+    metrics_extra_t x = X_BASE;
+    x.inc = "a\"b"; x.fw = "1\2";
+    char out[METRICS_PAYLOAD_MAX + 1];
+    TEST_ASSERT_GREATER_THAN(0, metrics_payload_build(out, sizeof(out), &u, &r, &x));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"inc\":\"\""));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"fw\":\"\""));
 }
 
 TEST_CASE("metrics: pasaporte lleno cabe", "[metrics]") {
@@ -28,8 +70,13 @@ TEST_CASE("metrics: pasaporte lleno cabe", "[metrics]") {
     r.balance = 65535; r.earned = 4000000000u;
     metrics_usage_t u = { .ts = 9999999999LL, .on_s = 4000000000u, .conn_s = 4000000000u,
                           .hand_s = 4000000000u, .hand_n = 4000000000u };
+    metrics_extra_t x = { .gen = 4000000000u, .boot_n = 4000000000u, .demo_n = 4000000000u, .q = 4000000000u,
+                          .lost = 4000000000u, .fw = "1234567890123456789012345678901", .inc = "123456789012345",
+                          .phase = "searching", .lang = 255, .vol = 3, .bright = 100 };
     char out[METRICS_PAYLOAD_MAX + 1];
-    TEST_ASSERT_GREATER_THAN(0, metrics_payload_build(out, sizeof(out), &u, &r));
+    int n = metrics_payload_build(out, sizeof(out), &u, &r, &x);
+    TEST_ASSERT_GREATER_THAN(0, n);
+    printf("METRICS_MAX_LEN=%d\n", n);
 }
 
 TEST_CASE("metrics: canje", "[metrics]") {
