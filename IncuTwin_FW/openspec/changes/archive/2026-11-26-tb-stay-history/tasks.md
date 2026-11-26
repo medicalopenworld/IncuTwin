@@ -35,3 +35,15 @@
 - [ ] 5.2 Con la IncuNest de pruebas: un "Coge mi mano" desde el panel en COM3 sube `holds`, y
       `mosquitto_sub -t 'incutwin/incutwin-DEEF3C/cmd/history' -v` muestra el historial retenido
 - [ ] 5.3 Alta de prueba con `baby_outcome = 1` → la entrada pasa a `"home"`
+
+## Cierre (26-nov-2026, decisión de Pablo)
+
+Se archiva sin terminar 2.3, 2.4, 5.2 y 5.3, que quedan **descartadas**:
+- La parte de ThingsBoard está desplegada desde el 10-nov-2026 (cadena `IncuTwin_history`, `cmd/history`
+  retenido), pero **ningún firmware la consume**: el Historial del pollito (commit 6e38a25) se construye en el
+  propio panel con el componente `stay_log`, alimentado por el estado del broker.
+- Desde el 26-nov los paneles están en su propio tenant «IncuTwin» detrás de tb-gateway; no se ha comprobado si
+  `IncuTwin_history` sigue recibiendo eventos. No se mantiene: quitarla cuando se toquen las cadenas `IncuTwin_*`.
+- Un historial que sobreviva a apagados o cambios de panel saldrá del backend propio en el VPS (el mismo que
+  servirá a la app), no de ThingsBoard.
+- No se sincroniza `specs/stay-history` a `openspec/specs/` (`--skip-specs`): describe una cadena que no se usa.
