@@ -389,9 +389,15 @@ static void back_btn_clicked(lv_event_t *e)
 }
 
 /* El boton prepara el gesto: el bebe abre los ojos y espera el dedo */
+static bool s_incupray_btn; /* el boton dice «IncuPray»: entra en ella en vez del gesto */
+
 static void hand_btn_clicked(lv_event_t *e)
 {
     (void)e;
+    if (s_incupray_btn) {
+        ui_incupray_open();
+        return;
+    }
     info_hide();
     hh_button(&s_hh, lv_tick_get());
     hold_refresh(false);
@@ -802,9 +808,16 @@ void ui_home_screen_pressed(void)
     app_events_post(TWIN_EVT_ACC_INPUT, &in, sizeof(in));
 }
 
+void ui_home_incupray_set(bool open)
+{
+    s_incupray_btn = open;
+    lv_label_set_text(s_lbl_hand, open ? "IncuPray" : tr(STR_HAND));
+    lv_obj_set_hidden(s_btn_hand, !s_row_shown && !open);
+}
+
 void ui_home_retranslate(void)
 {
-    lv_label_set_text(s_lbl_hand, tr(STR_HAND));
+    lv_label_set_text(s_lbl_hand, s_incupray_btn ? "IncuPray" : tr(STR_HAND));
     ui_pages_retranslate();
     hold_refresh(true);
 }
@@ -828,8 +841,8 @@ static void row_apply(bool shown)
             x += ICON_D + 6;
         }
     }
-    lv_obj_set_hidden(s_btn_hand, !shown);
-    nudge_set(shown && today_pending());
+    lv_obj_set_hidden(s_btn_hand, !shown && !s_incupray_btn); /* la IncuPray se ve aunque no haya bebe */
+    nudge_set(shown && today_pending() && !s_incupray_btn);
 }
 
 static void home_set_view(home_view_t view)

@@ -57,6 +57,10 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/metrics` | la IncuTwin: al conectar, cada hora y 30 s después de cambiar sus recompensas (spec `device-metrics`) | gateway → ThingsBoard (telemetría del panel) | no | 1 |
 | `incutwin/<client_id>/redeem` | la IncuTwin, al canjear «Una IncuNest con tu nombre», hasta que llega una vez | gateway → ThingsBoard (aviso a MOW) | no | 1 |
 | `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`) | la IncuTwin | **sí** | 1 |
+| `incupray/next` | la API de la IncuPray (VPS; hasta entonces `publisher`) | todas las IncuTwin | **sí** | 1 |
+| `incupray/live` | la API, cada 10 s mientras está abierta | todas las IncuTwin | no | 1 |
+| `incupray/summary` | la API, al cerrarse | todas las IncuTwin | **sí** | 1 |
+| `incutwin/<client_id>/incupray` | la IncuTwin: al entrar, cada 60 s dentro y al salir | la API de la IncuPray | no | 1 |
 
 `<incubator_id>` = número de serie de la IncuNest tal como se llama el dispositivo en ThingsBoard
 (ej. `353`). `<client_id>` = `incutwin-<serie>` (ej. `incutwin-0001`); usuario MQTT idéntico.
@@ -92,6 +96,34 @@ sin pedir nada. El `event_seq` evita reaccionar dos veces (melodía) al mismo ev
 
 LWT en el mismo topic, retenido: `{ "online": false }`.
 
+`name` (opcional, ≤ 16 caracteres): el nombre que el usuario ha puesto a su IncuTwin en Ajustes
+(spec `incupray`); sin él se usa el número de serie. Se vuelve a publicar al cambiarlo.
+
+### IncuPray (spec `incupray`): apagada hasta que la API publique horario
+
+El firmware de las IncuTwin que se entregan desde el 26-nov-2026 ya lo trae todo ("dark launch"):
+sin `incupray/next` retenido no enseña nada. Lanzarla es solo cosa del servidor, sin OTA.
+
+```json
+// incupray/next (retenido). Vacío = sin IncuPray. start en epoch UTC; duración ≤ 24 h
+{ "id": "2026-12-06", "start": 1765047600, "duration_s": 600 }
+// incupray/live (cada 10 s con la ventana abierta). names ≤ 40 (ya filtrados por la API),
+// babies ≤ 24: los bebés que hay ahora en las IncuNest (sin nombre ni nada que los identifique)
+{ "id": "2026-12-06", "count": 214, "hearts": 1380, "names": ["Lucía y Pablo", "ITW-0A1284"],
+  "babies": [{ "inc": "297", "country": "TG", "sex": "f", "skin": 3 }] }
+// incupray/summary (retenido, al cerrarse)
+{ "id": "2026-12-06", "count": 214, "hearts": 1380 }
+// incutwin/<client_id>/incupray (la IncuTwin): segundos con el dedo y corazones ganados (≤ 10)
+{ "id": "2026-12-06", "joined": true, "held_s": 240, "hearts": 4 }
+```
+
+En el panel: avisos la víspera, una hora antes y al empezar (una vez cada uno, guardados en NVS);
+el botón «Coge mi mano» pasa a «IncuPray» mientras está abierta; entrar la primera vez cuesta 3
+corazones si hay saldo (si no, gratis); un corazón por minuto con el dedo sobre un bebé, hasta 10,
+fuera del tope diario. Quien no entró ve el resumen al día siguiente. Los textos nunca hablan de
+rezar. Para probar sin servidor: consola `incupray demo` (o, en la demo del botón BOOT, una
+pulsación corta tras el último escenario): IncuPray simulada de 3 min que no publica nada.
+
 ### Comandos (`incutwin/<id>/cmd/...`)
 
 - `cmd/pair` (retenido): `{ "incubator_id": "353" }`. La IncuTwin lo guarda en NVS, se desuscribe
@@ -106,6 +138,8 @@ LWT en el mismo topic, retenido: `{ "online": false }`.
 $CTRL createRole incutwin
 $CTRL addRoleACL incutwin publishClientSend 'incutwin/%c/#' allow
 $CTRL addRoleACL incutwin subscribePattern 'incutwin/%c/cmd/#' allow
+$CTRL addRoleACL incutwin subscribePattern 'incutwin/all/cmd/#' allow
+$CTRL addRoleACL incutwin subscribePattern 'incupray/#' allow          # IncuPray (aplicado el 26-nov-2026)
 
 $CTRL createRole thingsboard
 $CTRL addRoleACL thingsboard publishClientSend 'incubators/#' allow

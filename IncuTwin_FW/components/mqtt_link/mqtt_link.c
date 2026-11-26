@@ -100,6 +100,7 @@ static void on_mqtt_event(void *arg, esp_event_base_t base, int32_t id, void *da
         post_connected(true); /* cloud_status publica status; ota marca la app valida */
         esp_mqtt_client_subscribe(s_client, s_cmd_topic, 1);
         esp_mqtt_client_subscribe(s_client, "incutwin/all/cmd/#", 1);
+        esp_mqtt_client_subscribe(s_client, "incupray/#", 1); /* IncuPray: apagada hasta que la API publique horario */
         subscribe_state_topic();
         break;
     case MQTT_EVENT_DISCONNECTED:

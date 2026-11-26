@@ -27,6 +27,8 @@ static lv_obj_t *s_ta;
 static lv_timer_t *s_kb_timer;
 static char s_key[BN_KEY_LEN]; /* estancia del aviso o del teclado abiertos */
 static void (*s_done_cb)(void);
+/* modo texto libre (nombre de la IncuTwin): no toca baby_name; NULL = nombre del bebe */
+static void (*s_text_submit)(const char *text);
 
 /* Teclado espanol de ordenador, sin vocales con tilde (Pablo, 24-nov-2026): Q-P, A-Ñ, Z-M y
  * borrar, espacio y LISTO. Ids de la matriz: 0..9 Q-P, 10..19 A-Ñ, 20..26 Z-M, 27 borrar,
@@ -64,11 +66,17 @@ static void kb_close(void)
     lv_obj_delete_async(s_kb);
     s_kb = NULL;
     s_ta = NULL;
+    s_text_submit = NULL;
     done();
 }
 
 static void kb_submit(void)
 {
+    if (s_text_submit) {
+        s_text_submit(lv_textarea_get_text(s_ta));
+        kb_close();
+        return;
+    }
     baby_name_set(s_key, lv_textarea_get_text(s_ta)); /* vacio: no cambia nada */
     baby_name_dismiss(s_key);                         /* en cualquier caso, ya se ha preguntado */
     kb_close();
@@ -77,7 +85,7 @@ static void kb_submit(void)
 static void kb_cancel_cb(lv_event_t *e)
 {
     (void)e;
-    baby_name_dismiss(s_key);
+    if (!s_text_submit) baby_name_dismiss(s_key);
     kb_close();
 }
 
@@ -106,10 +114,26 @@ static void kb_key_cb(lv_event_t *e)
     lv_textarea_add_text(s_ta, out);
 }
 
+static void kb_build(const char *title_txt, const char *initial, uint32_t max_chars);
+
 void ui_name_edit(void)
 {
     if (s_kb) return;
     if (!s_mb) snprintf(s_key, sizeof(s_key), "%s", baby_name_key()); /* desde el aviso ya esta */
+    s_text_submit = NULL;
+    kb_build(tr(STR_NAME_PLACEHOLDER), baby_name_local(), BN_NAME_MAX_CHARS);
+}
+
+void ui_name_edit_text(const char *title, const char *initial, uint32_t max_chars, void (*submit)(const char *text))
+{
+    if (ui_name_open() || !submit) return;
+    s_key[0] = 0;
+    kb_build(title, initial, max_chars);
+    s_text_submit = submit;
+}
+
+static void kb_build(const char *title_txt, const char *initial, uint32_t max_chars)
+{
     s_map[MAP_DONE_IDX] = tr(STR_NAME_DONE);
 
     s_kb = lv_obj_create(lv_layer_top());
@@ -121,7 +145,7 @@ void ui_name_edit(void)
     lv_obj_set_scrollable(s_kb, false);
 
     lv_obj_t *title = lv_label_create(s_kb);
-    lv_label_set_text(title, tr(STR_NAME_PLACEHOLDER));
+    lv_label_set_text(title, title_txt);
     lv_obj_set_style_text_font(title, &lv_font_es_16, 0);
     lv_obj_set_style_text_color(title, COL_NAVY, 0);
     lv_obj_align(title, LV_ALIGN_TOP_LEFT, 10, 14);
@@ -137,8 +161,8 @@ void ui_name_edit(void)
 
     s_ta = lv_textarea_create(s_kb);
     lv_textarea_set_one_line(s_ta, true);
-    lv_textarea_set_max_length(s_ta, BN_NAME_MAX_CHARS);
-    lv_textarea_set_text(s_ta, baby_name_local());
+    lv_textarea_set_max_length(s_ta, max_chars);
+    lv_textarea_set_text(s_ta, initial ? initial : "");
     lv_obj_set_width(s_ta, LV_PCT(92));
     lv_obj_set_style_text_font(s_ta, &lv_font_es_20, 0);
     lv_obj_set_style_text_color(s_ta, COL_NAVY_DARK, 0);
@@ -207,6 +231,7 @@ void ui_name_ask(void)
 
 void ui_name_close(void)
 {
+    if (s_text_submit) return; /* el nombre de la IncuTwin no depende del estado del bebe */
     if (s_mb && !s_mb_yes) {
         s_mb_silent = true;
         lv_msgbox_close_async(s_mb);

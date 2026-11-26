@@ -12,6 +12,7 @@
 #include "identity.h"
 #include "metrics_payload.h"
 #include "rewards.h"
+#include "settings.h"
 #include "usage_stats.h"
 #include "mqtt_link.h"
 #include "net_wifi.h"
@@ -74,8 +75,10 @@ static void publish(const char *why)
     /* la del gemelo: la emparejada o, en modo acompañar, la que se acompaña ahora */
     const char *inc = s.link.paired ? s.link.incubator_id : "";
     int64_t ts = net_wifi_time_valid() ? (int64_t)time(NULL) : 0;
-    int n = status_payload_build(payload, sizeof(payload), esp_app_get_description()->version,
-                                 s.link.rssi, inc, accompany_enabled(), ts);
+    char name[SETTINGS_NAME_BYTES];
+    settings_name(name, sizeof(name)); /* el de la IncuTwin para la IncuPray; "" = sin nombre */
+    int n = status_payload_build_named(payload, sizeof(payload), esp_app_get_description()->version,
+                                       s.link.rssi, inc, accompany_enabled(), ts, name);
     if (n < 0) return;
     snprintf(topic, sizeof(topic), "incutwin/%s/status", mqtt_link_client_id());
     if (mqtt_link_publish(topic, payload, (size_t)n, 1, true)) {
@@ -101,6 +104,12 @@ static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data)
     } else {
         esp_timer_stop(s_timer);
     }
+}
+
+static void on_name(void *arg, esp_event_base_t base, int32_t id, void *data)
+{
+    (void)arg; (void)base; (void)id; (void)data;
+    publish("nombre");
 }
 
 static void on_pairing(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -136,5 +145,6 @@ void cloud_status_start(void)
     app_events_subscribe(TWIN_EVT_REWARDS_CHANGED, on_rewards, NULL);
     app_events_subscribe(TWIN_EVT_MQTT, on_mqtt, NULL);
     app_events_subscribe(TWIN_EVT_PAIRING_CHANGED, on_pairing, NULL);
+    app_events_subscribe(TWIN_EVT_NAME_CHANGED, on_name, NULL);
     app_events_subscribe(TWIN_EVT_HAND_HOLD, on_hand_hold, NULL);
 }

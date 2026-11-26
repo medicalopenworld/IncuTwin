@@ -50,3 +50,16 @@ TEST_CASE("status: payload exacto y tamano", "[status]")
     char tiny[20];
     TEST_ASSERT_EQUAL(-1, status_payload_build(tiny, sizeof(tiny), "2.0.0", -61, "353", false, 0));
 }
+
+TEST_CASE("status: con el nombre de la IncuTwin", "[status]")
+{
+    char buf[STATUS_PAYLOAD_MAX + 1];
+    int n = status_payload_build_named(buf, sizeof(buf), "2.0.0", -61, "297", true, 1759320000LL, "Familia García");
+    TEST_ASSERT_GREATER_THAN(0, n);
+    TEST_ASSERT_EQUAL_STRING("{\"online\":true,\"fw\":\"2.0.0\",\"rssi\":-61,\"incubator_id\":\"297\",\"acc\":1,"
+                             "\"ts\":1759320000,\"name\":\"Familia García\"}", buf);
+    n = status_payload_build_named(buf, sizeof(buf), "2.0.0", -61, "297", false, 0, "");
+    TEST_ASSERT_NULL(strstr(buf, "name")); /* sin nombre: sin campo */
+    n = status_payload_build_named(buf, sizeof(buf), "2.0.0", -61, "297", false, 0, "a\"b\\c");
+    TEST_ASSERT_NOT_NULL(strstr(buf, "\"name\":\"abc\"}"));
+}

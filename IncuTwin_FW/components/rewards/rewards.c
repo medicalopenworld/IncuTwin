@@ -187,6 +187,32 @@ bool rewards_unlock(rw_item_t item, uint16_t *missing)
     return ok;
 }
 
+bool rewards_spend(uint16_t n)
+{
+    if (!s_mutex || !n) return n == 0;
+    LOCK();
+    bool demo = s_demo_on;
+    bool ok = rw_spend(demo ? &s_demo : &s_real, n);
+    if (ok && !demo) save_locked();
+    UNLOCK();
+    if (ok) post(NULL, demo);
+    return ok;
+}
+
+void rewards_add(uint8_t hearts)
+{
+    if (!s_mutex || !hearts) return;
+    LOCK();
+    bool demo = s_demo_on;
+    rw_news_t n = rw_add(demo ? &s_demo : &s_real, hearts);
+    if (!demo) {
+        save_locked();
+        log_news(&n, &s_real, "incupray");
+    }
+    UNLOCK();
+    post(&n, demo);
+}
+
 void rewards_mark_redeem_sent(void)
 {
     if (!s_mutex) return;

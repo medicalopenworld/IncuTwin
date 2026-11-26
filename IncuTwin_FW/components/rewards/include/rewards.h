@@ -23,6 +23,10 @@ void rewards_copy(rw_state_t *out, bool *demo);
 bool rewards_unlock(rw_item_t item, uint16_t *missing);
 /* El canje de «Una IncuNest con tu nombre» ya se publico en el broker (no se vuelve a mandar). */
 void rewards_mark_redeem_sent(void);
+/* IncuPray: la apuesta (gasta `n` si hay saldo) y los corazones ganados (fuera del tope diario).
+ * Con la demo activa van al estado simulado. */
+bool rewards_spend(uint16_t n);
+void rewards_add(uint8_t hearts);
 /* Un «Coge mi mano» completado en la demo (suma al estado simulado). */
 void rewards_demo_gesture(const char *country);
 

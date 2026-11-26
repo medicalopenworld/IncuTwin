@@ -6,13 +6,14 @@ ninguna); los clientes que ya existen se dejan como estan.
   python tools/broker_bootstrap.py [--cafile ca.pem]
 
 Roles:
-  incutwin    publishClientSend incutwin/%c/# · subscribePattern incutwin/%c/cmd/# e incutwin/all/cmd/#
-              (%c = client id; requiere Mosquitto >= 2.1.2, en la 2.0.22 no funcionaba)
+  incutwin    publishClientSend incutwin/%c/# · subscribePattern incutwin/%c/cmd/#, incutwin/all/cmd/#
+              e incupray/# (%c = client id; requiere Mosquitto >= 2.1.2, en la 2.0.22 no funcionaba)
   thingsboard publishClientSend incubators/# e incutwin/+/cmd/history (historial retenido,
               spec tb-stay-history; cliente: lo crea infra con su contrasena)
   gateway     subscribePattern incutwin/+/status, hand, metrics y redeem · publishClientSend
               incutwin/+/cmd/# (IoT Gateway de ThingsBoard, §9; cliente: lo crea infra)
-  publisher   publishClientSend incutwin/+/cmd/# · subscribePattern incutwin/+/status e incubators/#
+  publisher   publishClientSend incutwin/+/cmd/# e incupray/# · subscribePattern incutwin/+/status,
+              incutwin/+/incupray e incubators/# (la API de la IncuPray, hasta que tenga su cliente)
 Clientes:
   publisher   si MQTT_PUB_PASS esta vacio/RELLENAR en broker.env se genera una contrasena y se
               escribe ahi (el fichero es local y esta en .gitignore).
@@ -37,6 +38,7 @@ ROLES = {
         ("publishClientSend", "incutwin/%c/#"),
         ("subscribePattern", "incutwin/%c/cmd/#"),
         ("subscribePattern", "incutwin/all/cmd/#"),
+        ("subscribePattern", "incupray/#"),  # spec incupray: horario, en vivo y resumen (apagada sin horario)
     ],
     "thingsboard": [
         ("publishClientSend", "incubators/#"),
@@ -55,6 +57,8 @@ ROLES = {
         ("subscribePattern", "incutwin/+/status"),
         ("subscribePattern", "incubators/#"),
         ("publishClientSend", "incubators/#"),  # estados de prueba sin ThingsBoard (§7)
+        ("publishClientSend", "incupray/#"),      # spec incupray: la publica la API del VPS
+        ("subscribePattern", "incutwin/+/incupray"),
     ],
 }
 

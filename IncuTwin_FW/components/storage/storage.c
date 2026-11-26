@@ -146,6 +146,7 @@ void storage_factory_reset(void)
     storage_erase_ns(STORAGE_NS_ACC);
     storage_erase_ns(STORAGE_NS_BNAME);
     storage_erase_ns(STORAGE_NS_REWARDS);
+    storage_erase_ns(STORAGE_NS_INCUPRAY);
     vTaskDelay(pdMS_TO_TICKS(200)); /* que salga el log */
     esp_restart();
 }

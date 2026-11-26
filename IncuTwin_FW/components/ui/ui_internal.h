@@ -24,7 +24,12 @@ void ui_ota_note_touch(void);  /* cualquier toque en la pantalla */
 void ui_home_screen_pressed(void);
 void ui_home_goto_baby(void); /* desde la IncuNest del mapa */
 bool ui_home_overlay_active(void); /* despedida o agradecimiento de «Coge mi mano»: sin barra ni franja */
-bool ui_home_gesture_idle(void);   /* «Coge mi mano» en reposo (no a mitad del gesto) */
+bool ui_home_gesture_idle(void);
+void ui_home_incupray_set(bool open); /* el boton «Coge mi mano» pasa a «IncuPray» mientras esta abierta */
+/* IncuPray (ui_incupray.c, spec incupray) */
+void ui_incupray_open(void);   /* entra si la ventana esta abierta */
+void ui_incupray_poll(void);   /* desde el refresco: avisos, boton de Inicio, lo que queda */
+bool ui_incupray_active(void); /* su pantalla esta abierta */   /* «Coge mi mano» en reposo (no a mitad del gesto) */
 
 /* recompensas en la UI (ui_rewards.c): copia del estado, temas, nombres y sellos */
 void ui_rewards_refresh(void);           /* relee rewards (al recibir TWIN_EVT_REWARDS_CHANGED) */
@@ -82,6 +87,8 @@ void ui_notice_init(void);
 void ui_notice_push(uint32_t mask, uint8_t sex); /* encola un aviso por bit, en orden de bit; cola de 8 */
 /* encola los sellos nuevos, la subida de nivel (`level` = el nuevo) y la guirnalda (spec rewards) */
 void ui_notice_push_reward(uint8_t new_seals, bool level_up, uint8_t level, bool garland);
+/* Aviso de texto (IncuPray): tocarlo abre la IncuPray si opens_incupray, si no Inicio */
+void ui_notice_push_text(const char *txt, bool opens_incupray);
 bool ui_notice_layer_busy(void);   /* hay un dialogo u otro objeto visible en la capa superior */
 void ui_notice_poll(bool blocked);  /* desde refresh_cb: saca el siguiente si no hay nada que lo tape */
 

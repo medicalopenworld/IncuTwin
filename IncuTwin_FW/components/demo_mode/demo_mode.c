@@ -1,4 +1,5 @@
 #include "demo_mode.h"
+#include "incupray.h"
 
 #include "board.h"
 #include "esp_log.h"
@@ -28,16 +29,24 @@ static void apply_idx(size_t idx)
     ESP_LOGI(TAG, "escenario '%s' (%u/%u)", sc->id, (unsigned)(idx + 1), (unsigned)scenario_count());
 }
 
+/* Tras el ultimo escenario, un paso mas: la IncuPray simulada (3 min) sobre ese mismo escenario */
 static void on_short(void)
 {
     if (!twin_model_demo_active()) return;
-    s_idx = (s_idx + 1) % scenario_count();
+    s_idx = (s_idx + 1) % (scenario_count() + 1);
+    if (s_idx == scenario_count()) {
+        incupray_demo_start();
+        ESP_LOGI(TAG, "IncuPray simulada");
+        return;
+    }
+    incupray_demo_stop();
     apply_idx(s_idx);
 }
 
 static void on_long(void)
 {
     if (twin_model_demo_active()) {
+        incupray_demo_stop();
         twin_model_demo_exit();
         ESP_LOGI(TAG, "OFF");
     } else {

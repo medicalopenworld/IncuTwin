@@ -14,6 +14,7 @@
 #include "accompany.h"
 #include "app_events.h"
 #include "event_log.h"
+#include "incupray.h"
 #include "rewards.h"
 #include "stays.h"
 #include "baby_name.h"
@@ -98,6 +99,7 @@ void app_main(void)
     event_log_init(); /* notificaciones: tras storage y bus */
     stays_init();     /* bebes de cada IncuNest (Historial): tras storage y bus */
     rewards_init();   /* corazones y sellos: tras stays (lee su estancia con el mismo estado) */
+    incupray_init();  /* IncuPray: tras rewards (cobra y paga corazones) */
     ESP_ERROR_CHECK(board_init());
 
     identity_init();

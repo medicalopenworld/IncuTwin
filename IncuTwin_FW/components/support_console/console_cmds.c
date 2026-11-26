@@ -1,6 +1,7 @@
 #include "console_cmds.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -12,6 +13,7 @@
 #include "esp_ota_ops.h"
 #include "esp_system.h"
 #include "identity.h"
+#include "incupray.h"
 #include "rewards.h"
 #include "sdkconfig.h"
 #include "storage.h"
@@ -73,6 +75,44 @@ static int cmd_rewards(int argc, char **argv)
     for (int i = 0; i < r.n_countries; i++) printf("%c%c%s ", r.passport[i].iso[0], r.passport[i].iso[1],
                                                    r.passport[i].star ? "*" : "");
     printf("\n");
+    return 0;
+}
+
+/* IncuPray (spec incupray): estado; "demo" la simula 3 min dentro de la demo (corazones de mentira),
+ * "stop" la corta; "hold <s>" suma segundos de dedo (solo dentro y con la ventana abierta) */
+static int cmd_incupray(int argc, char **argv)
+{
+    if (argc >= 2 && !strcmp(argv[1], "demo")) {
+        if (!twin_model_demo_active()) twin_model_demo_enter();
+        incupray_demo_start();
+        printf("IncuPray de la demo: 3 min\n");
+        return 0;
+    }
+    if (argc >= 2 && !strcmp(argv[1], "stop")) {
+        incupray_demo_stop();
+        if (twin_model_demo_active()) twin_model_demo_exit();
+        printf("demo cortada\n");
+        return 0;
+    }
+    if (argc >= 3 && !strcmp(argv[1], "hold")) {
+        incupray_hold((uint32_t)atoi(argv[2]) * 1000u);
+    }
+    if (argc >= 2 && !strcmp(argv[1], "join")) { /* como tocar «IncuPray» (cobra la apuesta la 1.a vez) */
+        uint16_t paid = 0;
+        printf("dentro%s (apuesta %u)\n", incupray_join(&paid) ? " por primera vez" : "", paid);
+    }
+    if (argc >= 2 && !strcmp(argv[1], "leave")) incupray_leave();
+    ip_window_t w;
+    uint32_t now = incupray_now();
+    if (!incupray_window(&w)) {
+        printf("sin horario (IncuPray apagada) now=%lu\n", (unsigned long)now);
+        return 0;
+    }
+    static const char *const PH[] = { "antes", "abierta", "cerrada" };
+    printf("%sid=%s inicio=%lu dura=%lus now=%lu fase=%s quedan=%lus dentro=%d dedo=%lus corazones=%u\n",
+           incupray_demo_active() ? "(demo) " : "", w.id, (unsigned long)w.start, (unsigned long)w.duration_s,
+           (unsigned long)now, PH[ip_phase(&w, now)], (unsigned long)ip_remaining_s(&w, now), incupray_joined(),
+           (unsigned long)incupray_held_s(), incupray_hearts());
     return 0;
 }
 
@@ -159,6 +199,7 @@ void console_start(void)
         { .command = "info", .help = "identidad, enlace y estado", .func = cmd_info },
         { .command = "usage", .help = "contadores de uso", .func = cmd_usage },
         { .command = "rewards", .help = "corazones, racha, sellos y pasaporte (solo lectura)", .func = cmd_rewards },
+        { .command = "incupray", .help = "incupray [demo|stop|join|leave|hold <s>]: estado de la IncuPray", .func = cmd_incupray },
         { .command = "unpair", .help = "borra el incubator_id local", .func = cmd_unpair },
         { .command = "reboot", .help = "reinicia el panel", .func = cmd_reboot },
         { .command = "factory-reset", .help = "borra WiFi y ajustes; vuelve al onboarding",

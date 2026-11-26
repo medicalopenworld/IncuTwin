@@ -166,3 +166,16 @@ TEST_CASE("rewards: dias civiles seguidos", "[rewards]") {
     TEST_ASSERT_EQUAL_INT32(rw_day_of(2026, 2, 28) + 1, rw_day_of(2026, 3, 1));
     TEST_ASSERT_EQUAL_INT32(rw_day_of(2026, 12, 31) + 1, rw_day_of(2027, 1, 1));
 }
+
+TEST_CASE("rewards: corazones de la IncuPray fuera del tope y apuesta", "[rewards]") {
+    rw_state_t s; rw_init(&s); s.earned = 20; s.balance = 5;
+    rw_news_t n = rw_add(&s, 10);
+    TEST_ASSERT_EQUAL_UINT8(10, n.hearts);
+    TEST_ASSERT_TRUE(n.level_up); /* 30 ganados: Calorcito */
+    TEST_ASSERT_EQUAL_UINT16(15, s.balance);
+    TEST_ASSERT_TRUE(rw_spend(&s, 3));
+    TEST_ASSERT_EQUAL_UINT16(12, s.balance);
+    TEST_ASSERT_FALSE(rw_spend(&s, 20));
+    TEST_ASSERT_EQUAL_UINT16(12, s.balance);
+    TEST_ASSERT_EQUAL_UINT32(30, s.earned); /* gastar no baja lo ganado */
+}

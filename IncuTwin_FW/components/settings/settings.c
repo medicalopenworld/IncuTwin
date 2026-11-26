@@ -1,5 +1,7 @@
 #include "settings.h"
 
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
 
 #include "app_events.h"
@@ -144,4 +146,26 @@ int settings_local_hour(void)
     struct tm tm;
     localtime_r(&now, &tm);
     return tm.tm_hour;
+}
+
+/* ------------------------------------------------------------------ nombre */
+
+void settings_name(char *out, size_t n)
+{
+    if (!out || !n) return;
+    out[0] = 0;
+    if (!storage_get_str(STORAGE_NS_SETTINGS, "twin_name", out, n)) out[0] = 0;
+}
+
+void settings_set_name(const char *name)
+{
+    char cur[SETTINGS_NAME_BYTES];
+    settings_name(cur, sizeof(cur));
+    char val[SETTINGS_NAME_BYTES];
+    snprintf(val, sizeof(val), "%s", name ? name : "");
+    if (!strcmp(cur, val)) return;
+    if (val[0]) storage_set_str(STORAGE_NS_SETTINGS, "twin_name", val);
+    else storage_erase_key(STORAGE_NS_SETTINGS, "twin_name");
+    ESP_LOGI(TAG, "nombre de la IncuTwin %s", val[0] ? "puesto" : "borrado"); /* el nombre no va al log */
+    app_events_post(TWIN_EVT_NAME_CHANGED, NULL, 0);
 }

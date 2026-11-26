@@ -4,6 +4,7 @@
  *   - lo que vive el bebe (twin_notice_t): tocarla abre Notificaciones y vacia la cola;
  *   - recompensas (sello nuevo, subida de nivel, guirnalda; spec rewards): tocarla abre Corazones.
  *     No se guardan en Notificaciones.
+ *   - texto de la IncuPray (vispera, una hora antes, inicio, resumen): tocar la del inicio entra.
  * No sale en el splash, el onboarding, la despedida ni con el aviso o el teclado del nombre
  * abiertos: se encola y sale al cerrarse. Todo en la tarea de LVGL. */
 #include <stdio.h>
@@ -25,12 +26,14 @@ static const char *TAG = "aviso";
 #define QUEUE_LEN  8
 
 typedef enum { N_IDLE, N_IN, N_HOLD, N_OUT } notice_state_t;
-typedef enum { Q_NOTICE = 0, Q_SEAL, Q_LEVEL, Q_GARLAND } q_type_t;
+typedef enum { Q_NOTICE = 0, Q_SEAL, Q_LEVEL, Q_GARLAND, Q_TEXT } q_type_t;
+#define Q_TEXT_LEN 64
 
 typedef struct {
     uint8_t type; /* q_type_t */
     uint8_t arg;  /* bit de twin_notice_t (0..6), rw_seal_t o rw_level_t */
     uint8_t sex;  /* twin_sex_t del bebe (avisos del bebe) */
+    char txt[Q_TEXT_LEN]; /* Q_TEXT: el texto; arg = 1 si al tocarla se entra en la IncuPray */
 } q_item_t;
 
 static lv_obj_t *s_bar, *s_lbl;
@@ -40,6 +43,7 @@ static q_item_t s_queue[QUEUE_LEN];
 static uint8_t s_count;
 static bool s_blocked_logged;
 static uint8_t s_shown_type; /* q_type_t de la que se ve (a donde lleva el toque) */
+static uint8_t s_shown_arg;
 
 static void y_cb(void *var, int32_t v) { lv_obj_set_y((lv_obj_t *)var, v); }
 
@@ -92,7 +96,7 @@ static void reward_icon(const q_item_t *q)
     lv_obj_set_style_radius(c, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(c, COL_CARD, 0);
     lv_obj_set_style_border_width(c, 2, 0);
-    lv_obj_set_style_border_color(c, q->type == Q_GARLAND ? COL_OK : COL_CORAL, 0);
+    lv_obj_set_style_border_color(c, q->type == Q_GARLAND ? COL_OK : q->type == Q_TEXT ? COL_NAVY : COL_CORAL, 0);
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
@@ -118,9 +122,11 @@ static void show(const q_item_t *q)
     case Q_SEAL:    lv_label_set_text_fmt(s_lbl, tr(STR_RW_NEW_SEAL), ui_seal_name((rw_seal_t)q->arg)); break;
     case Q_LEVEL:   lv_label_set_text_fmt(s_lbl, tr(STR_RW_LEVEL_UP), ui_level_name((rw_level_t)q->arg)); break;
     case Q_GARLAND: lv_label_set_text(s_lbl, tr(STR_RW_GARLAND)); break;
+    case Q_TEXT:    lv_label_set_text(s_lbl, q->txt); break;
     default:        lv_label_set_text(s_lbl, ui_notice_text((twin_notice_t)(1u << q->arg))); break;
     }
     s_shown_type = q->type;
+    s_shown_arg = q->arg;
     ESP_LOGI(TAG, "franja: \"%s\" (quedan %u)", lv_label_get_text(s_lbl), (unsigned)s_count);
     lv_obj_set_y(s_bar, Y_HIDDEN);
     lv_obj_set_hidden(s_bar, false);
@@ -131,8 +137,9 @@ static void show(const q_item_t *q)
 static void bar_clicked_cb(lv_event_t *e)
 {
     (void)e;
-    bool reward = s_shown_type != Q_NOTICE;
-    ESP_LOGI(TAG, "franja tocada: %s, cola vaciada (%u)", reward ? "Corazones" : "Notificaciones", (unsigned)s_count);
+    bool reward = s_shown_type != Q_NOTICE && s_shown_type != Q_TEXT;
+    ESP_LOGI(TAG, "franja tocada: %s, cola vaciada (%u)",
+             s_shown_type == Q_TEXT ? "IncuPray" : reward ? "Corazones" : "Notificaciones", (unsigned)s_count);
     s_count = 0;
     lv_anim_delete(s_bar, y_cb);
     if (s_hold_timer) {
@@ -141,7 +148,10 @@ static void bar_clicked_cb(lv_event_t *e)
     }
     lv_obj_set_hidden(s_bar, true);
     s_state = N_IDLE;
-    if (reward) {
+    if (s_shown_type == Q_TEXT) {
+        ui_go(UI_TAB_HOME);
+        if (s_shown_arg) ui_incupray_open();
+    } else if (reward) {
         ui_go(UI_TAB_HEARTS);
         ui_hearts_show_top();
     } else {
@@ -204,6 +214,13 @@ void ui_notice_push_reward(uint8_t new_seals, bool level_up, uint8_t level, bool
     }
     if (level_up) enqueue((q_item_t){ .type = Q_LEVEL, .arg = level });
     if (garland) enqueue((q_item_t){ .type = Q_GARLAND });
+}
+
+void ui_notice_push_text(const char *txt, bool opens_incupray)
+{
+    q_item_t q = { .type = Q_TEXT, .arg = opens_incupray ? 1 : 0 };
+    snprintf(q.txt, sizeof(q.txt), "%s", txt ? txt : "");
+    enqueue(q);
 }
 
 void ui_notice_poll(bool blocked)

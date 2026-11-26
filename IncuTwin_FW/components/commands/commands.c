@@ -12,6 +12,7 @@
 #include "mqtt_link.h"
 #include "pairing.h"
 #include "settings.h"
+#include "incupray.h"
 #include "sound.h"
 #include "twin_model.h"
 
@@ -80,6 +81,10 @@ static void on_msg(void *arg, esp_event_base_t base, int32_t id, void *data)
     if (cmd_is_state_topic(m->topic, NULL)) {
         if (accompany_enabled()) accompany_ingest(m->payload, m->len); /* todas las IncuNest */
         else twin_model_ingest(m->payload, m->len);
+        return;
+    }
+    if (incupray_is_topic(m->topic)) {
+        incupray_ingest(m->topic, m->payload, m->len);
         return;
     }
     char name[CMD_NAME_MAX];

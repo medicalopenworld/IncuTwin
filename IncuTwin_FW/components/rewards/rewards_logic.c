@@ -176,6 +176,20 @@ rw_news_t rw_on_home(rw_state_t *s, uint32_t stay)
     return n;
 }
 
+rw_news_t rw_add(rw_state_t *s, uint8_t hearts)
+{
+    rw_news_t n = { 0 };
+    earn(s, &n, hearts);
+    return n;
+}
+
+bool rw_spend(rw_state_t *s, uint16_t n)
+{
+    if (s->balance < n) return false;
+    s->balance = (uint16_t)(s->balance - n);
+    return true;
+}
+
 bool rw_unlock(rw_state_t *s, rw_item_t item, uint16_t *missing)
 {
     if (missing) *missing = 0;

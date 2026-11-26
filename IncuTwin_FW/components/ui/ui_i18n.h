@@ -203,6 +203,25 @@ typedef enum {
     STR_OTA_DONT_UNPLUG,
     STR_OTA_RESTARTING,
     STR_OTA_FAILED,
+    STR_TWIN_NAME, /* nombre de la IncuTwin (Ajustes) */
+    STR_TWIN_NAME_HINT,
+    STR_IP_EVE, /* IncuPray (spec incupray): nunca habla de rezar */
+    STR_IP_HOUR,
+    STR_IP_START,
+    STR_IP_SUMMARY,
+    STR_IP_LEFT,
+    STR_IP_COUNT,
+    STR_IP_PICK,
+    STR_IP_NO_BABIES,
+    STR_IP_HOLD,
+    STR_IP_HEARTS,
+    STR_IP_STAKE,
+    STR_IP_FREE,
+    STR_IP_MAP,
+    STR_IP_EXIT,
+    STR_IP_THANKS,
+    STR_IP_THANKS_D,
+    STR_IP_THANKS_ALL,
     STR_COUNT
 } ui_str_t;
 

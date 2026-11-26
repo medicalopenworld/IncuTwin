@@ -290,6 +290,7 @@ static void refresh_cb(lv_timer_t *t)
         }
     }
     ui_ota_poll(); /* ventana de la actualizacion: cuando toca, y su barra de progreso */
+    ui_incupray_poll(); /* IncuPray: avisos, boton de Inicio y su pantalla (nada sin horario) */
     ui_nav_update(); /* tras el splash, el cambio de WiFi o el final del gesto */
     if (notices) ui_notice_push(notices, notice_sex);
     ui_notice_poll(notice_blocked()); /* tras ui_home_apply: overlay_active ya esta al dia */

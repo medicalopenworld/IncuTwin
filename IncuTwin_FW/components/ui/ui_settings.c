@@ -1,5 +1,6 @@
 /* Pantalla de ajustes (spec settings, hmi-navegacion-avisos): idioma, volumen, brillo, horario
- * nocturno ("De noche, sin sonido": interruptor y horas desde/hasta) y pie con el estado de la red,
+ * nocturno ("De noche, sin sonido": interruptor y horas desde/hasta), nombre de la IncuTwin
+ * (opcional; sin el se ve el numero de serie; spec incupray) y pie con el estado de la red,
  * la version y el boton WiFi (antes en Inicio): enseña la red y deja cambiarla. Sin tono de piel ni
  * numero de IncuNest. Sin boton "atras": la barra de navegacion de
  * abajo (y 280..320) lo sustituye; todo lo demas acaba por encima de ella. */
@@ -13,9 +14,13 @@
 #include "twin_model.h"
 #include "twin_logic.h"
 #include "ui_internal.h"
+#include "ui_name.h"
 #include "ui_onboarding.h"
 
 static lv_obj_t *s_scr, *s_body, *s_content;
+#define TWIN_NAME_MAX_CHARS 16
+#define CONTENT_H           380 /* mas alto que el hueco: el cuerpo hace scroll */
+static lv_obj_t *s_lbl_tname, *s_lbl_tname_val, *s_lbl_tname_hint;
 #define CUSTOM_ROW_H 0 /* sin fila extra: la tienda esta en Corazones */
 static lv_obj_t *s_lbl_title, *s_lbl_lang, *s_lbl_sound, *s_lbl_bright;
 static lv_obj_t *s_btn_es, *s_btn_en;
@@ -96,6 +101,29 @@ static void wifi_clicked(lv_event_t *e)
     ui_settings_wifi_dialog();
 }
 
+/* Nombre de la IncuTwin: el teclado del nombre del bebe en modo texto */
+static void tname_refresh(void)
+{
+    char name[SETTINGS_NAME_BYTES];
+    settings_name(name, sizeof(name));
+    lv_label_set_text(s_lbl_tname_val, name[0] ? name : identity_sn());
+    lv_obj_set_style_text_color(s_lbl_tname_val, name[0] ? COL_NAVY : COL_OFFLINE, 0);
+}
+
+static void tname_submit(const char *text)
+{
+    settings_set_name(text); /* vacio: se borra y vuelve el numero de serie */
+    tname_refresh();
+}
+
+static void tname_clicked(lv_event_t *e)
+{
+    (void)e;
+    char name[SETTINGS_NAME_BYTES];
+    settings_name(name, sizeof(name));
+    ui_name_edit_text(tr(STR_TWIN_NAME), name, TWIN_NAME_MAX_CHARS, tname_submit);
+}
+
 /* ----------------------------------------------------------- helpers */
 
 static lv_obj_t *toggle_button(lv_obj_t *parent, int32_t x, int32_t y, int32_t w, int32_t h,
@@ -149,8 +177,8 @@ static lv_obj_t *small_label(lv_obj_t *parent, int32_t x, int32_t y, lv_color_t 
 lv_obj_t *ui_settings_create(void)
 {
     s_scr = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(s_content, COL_BG, 0);
-    lv_obj_set_scrollable(s_content, false);
+    lv_obj_set_style_bg_color(s_scr, COL_BG, 0);
+    lv_obj_set_scrollable(s_scr, false);
 
     /* todo va en un cuerpo con scroll vertical hasta la barra de navegacion (por si crece) */
     s_body = lv_obj_create(s_scr);
@@ -163,7 +191,7 @@ lv_obj_t *ui_settings_create(void)
     lv_obj_set_scroll_dir(s_body, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_body, LV_SCROLLBAR_MODE_ACTIVE);
     s_content = lv_obj_create(s_body);
-    lv_obj_set_size(s_content, 240, UI_NAV_Y);
+    lv_obj_set_size(s_content, 240, CONTENT_H);
     lv_obj_set_pos(s_content, 0, CUSTOM_ROW_H);
     lv_obj_set_style_bg_opa(s_content, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_content, 0, 0);
@@ -228,15 +256,41 @@ lv_obj_t *ui_settings_create(void)
         lv_obj_set_pos(s_lbl_qval[i], x + 30, 217);
     }
 
-    /* pie, encima de la barra de navegacion: red y version a la izquierda, boton WiFi a la derecha
+    /* nombre de la IncuTwin: opcional, sin el se ve el numero de serie (gris) */
+    s_lbl_tname = section_label(s_content, 12, 248);
+    lv_obj_t *tb = lv_button_create(s_content);
+    lv_obj_set_size(tb, 216, 32);
+    lv_obj_set_pos(tb, 12, 266);
+    lv_obj_set_style_radius(tb, 10, 0);
+    lv_obj_set_style_bg_color(tb, COL_CARD, 0);
+    lv_obj_set_style_bg_color(tb, COL_BG_PHOTO, LV_STATE_PRESSED);
+    lv_obj_set_style_border_width(tb, 2, 0);
+    lv_obj_set_style_border_color(tb, COL_NAVY, 0);
+    lv_obj_set_style_shadow_width(tb, 0, 0);
+    lv_obj_set_style_pad_hor(tb, 10, 0);
+    lv_obj_add_event_cb(tb, tname_clicked, LV_EVENT_CLICKED, NULL);
+    s_lbl_tname_val = lv_label_create(tb);
+    lv_obj_set_width(s_lbl_tname_val, 170);
+    lv_label_set_long_mode(s_lbl_tname_val, LV_LABEL_LONG_MODE_DOTS);
+    lv_obj_set_style_text_font(s_lbl_tname_val, &lv_font_es_16, 0);
+    lv_obj_align(s_lbl_tname_val, LV_ALIGN_LEFT_MID, 0, 0);
+    lv_obj_t *pen = lv_label_create(tb);
+    lv_label_set_text(pen, LV_SYMBOL_EDIT);
+    lv_obj_set_style_text_font(pen, &lv_font_es_14, 0);
+    lv_obj_set_style_text_color(pen, COL_NAVY, 0);
+    lv_obj_align(pen, LV_ALIGN_RIGHT_MID, 0, 0);
+    s_lbl_tname_hint = small_label(s_content, 12, 302, COL_OFFLINE);
+    tname_refresh();
+
+    /* pie: red y version a la izquierda, boton WiFi a la derecha
      * (con las barras de cobertura; ambar = WiFi sin servidor) */
-    s_lbl_net = small_label(s_content, 12, 247, COL_NAVY_DARK);
+    s_lbl_net = small_label(s_content, 12, 330, COL_NAVY_DARK);
     lv_obj_set_width(s_lbl_net, 140);
-    s_lbl_ver = small_label(s_content, 12, 263, COL_OFFLINE);
+    s_lbl_ver = small_label(s_content, 12, 346, COL_OFFLINE);
     lv_obj_set_width(s_lbl_ver, 140);
     s_btn_wifi = lv_button_create(s_content);
     lv_obj_set_size(s_btn_wifi, 76, 32);
-    lv_obj_set_pos(s_btn_wifi, 152, 245);
+    lv_obj_set_pos(s_btn_wifi, 152, 328);
     lv_obj_set_style_radius(s_btn_wifi, 10, 0);
     lv_obj_set_style_bg_color(s_btn_wifi, COL_CARD, 0);
     lv_obj_set_style_bg_color(s_btn_wifi, COL_BG_PHOTO, LV_STATE_PRESSED);
@@ -276,6 +330,8 @@ void ui_settings_retranslate(void)
     lv_label_set_text(s_lbl_quiet, tr(STR_QUIET));
     lv_label_set_text(s_lbl_qcap[0], tr(STR_QUIET_FROM));
     lv_label_set_text(s_lbl_qcap[1], tr(STR_QUIET_TO));
+    lv_label_set_text(s_lbl_tname, tr(STR_TWIN_NAME));
+    lv_label_set_text(s_lbl_tname_hint, tr(STR_TWIN_NAME_HINT));
 }
 
 void ui_settings_update(const app_evt_settings_t *st)

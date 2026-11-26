@@ -110,6 +110,10 @@ bool rw_garland_season(int month, int mday); /* 1-dic .. 6-ene */
 rw_news_t rw_on_gesture(rw_state_t *s, const rw_gesture_t *g);
 rw_news_t rw_on_super(rw_state_t *s, bool time_valid, int32_t day);
 rw_news_t rw_on_home(rw_state_t *s, uint32_t stay);
+/* Corazones de la IncuPray: suman al saldo y al nivel fuera del tope diario */
+rw_news_t rw_add(rw_state_t *s, uint8_t hearts);
+/* Gasta `n` si hay saldo (la apuesta de la IncuPray); false y nada si no */
+bool rw_spend(rw_state_t *s, uint16_t n);
 
 /* Desbloquea (resta el precio) y elige; si ya estaba desbloqueado, solo elige. false si no hay
  * saldo (en *missing lo que falta), si es la guirnalda sin conseguir o un canje ya hecho. */

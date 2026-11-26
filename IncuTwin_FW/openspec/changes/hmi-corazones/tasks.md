@@ -46,6 +46,6 @@ Verificación en la IncuTwin de COM12: `test_apps` on-target y después el firmw
 ## 4. Verificación
 
 - [x] 4.1 `idf.py -C test_apps` en COM12: todos los tests en verde (146, 26-nov)
-- [ ] 4.2 `idf.py build` sin avisos nuevos y flash en COM12: gesto → «+1» y saldo; Logros con
+- [x] 4.2 `idf.py build` sin avisos nuevos y flash en COM12 (revisión visual OK de Pablo, 26-nov): gesto → «+1» y saldo; Logros con
       «Primera mano» y la bandera de la IncuNest; desbloquear Lavanda y verla en el halo; la demo
       no toca el saldo de verdad

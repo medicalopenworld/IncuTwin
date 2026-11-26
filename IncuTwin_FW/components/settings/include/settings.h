@@ -5,6 +5,8 @@
  * Seguras desde cualquier tarea. */
 #pragma once
 
+#include <stddef.h>
+
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -42,6 +44,13 @@ void settings_set_quiet_to(uint8_t hour);
 
 /* Hora local (0..23), o -1 si el reloj aún no está en hora (antes de 1700000000). */
 int settings_local_hour(void);
+
+/* Nombre de la IncuTwin (spec settings «Nombre de la IncuTwin», IncuPray): lo que se ve en la
+ * IncuPray; "" = sin nombre (se ve el numero de serie). Hasta SETTINGS_NAME_BYTES-1 bytes UTF-8.
+ * Cambiarlo publica TWIN_EVT_NAME_CHANGED. Se borra con el reset de fabrica. */
+#define SETTINGS_NAME_BYTES 49
+void settings_name(char *out, size_t n);
+void settings_set_name(const char *name);
 
 #ifdef __cplusplus
 }

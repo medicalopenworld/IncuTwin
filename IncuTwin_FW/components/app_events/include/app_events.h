@@ -57,6 +57,10 @@ typedef enum {
     /* ota_update -> ui: hay una OTA lista para descargar; la UI abre su ventana y llama a
      * ota_update_go() (spec ota-update). data: ninguno */
     TWIN_EVT_OTA_PENDING,
+    /* settings -> cloud_status: cambio el nombre de la IncuTwin (status lo lleva). data: ninguno */
+    TWIN_EVT_NAME_CHANGED,
+    /* incupray -> ui: cambio el horario, live, summary o la participacion. data: ninguno */
+    TWIN_EVT_INCUPRAY,
 } app_event_id_t;
 
 typedef enum {
