@@ -119,6 +119,7 @@ void ui_go(ui_tab_t tab);
 /* Telemetria `screen` (filtrada): id = UI_TAB_* o los paneles extra de Inicio */
 #define UI_TEL_MAP    10
 #define UI_TEL_STREAK 11
+#define UI_TEL_SHOP   12
 void ui_tel_screen(int id);
 /* Id de telemetria del panel que ensena Inicio ahora: UI_TAB_HOME (bebe), UI_TEL_MAP o UI_TEL_STREAK */
 int ui_tel_home_id(void);

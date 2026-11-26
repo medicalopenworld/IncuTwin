@@ -453,6 +453,7 @@ static void back_clicked(lv_event_t *e)
     } else {
         lv_obj_set_hidden(s_root, true);
         lv_obj_clean(s_grid); /* suelta los bebes de las tarjetas (PSRAM) */
+        ui_tel_screen(UI_TAB_HEARTS); /* vuelve a Corazones */
     }
 }
 
@@ -576,6 +577,7 @@ void ui_shop_open(void)
     s_try_item = RW_ITEM_COUNT;
     lv_obj_set_hidden(s_root, false);
     lv_obj_move_foreground(s_root);
+    ui_tel_screen(UI_TEL_SHOP);
     ui_shop_refresh();
 }
 
@@ -625,6 +627,7 @@ void ui_shop_debug(int tab, bool girl, int try_item, bool buy)
     s_girl = girl;
     lv_obj_set_hidden(s_root, false);
     lv_obj_move_foreground(s_root);
+    ui_tel_screen(UI_TEL_SHOP);
     s_try_item = try_item >= 0 && try_item < RW_ITEM_COUNT ? (rw_item_t)try_item : RW_ITEM_COUNT;
     lv_obj_scroll_to_y(s_grid, 0, LV_ANIM_OFF);
     ui_shop_refresh();

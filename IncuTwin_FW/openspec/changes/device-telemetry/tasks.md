@@ -231,7 +231,7 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
 | `rewards.c`, tras cada operación real (no demo) | copia `before`, opera, `tel_rewards_diff(&before, &after, &news, why, …)` con `why` = `gesture`, `super`, `home`, `incupray`; `redeem {"item":"named_incunest"}` al canjear |
 | `accompany.c`, en el gesto | `gesture {"sec":n,"inc":"<id>","super":0/1}` |
 | `accompany.c`, con `ACC_R_PHASE` o `ACC_R_SWITCH` | `acc {"phase":"…","inc":"<id o "">","prev_inc":"…"}` |
-| `ui_nav.c` `tab_clicked` y `ui_pages.c` al cambiar de panel | `screen {"p":"home|map|streak|hearts|notices|history|settings"}` filtrado con `tel_screen_should_log` |
+| `ui_nav.c` `tab_clicked` y `ui_pages.c` al cambiar de panel | `screen {"p":"home|map|streak|shop|hearts|notices|history|settings"}` filtrado con `tel_screen_should_log`; `shop` (`UI_TEL_SHOP`) lo registra `ui_shop_open`/`ui_shop_debug` y al cerrarla con atrás se registra `hearts` |
 | `ui_onboarding.c` `show_step` | `onboard {"step":"connect|wifi_try|server|done"}` |
 | `settings.c` en cada `settings_set_*` con valor distinto | `setting {"key":"lang|vol|bright|quiet_on|quiet_from|quiet_to","val":n}` |
 | `demo_mode` al entrar y salir | `telemetry_set_demo()`, `demo {"ev":"on"}` / `{"ev":"off","dur_s":n}`, `demo_n++` |

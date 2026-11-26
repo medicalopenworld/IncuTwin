@@ -71,7 +71,8 @@ void ui_tel_screen(int id)
     static int s_last_page = -1;
     static uint32_t s_last_ms;
     const char *name = id >= 0 && id < UI_TAB_COUNT ? names[id] : id == UI_TEL_MAP ? "map" :
-                       id == UI_TEL_STREAK ? "streak" : NULL;
+                       id == UI_TEL_STREAK ? "streak" :
+                       id == UI_TEL_SHOP ? "shop" : NULL;
     if (!name || !tel_screen_should_log(id, lv_tick_get(), &s_last_page, &s_last_ms)) return;
     char d[32];
     snprintf(d, sizeof d, "{\"p\":\"%s\"}", name);
