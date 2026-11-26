@@ -10,11 +10,17 @@ Roles:
               e incupray/# (%c = client id; requiere Mosquitto >= 2.1.2, en la 2.0.22 no funcionaba)
   thingsboard publishClientSend incubators/# e incutwin/+/cmd/history (historial retenido,
               spec tb-stay-history; cliente: lo crea infra con su contrasena)
-  gateway     subscribePattern incutwin/+/status, hand, metrics y redeem · publishClientSend
+  gateway     subscribePattern incutwin/+/status, hand y redeem · publishClientSend
               incutwin/+/cmd/# (IoT Gateway de ThingsBoard, §9; cliente: lo crea infra)
+  collector   solo lectura: subscribePattern incutwin/+/status, metrics, ev, hand, incupray y
+              redeem e incubators/+/state (recolector de analitica de incutwin-app, spec
+              telemetry-events; sin ACL de publicacion)
   publisher   publishClientSend incutwin/+/cmd/# e incupray/# · subscribePattern incutwin/+/status,
               incutwin/+/incupray e incubators/# (la API de la IncuPray, hasta que tenga su cliente)
 Clientes:
+  collector   igual que publisher, con MQTT_COLLECTOR_PASS (usuario MQTT_COLLECTOR_USER, por
+              defecto collector). Su sesion persistente necesita en el broker `persistence true` y
+              `max_queued_messages` alto (p. ej. 100000); ver BROKER-MQTT-CONTEXT.md §4.
   publisher   si MQTT_PUB_PASS esta vacio/RELLENAR en broker.env se genera una contrasena y se
               escribe ahi (el fichero es local y esta en .gitignore).
 Necesita MQTT_ADMIN_PASS en tools/factory/secrets/broker.env.
@@ -44,13 +50,23 @@ ROLES = {
         ("publishClientSend", "incubators/#"),
         ("publishClientSend", "incutwin/+/cmd/history"),  # spec tb-stay-history
     ],
-    # IoT Gateway de ThingsBoard (§9): lee estado, «Coge mi mano», metricas y canjes; manda RPC
+    # IoT Gateway de ThingsBoard (§9): lee estado, «Coge mi mano» y canjes; manda RPC.
+    # `metrics` ya no va por aqui: la analitica la lee el recolector (rol collector).
     "gateway": [
         ("subscribePattern", "incutwin/+/status"),
         ("subscribePattern", "incutwin/+/hand"),
-        ("subscribePattern", "incutwin/+/metrics"),  # spec device-metrics
         ("subscribePattern", "incutwin/+/redeem"),   # «Una IncuNest con tu nombre»
         ("publishClientSend", "incutwin/+/cmd/#"),
+    ],
+    # Recolector de analitica (incutwin-app, docs/analitica.md): solo lee, no publica nada
+    "collector": [
+        ("subscribePattern", "incutwin/+/status"),
+        ("subscribePattern", "incutwin/+/metrics"),  # spec device-metrics
+        ("subscribePattern", "incutwin/+/ev"),       # spec telemetry-events
+        ("subscribePattern", "incutwin/+/hand"),
+        ("subscribePattern", "incutwin/+/incupray"),
+        ("subscribePattern", "incutwin/+/redeem"),
+        ("subscribePattern", "incubators/+/state"),
     ],
     "publisher": [
         ("publishClientSend", "incutwin/+/cmd/#"),
@@ -119,6 +135,7 @@ def main():
         for user, role, env_key in (
             (env.get("MQTT_PUB_USER", "publisher"), "publisher", "MQTT_PUB_PASS"),
             (env.get("MQTT_TB_USER", "thingsboard"), "thingsboard", "MQTT_TB_PASS"),
+            (env.get("MQTT_COLLECTOR_USER", "collector"), "collector", "MQTT_COLLECTOR_PASS"),
         ):
             pwd = env.get(env_key, "")
             if user in clients:
