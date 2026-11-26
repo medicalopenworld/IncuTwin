@@ -1,4 +1,5 @@
 /* Telemetria: eventos, lotes, diff de recompensas y filtro de pantallas (spec telemetry-events). */
+#include <stdio.h>
 #include <string.h>
 
 #include "rewards_tel.h"
@@ -150,6 +151,32 @@ TEST_CASE("tel: diff compra", "[telemetry]") {
     TEST_ASSERT_EQUAL_INT(1, r.n);
     TEST_ASSERT_EQUAL_STRING("spend", r.kind[0]);
     TEST_ASSERT_EQUAL_STRING("{\"item\":1,\"price\":15,\"bal\":25}", r.d[0]);
+}
+
+/* El diff toma la anchura de unlocked/seals del propio campo: el ultimo articulo y el ultimo sello
+ * validos se ven sea cual sea el tipo (la tienda ensancha unlocked a uint64_t con ~26 articulos). */
+TEST_CASE("tel: diff compra del ultimo articulo y ultimo sello", "[telemetry]") {
+    rw_state_t b, a; rw_init(&b); a = b;
+    b.earned = 900; b.balance = 900;
+    a.earned = 900; a.balance = 10;
+    const int top = RW_ITEM_COUNT - 1;
+    a.unlocked |= (__typeof__(a.unlocked))((__typeof__(a.unlocked))1 << top);
+    rec_t r = { 0 };
+    tel_rewards_diff(&b, &a, NULL, "buy", sink_rec, &r);
+    TEST_ASSERT_EQUAL_INT(1, r.n);
+    TEST_ASSERT_EQUAL_STRING("spend", r.kind[0]);
+    char want[64];
+    snprintf(want, sizeof want, "{\"item\":%d,\"price\":%u,\"bal\":10}", top, (unsigned)rw_price((rw_item_t)top));
+    TEST_ASSERT_EQUAL_STRING(want, r.d[0]);
+
+    rw_state_t c = b;
+    c.seals |= (__typeof__(c.seals))((__typeof__(c.seals))1 << (RW_SEAL_COUNT - 1));
+    memset(&r, 0, sizeof r);
+    tel_rewards_diff(&b, &c, NULL, "home", sink_rec, &r);
+    TEST_ASSERT_EQUAL_INT(1, r.n);
+    TEST_ASSERT_EQUAL_STRING("seal", r.kind[0]);
+    snprintf(want, sizeof want, "{\"id\":%d}", RW_SEAL_COUNT - 1);
+    TEST_ASSERT_EQUAL_STRING(want, r.d[0]);
 }
 
 TEST_CASE("tel: diff apuesta sin desbloqueo no es compra", "[telemetry]") {
