@@ -61,6 +61,9 @@ typedef enum {
     TWIN_EVT_NAME_CHANGED,
     /* incupray -> ui: cambio el horario, live, summary o la participacion. data: ninguno */
     TWIN_EVT_INCUPRAY,
+    /* mqtt_link -> telemetry: el broker confirmo (PUBACK) un publish QoS 1 hecho con
+     * mqtt_link_publish_id(). data: app_evt_puback_t */
+    TWIN_EVT_MQTT_PUBACK,
 } app_event_id_t;
 
 typedef enum {
@@ -78,6 +81,10 @@ typedef struct {
 typedef struct {
     bool connected;
 } app_evt_mqtt_t;
+
+typedef struct {
+    int msg_id; /* el que devolvio mqtt_link_publish_id() */
+} app_evt_puback_t;
 
 #define APP_EVT_TOPIC_MAX   96
 #define APP_EVT_PAYLOAD_MAX 1024
