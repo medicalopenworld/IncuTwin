@@ -15,7 +15,6 @@
 #include "identity.h"
 #include "net_wifi.h"
 #include "settings.h"
-#include "sdkconfig.h"
 #include "sound.h"
 #include "storage.h"
 #include "telemetry.h"
@@ -138,6 +137,7 @@ static void tel_acc_locked(uint32_t r)
     static int s_last_phase = -1;
     static char s_last_cur[TWIN_INCUBATOR_ID_LEN];
     if (!(r & (ACC_R_PHASE | ACC_R_SWITCH))) return;
+    if (twin_model_demo_active()) return; /* en la demo no se anota ni se actualiza lo ultimo visto */
     int ph = (int)acc_phase(&s_acc);
     const char *cur = acc_current(&s_acc);
     if (ph == s_last_phase && strcmp(cur, s_last_cur) == 0) return;
@@ -149,16 +149,6 @@ static void tel_acc_locked(uint32_t r)
     s_last_phase = ph;
     strncpy(s_last_cur, cur, sizeof s_last_cur - 1);
     s_last_cur[sizeof s_last_cur - 1] = '\0';
-}
-
-/* Telemetria `gesture`: el gesto aceptado (con bebe elegido). sec = dedo acumulado al completarlo
- * (el minimo configurado; 180 s en el super corazon): accompany no recibe la duracion real. */
-static void tel_gesture_locked(unsigned sec, bool super)
-{
-    char a[TWIN_INCUBATOR_ID_LEN + 1], d[96];
-    snprintf(d, sizeof d, "{\"sec\":%u,\"inc\":\"%s\",\"super\":%d}", sec,
-             tel_id(acc_current(&s_acc), a, sizeof a), super ? 1 : 0);
-    telemetry_log("gesture", d);
 }
 
 static void handle_locked(uint32_t r)
@@ -199,7 +189,6 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
     uint32_t r = 0;
     if (in == APP_ACC_GESTURE) {
         r = acc_gesture(&s_acc, day);
-        if (r) tel_gesture_locked(CONFIG_INCUTWIN_HAND_MIN_S, false);
         if (r && day == ACC_NO_DAY) {
             s_gesture_pending = true;
             s_gesture_at = now_s();
@@ -209,7 +198,6 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
         }
     } else if (in == APP_ACC_SUPER) {
         r = acc_super(&s_acc, day);
-        if (r) tel_gesture_locked(ACC_SUPER_S, true);
         if (r && day == ACC_NO_DAY) {
             s_gesture_pending = s_super_pending = true;
             s_gesture_at = now_s();

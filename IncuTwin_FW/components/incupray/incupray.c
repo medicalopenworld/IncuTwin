@@ -254,6 +254,7 @@ bool incupray_join(uint16_t *paid)
         rw_state_t r;
         rewards_copy(&r, NULL);
         uint16_t stake = ip_stake(r.balance);
+        /* la apuesta (rewards_spend) no emite evento de telemetria, a proposito */
         if (stake && rewards_spend(stake)) sv->paid = (uint8_t)stake;
         if (paid) *paid = sv->paid;
         if (!s_demo) snprintf(s_saved.summary_seen, sizeof(s_saved.summary_seen), "%s", s_saved.id);

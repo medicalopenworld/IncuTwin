@@ -29,6 +29,7 @@
 #include "rewards.h"
 #include "sdkconfig.h"
 #include "sound.h"
+#include "telemetry.h"
 #include "twin_logic.h"
 #include "ui_internal.h"
 #include "ui_name.h"
@@ -100,6 +101,14 @@ static bool s_farewell;
 #define FAREWELL_TOUCH_MIN_MS 5000 /* que no la cierre un toque fantasma nada mas salir */
 
 static void hold_refresh(bool force);
+
+/* Telemetria `gesture`: UN evento por mano puesta, al terminar (el gesto y el super corazon son el
+ * mismo dedo). Solo si llego a contar como gesto fuera de la demo y con Acompañar encendido;
+ * sec = dedo acumulado real, guardado en cada tick para no perderlo al volver a reposo. */
+static bool s_tel_gesture;
+static uint32_t s_tel_ms;
+static char s_tel_inc[TWIN_INCUBATOR_ID_LEN];
+
 static void row_apply(bool shown);
 static void scr_bg_restore(void);
 static void overlay_refresh(void);
@@ -994,6 +1003,18 @@ static void hold_refresh(bool force)
 
     if (hh_take_send(&s_hh)) app_events_post(TWIN_EVT_HAND_HOLD, NULL, 0);
 
+    if (s_tel_gesture) {
+        if (!idle) {
+            s_tel_ms = hh_held_ms(&s_hh, now);
+        } else { /* fin de la mano (soltar, cambio de pantalla, demo...): el evento sale una vez */
+            char d[96];
+            snprintf(d, sizeof d, "{\"sec\":%lu,\"inc\":\"%s\",\"super\":%d}", (unsigned long)(s_tel_ms / 1000),
+                     s_tel_inc, s_super_sent ? 1 : 0);
+            telemetry_log("gesture", d);
+            s_tel_gesture = false;
+        }
+    }
+
     if (st == HH_DONE && s_hh_shown == HH_HOLDING) {
         /* primer gesto del dia: un corazon vuela a la racha (acompañar o demo) */
         bool demo = s_have_last && s_last.demo;
@@ -1007,6 +1028,20 @@ static void hold_refresh(bool force)
         if (s_have_last && !s_last.demo) { /* modo acompañar: hoy cuenta (si esta apagado, nada) */
             app_evt_acc_input_t in = APP_ACC_GESTURE;
             app_events_post(TWIN_EVT_ACC_INPUT, &in, sizeof(in));
+            if (s_last.acc != TWIN_ACC_OFF) {
+                s_tel_gesture = true;
+                s_tel_ms = hh_held_ms(&s_hh, now);
+                s_tel_inc[0] = '\0'; /* id solo si es apto para JSON sin escapar */
+                const char *id = s_last.link.paired ? s_last.link.incubator_id : "";
+                size_t i = 0;
+                for (; id[i] && i + 1 < sizeof s_tel_inc; i++) {
+                    char c = id[i];
+                    if (!((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' ||
+                          c == '_' || c == '-')) break;
+                    s_tel_inc[i] = c;
+                }
+                s_tel_inc[id[i] ? 0 : i] = '\0';
+            }
         }
     }
     if (force || (int)st != s_hh_shown || baby_view != shown_view) {

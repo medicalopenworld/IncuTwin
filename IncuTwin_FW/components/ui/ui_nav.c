@@ -12,8 +12,7 @@
 
 #include "assets.h"
 #include "esp_log.h"
-#include "storage.h"
-#include "telemetry.h"
+#include "demo_mode.h"
 #include "ui_internal.h"
 
 static const char *TAG = "nav";
@@ -35,11 +34,7 @@ static void tab_clicked(lv_event_t *e)
 static void reset_confirmed(lv_event_t *e)
 {
     (void)e;
-    char d[40];
-    snprintf(d, sizeof d, "{\"gen\":%lu}", (unsigned long)telemetry_gen());
-    telemetry_log("reset", d);
-    telemetry_flush_now(2000); /* bloquea a lo sumo 2 s: la pantalla ya no importa, se va a borrar */
-    storage_factory_reset();
+    demo_mode_factory_reset(); /* sale de la demo, registra `reset`, envia y borra */
 }
 
 /* La que antes colgaba de la rueda de Inicio */

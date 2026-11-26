@@ -17,6 +17,9 @@ void demo_mode_start(void);
  * estado no hace nada. Tambien la usa la consola. */
 void demo_mode_set(bool on);
 
+/* Restablecimiento de fabrica: sale de la demo, registra `reset`, envia y borra (no vuelve). */
+void demo_mode_factory_reset(void);
+
 #ifdef __cplusplus
 }
 #endif

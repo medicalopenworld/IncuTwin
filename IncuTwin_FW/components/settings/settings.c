@@ -46,13 +46,7 @@ static void bright_timer_cb(void *arg)
 
 static void bright_tel_schedule(void)
 {
-    if (!s_bright_timer) {
-        const esp_timer_create_args_t a = { .callback = bright_timer_cb, .name = "tel_bright" };
-        if (esp_timer_create(&a, &s_bright_timer) != ESP_OK) {
-            s_bright_timer = NULL;
-            return;
-        }
-    }
+    if (!s_bright_timer) return; /* sin temporizador (fallo en settings_init): no se registra el brillo */
     esp_timer_stop(s_bright_timer); /* ESP_ERR_INVALID_STATE si no corria: da igual */
     esp_timer_start_once(s_bright_timer, BRIGHT_TEL_MS * 1000ULL);
 }
@@ -107,6 +101,11 @@ void settings_init(void)
     }
     board_backlight_set(s_bright);
     s_bright_logged = s_bright;
+    const esp_timer_create_args_t ta = { .callback = bright_timer_cb, .name = "tel_bright" };
+    if (esp_timer_create(&ta, &s_bright_timer) != ESP_OK) {
+        s_bright_timer = NULL;
+        ESP_LOGW(TAG, "sin temporizador de telemetria del brillo");
+    }
     ESP_LOGI(TAG, "lang=%s vol=%u bright=%u%% quiet=%u %u-%u", s_lang ? "en" : "es", s_vol, s_bright,
              s_q_on, s_q_from, s_q_to);
 }

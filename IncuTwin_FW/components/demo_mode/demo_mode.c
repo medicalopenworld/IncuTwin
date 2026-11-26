@@ -9,6 +9,7 @@
 #include "esp_timer.h"
 #include "scenarios.h"
 #include "sound.h"
+#include "storage.h"
 #include "telemetry.h"
 #include "twin_model.h"
 
@@ -46,6 +47,19 @@ void demo_mode_set(bool on)
         incupray_demo_stop();
         twin_model_demo_exit();
     }
+}
+
+/* Restablecimiento de fabrica con telemetria: sale antes de la demo (si no, telemetry_log solo deja
+ * pasar `demo` y el `reset` se perderia), registra `reset` con el gen actual, guarda y envia lo
+ * pendiente (espera < 2 s) y borra. Lo usan la UI (pulsacion larga en Ajustes) y la consola. */
+void demo_mode_factory_reset(void)
+{
+    demo_mode_set(false);
+    char d[40];
+    snprintf(d, sizeof d, "{\"gen\":%lu}", (unsigned long)telemetry_gen());
+    telemetry_log("reset", d);
+    telemetry_flush_now(2000);
+    storage_factory_reset();
 }
 
 static void apply_idx(size_t idx)

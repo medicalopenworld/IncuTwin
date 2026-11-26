@@ -148,11 +148,7 @@ static int cmd_reboot(int argc, char **argv)
 static int cmd_factory_reset(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    char d[40];
-    snprintf(d, sizeof d, "{\"gen\":%lu}", (unsigned long)telemetry_gen());
-    telemetry_log("reset", d);
-    telemetry_flush_now(2000);
-    storage_factory_reset();
+    demo_mode_factory_reset();
     return 0;
 }
 
