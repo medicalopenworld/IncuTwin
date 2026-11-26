@@ -13,7 +13,9 @@
  * Toda cabecera sana cuenta para el seq mas alto y la posicion de escritura, sea de la version que
  * sea. Solo se envian los de ver 1 con su CRC bien; si `len` no coincide con tel_event_t se rellena
  * con ceros o se recorta (anadir campos al final o crecer `d` no cambia `ver`; cambiar el
- * significado de los bytes si). Un registro a medias por un corte de luz se ignora.
+ * significado de los bytes si). Ejemplo: tel_event_t paso de 192 a 200 B al anadir al final
+ * `gen` y `boot` (identidad del lote); un registro de 192 B se lee con gen = boot = 0.
+ * Un registro a medias por un corte de luz se ignora.
  * Un sector se borra justo antes de reutilizarlo. La cola guarda como mucho TEL_QUEUE_CAP
  * pendientes (menos si la flash es pequena); al pasarse descarta el mas viejo y suma `lost`.
  * No es reentrante: el que llama serializa el acceso (p. ej. con un mutex).

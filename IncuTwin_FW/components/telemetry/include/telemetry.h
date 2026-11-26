@@ -36,7 +36,7 @@ void telemetry_init(void);
 void telemetry_start(void);
 
 /* Registra un evento. kind: 1..11 caracteres [a-z_] (si no, se descarta con un aviso). d_json:
- * objeto JSON de < 160 B ("{...}", sin caracteres de control); NULL = "{}"; si no es valido se
+ * objeto JSON de < 160 B ("{...}", sin caracteres de control); NULL = "{}" (sin aviso); si no es valido se
  * sustituye por "{}" con un aviso. Seguro desde cualquier tarea; no bloquea. Con la demo activa
  * solo pasa kind "demo". Antes de telemetry_init() no hace nada. */
 void telemetry_log(const char *kind, const char *d_json);

@@ -3,14 +3,17 @@
  * Tarea "telemetry" (duena unica de s_q, s_peek, s_batch y del estado del lote en vuelo):
  *   1. abre la cola de flash (130-190 ms) al empezar, no en app_main;
  *   2. en cada vuelta (aviso o 1 s): pasa los eventos de la cola RAM a la flash numerandolos,
- *      atiende los avisos de control (MQTT arriba/abajo, PUBACK, flush, demo), vence el lote en
- *      vuelo sin PUBACK y decide si toca enviar.
- * Los demas solo tocan s_evq / s_ctlq (colas FreeRTOS, sin esperar) y leen contadores.
+ *      mira si hay sesion con el broker (mqtt_link_connected(), no depende de ningun aviso),
+ *      atiende los avisos de control (PUBACK, flush), guarda demo_n, vence el lote en vuelo sin
+ *      PUBACK, decide si toca enviar y publica sus contadores (pending, lost, next_seq).
+ * Los demas solo tocan s_evq / s_ctlq (colas FreeRTOS, sin esperar), contadores atomicos y el
+ * aviso de la tarea; nunca tel_queue_*.
  *
  * Lote en vuelo: como mucho uno. Se recuerda su msg_id y su seq mas alto; solo el PUBACK de ese
- * msg_id lo confirma (tel_queue_ack_through + NVS tel/acked). Los PUBACK llegan como aviso de
- * control por la misma tarea, asi que el id ya esta anotado cuando se procesan aunque el broker
- * conteste antes de que vuelva mqtt_link_publish_id().
+ * msg_id lo confirma (tel_queue_ack_through + NVS tel/acked). El handler de PUBACK solo encola los
+ * del lote en vuelo (o todos mientras se publica, con s_inflight_id = ID_PUBLISHING), asi que los
+ * PUBACK de status, metrics, IncuPray... no llenan la cola de control. Se procesan en esta tarea:
+ * el id ya esta anotado aunque el broker conteste antes de que vuelva mqtt_link_publish_id().
  */
 #include "telemetry.h"
 
@@ -45,7 +48,10 @@ static const char *TAG = "tel";
 #define KEY_DEMO_N "demo_n"
 
 #define EVQ_LEN          32                    /* eventos en RAM esperando a la tarea */
-#define CTLQ_LEN         8
+#define CTLQ_LEN         16
+#define ID_NONE          (-1)                  /* s_inflight_id: ningun lote en vuelo */
+#define ID_PUBLISHING    0                     /* publicando: aun no se sabe el id (esp-mqtt da > 0) */
+#define RAMFULL_LOG_US   (10LL * 1000000LL)    /* aviso de cola RAM llena: uno cada 10 s */
 #define TICK_MS          1000
 #define SEND_AFTER_US    (60LL * 1000000LL)    /* 60 s tras el primer evento sin enviar */
 #define PUBACK_WAIT_US   (30LL * 1000000LL)    /* sin PUBACK en 30 s: el lote no llego */
@@ -62,7 +68,7 @@ typedef struct {   /* evento en la cola RAM: lo que se sabe al registrarlo */
     char     d[TEL_D_MAX];
 } msg_t;
 
-typedef enum { CTL_MQTT_UP = 1, CTL_MQTT_DOWN, CTL_PUBACK, CTL_FLUSH, CTL_DEMO_ON } ctl_kind_t;
+typedef enum { CTL_PUBACK = 1, CTL_FLUSH } ctl_kind_t;
 
 typedef struct {
     uint8_t kind;  /* ctl_kind_t */
@@ -76,13 +82,19 @@ static SemaphoreHandle_t s_flush_sem;
 static TaskHandle_t s_task;
 static const esp_partition_t *s_part;
 
-/* --- compartido: escribe una tarea, leen otras (32 bits alineados) */
-static volatile bool s_demo;
-static volatile uint32_t s_demo_n;
-static volatile uint32_t s_drops;      /* perdidos fuera de tel_queue (RAM llena, flash) */
+/* --- compartido: escribe una tarea, leen otras (32 bits alineados; los de varios escritores con
+ * __atomic) */
+static volatile bool s_demo;           /* __atomic_exchange_n en telemetry_set_demo */
+static volatile uint32_t s_demo_n;     /* solo la tarea lo escribe */
+static volatile uint32_t s_demo_add;   /* entradas en la demo aun sin guardar (atomico) */
+static volatile uint32_t s_drops;      /* perdidos fuera de tel_queue (RAM llena, flash; atomico) */
+static volatile uint32_t s_ramfull_n;  /* perdidos por RAM llena desde el ultimo aviso (atomico) */
+static volatile int64_t s_ramfull_us;  /* ultimo aviso de RAM llena (carrera inocua) */
+static volatile bool s_started;        /* telemetry_start(): se envia */
 static volatile bool s_open;
 static volatile uint32_t s_open_ms;
-static volatile int s_inflight_id = -1;
+static volatile uint32_t s_pub_pending, s_pub_lost, s_pub_next; /* copias de la tarea */
+static volatile int s_inflight_id = ID_NONE;
 static volatile uint32_t s_inflight_first, s_inflight_last;
 static volatile int64_t s_inflight_us;
 static volatile bool s_connected;
@@ -197,8 +209,10 @@ static void send_batch(int64_t now)
     }
     char topic[80];
     snprintf(topic, sizeof(topic), "incutwin/%s/ev", mqtt_link_client_id());
+    s_inflight_id = ID_PUBLISHING; /* el handler deja pasar los PUBACK hasta saber el id */
     int id = mqtt_link_publish_id(topic, s_batch, (size_t)len, 1, false);
     if (id <= 0) {
+        s_inflight_id = ID_NONE;
         ESP_LOGW(TAG, "lote no enviado (sin sesion): se reintenta");
         s_retry_us = now + RETRY_US;
         return;
@@ -224,7 +238,7 @@ static void send_batch(int64_t now)
 
 static void maybe_send(void)
 {
-    if (!s_open || !s_connected || s_inflight_id >= 0) return;
+    if (!s_open || !s_connected || s_inflight_id != ID_NONE) return;
     uint32_t pend = tel_queue_pending(&s_q);
     if (!pend) {
         s_send_now = false;
@@ -275,9 +289,11 @@ static void drain_events(void)
     while (xQueueReceive(s_evq, &m, 0) == pdTRUE) push(&m);
 }
 
-/* Evento de la propia tarea (net): detras de los que esperan en RAM. */
+/* Evento de la propia tarea (net): detras de los que esperan en RAM. Con la demo, como
+ * telemetry_log, solo pasa "demo". */
 static void log_here(const char *kind, const char *d)
 {
+    if (s_demo && strcmp(kind, "demo") != 0) return;
     msg_t m;
     memset(&m, 0, sizeof(m));
     m.t = epoch_or_0();
@@ -290,36 +306,68 @@ static void log_here(const char *kind, const char *d)
 
 /* -------------------------------------------------------------- control */
 
+/* Sesion nueva: un lote de la anterior no cuenta (vuelve a salir); net si se estuvo >= 10 min
+ * sin broker. */
+static void conn_up(int64_t now)
+{
+    s_connected = true;
+    int64_t off_s = (now - s_offline_us) / 1000000LL;
+    if (off_s >= NET_OFF_MIN_S) {
+        char d[32];
+        snprintf(d, sizeof(d), "{\"off_s\":%" PRId64 "}", off_s);
+        log_here("net", d);
+    }
+    s_inflight_id = ID_NONE;
+    s_send_now = true;
+    s_retry_us = 0;
+}
+
+static void conn_down(int64_t now)
+{
+    s_connected = false;
+    s_offline_us = now;
+    if (s_inflight_id != ID_NONE) {
+        ESP_LOGW(TAG, "sesion caida con el lote %d en vuelo (seq %" PRIu32 "..%" PRIu32 "): se reenviara",
+                 s_inflight_id, s_inflight_first, s_inflight_last);
+        s_inflight_id = ID_NONE;
+    }
+    flush_done();
+}
+
+/* El estado de la sesion se lee de mqtt_link en cada vuelta: ningun aviso perdido puede dejar la
+ * telemetria parada. Una caida y vuelta entre dos vueltas no se ve: el lote en vuelo, si lo hay,
+ * vence a los 30 s y se reenvia. */
+static void sync_conn(void)
+{
+    if (!s_started) return;
+    bool up = mqtt_link_connected();
+    if (up == s_connected) return;
+    int64_t now = esp_timer_get_time();
+    if (up) conn_up(now);
+    else conn_down(now);
+}
+
+static void save_demo_n(void)
+{
+    uint32_t add = __atomic_exchange_n(&s_demo_add, 0, __ATOMIC_RELAXED);
+    if (!add) return;
+    s_demo_n = s_demo_n + add;
+    storage_set_u32(STORAGE_NS_TEL, KEY_DEMO_N, s_demo_n);
+}
+
+static void publish_counters(void)
+{
+    if (!s_open) return;
+    s_pub_pending = tel_queue_pending(&s_q);
+    s_pub_lost = tel_queue_lost(&s_q);
+    s_pub_next = tel_queue_next_seq(&s_q);
+}
+
 static void on_ctl(const ctl_t *c)
 {
-    int64_t now = esp_timer_get_time();
     switch (c->kind) {
-    case CTL_MQTT_UP: {
-        if (s_connected) break; /* repetido (telemetry_start y el evento a la vez) */
-        s_connected = true;
-        int64_t off_s = (now - s_offline_us) / 1000000LL;
-        if (off_s >= NET_OFF_MIN_S) {
-            char d[32];
-            snprintf(d, sizeof(d), "{\"off_s\":%" PRId64 "}", off_s);
-            log_here("net", d);
-        }
-        s_inflight_id = -1; /* un lote de la sesion anterior no cuenta: vuelve a salir */
-        s_send_now = true;
-        s_retry_us = 0;
-        break;
-    }
-    case CTL_MQTT_DOWN:
-        if (s_connected) s_offline_us = now;
-        s_connected = false;
-        if (s_inflight_id >= 0) {
-            ESP_LOGW(TAG, "sesion caida con el lote %d en vuelo (seq %" PRIu32 "..%" PRIu32 "): se reenviara",
-                     s_inflight_id, s_inflight_first, s_inflight_last);
-            s_inflight_id = -1;
-        }
-        flush_done();
-        break;
     case CTL_PUBACK:
-        if (s_inflight_id < 0 || c->arg != s_inflight_id) {
+        if (s_inflight_id <= ID_PUBLISHING || c->arg != s_inflight_id) {
             ESP_LOGD(TAG, "PUBACK %d ajeno: se ignora", c->arg);
             break;
         }
@@ -328,7 +376,7 @@ static void on_ctl(const ctl_t *c)
         storage_set_u32(STORAGE_NS_TEL, KEY_ACKED, s_acked);
         ESP_LOGI(TAG, "PUBACK %d: confirmados hasta seq %" PRIu32 ", quedan %" PRIu32, c->arg, s_inflight_last,
                  tel_queue_pending(&s_q));
-        s_inflight_id = -1;
+        s_inflight_id = ID_NONE;
         s_send_now = true; /* si quedan, el siguiente lote sale ya */
         if (s_flush_wait && (s_acked >= s_flush_seq || tel_queue_pending(&s_q) == 0)) flush_done();
         break;
@@ -343,10 +391,6 @@ static void on_ctl(const ctl_t *c)
             s_send_now = true;
         }
         break;
-    case CTL_DEMO_ON:
-        s_demo_n = s_demo_n + 1;
-        storage_set_u32(STORAGE_NS_TEL, KEY_DEMO_N, s_demo_n);
-        break;
     default:
         break;
     }
@@ -357,23 +401,28 @@ static void post_ctl(uint8_t kind, int arg)
     if (!s_ctlq) return;
     ctl_t c = { .kind = kind, .arg = arg };
     if (xQueueSend(s_ctlq, &c, 0) != pdTRUE) {
-        /* PUBACK perdido: lo cubre la espera de 30 s; MQTT: el siguiente cambio lo corrige */
+        /* PUBACK perdido: lo cubre la espera de 30 s; flush: el que llama deja de esperar a su hora */
         ESP_LOGW(TAG, "cola de control llena: aviso %u perdido", kind);
         return;
     }
     if (s_task) xTaskNotifyGive(s_task);
 }
 
+/* Solo despierta a la tarea: el estado lo lee ella de mqtt_link_connected(). */
 static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
-    (void)arg; (void)base; (void)id;
-    post_ctl(((const app_evt_mqtt_t *)data)->connected ? CTL_MQTT_UP : CTL_MQTT_DOWN, 0);
+    (void)arg; (void)base; (void)id; (void)data;
+    if (s_task) xTaskNotifyGive(s_task);
 }
 
+/* Solo los del lote en vuelo (o cualquiera mientras se publica y aun no se sabe el id). */
 static void on_puback(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
     (void)arg; (void)base; (void)id;
-    post_ctl(CTL_PUBACK, ((const app_evt_puback_t *)data)->msg_id);
+    int mid = ((const app_evt_puback_t *)data)->msg_id;
+    int cur = s_inflight_id;
+    if (cur == ID_NONE || (cur != ID_PUBLISHING && mid != cur)) return;
+    post_ctl(CTL_PUBACK, mid);
 }
 
 /* ---------------------------------------------------------------- tarea */
@@ -397,18 +446,22 @@ static void tel_task(void *arg)
                  s_open_ms, tel_queue_pending(&s_q), tel_queue_next_seq(&s_q), s_acked, s_gen, s_boot);
         if (tel_queue_pending(&s_q)) s_unsent_us = esp_timer_get_time();
     }
+    publish_counters();
     for (;;) {
         ulTaskNotifyTake(pdTRUE, pdMS_TO_TICKS(TICK_MS));
         drain_events();
+        sync_conn();
         ctl_t c;
         while (xQueueReceive(s_ctlq, &c, 0) == pdTRUE) on_ctl(&c);
-        if (s_inflight_id >= 0 && esp_timer_get_time() - s_inflight_us >= PUBACK_WAIT_US) {
+        save_demo_n();
+        if (s_inflight_id > ID_PUBLISHING && esp_timer_get_time() - s_inflight_us >= PUBACK_WAIT_US) {
             ESP_LOGW(TAG, "sin PUBACK del lote %d en 30 s (seq %" PRIu32 "..%" PRIu32 "): se reenvia",
                      s_inflight_id, s_inflight_first, s_inflight_last);
-            s_inflight_id = -1;
+            s_inflight_id = ID_NONE;
             s_send_now = true;
         }
         maybe_send();
+        publish_counters();
     }
 }
 
@@ -511,7 +564,8 @@ void telemetry_start(void)
     if (!s_task) return;
     app_events_subscribe(TWIN_EVT_MQTT, on_mqtt, NULL);
     app_events_subscribe(TWIN_EVT_MQTT_PUBACK, on_puback, NULL);
-    if (mqtt_link_connected()) post_ctl(CTL_MQTT_UP, 0); /* por si ya conecto */
+    s_started = true;
+    xTaskNotifyGive(s_task); /* por si ya conecto */
 }
 
 /* ------------------------------------------------------------------- API */
@@ -535,7 +589,13 @@ void telemetry_log(const char *kind, const char *d_json)
     strncpy(m.d, d_json ? d_json : "{}", sizeof(m.d));
     if (xQueueSend(s_evq, &m, 0) != pdTRUE) {
         drops_add(1);
-        ESP_LOGW(TAG, "cola RAM llena: evento %s perdido", kind);
+        __atomic_fetch_add(&s_ramfull_n, 1, __ATOMIC_RELAXED);
+        int64_t now = esp_timer_get_time();
+        if (s_ramfull_us == 0 || now - s_ramfull_us >= RAMFULL_LOG_US) {
+            s_ramfull_us = now;
+            uint32_t n = __atomic_exchange_n(&s_ramfull_n, 0, __ATOMIC_RELAXED);
+            ESP_LOGW(TAG, "cola RAM llena: %" PRIu32 " eventos perdidos (ultimo %s)", n, kind);
+        }
         return;
     }
     if (s_task) xTaskNotifyGive(s_task);
@@ -543,24 +603,26 @@ void telemetry_log(const char *kind, const char *d_json)
 
 void telemetry_set_demo(bool on)
 {
-    bool was = s_demo;
-    s_demo = on;
-    if (on && !was) post_ctl(CTL_DEMO_ON, 0);
+    bool was = __atomic_exchange_n(&s_demo, on, __ATOMIC_SEQ_CST);
+    if (on && !was) {
+        __atomic_fetch_add(&s_demo_add, 1, __ATOMIC_RELAXED); /* la tarea lo guarda en NVS */
+        if (s_task) xTaskNotifyGive(s_task);
+    }
 }
 
 uint32_t telemetry_gen(void) { return s_gen; }
 uint32_t telemetry_boot(void) { return s_boot; }
-uint32_t telemetry_demo_count(void) { return s_demo_n; }
+uint32_t telemetry_demo_count(void) { return s_demo_n + s_demo_add; }
 
 uint32_t telemetry_pending(void)
 {
     uint32_t ram = s_evq ? (uint32_t)uxQueueMessagesWaiting(s_evq) : 0;
-    return (s_open ? tel_queue_pending(&s_q) : 0) + ram;
+    return s_pub_pending + ram;
 }
 
 uint32_t telemetry_lost(void)
 {
-    return s_drops + (s_open ? tel_queue_lost(&s_q) : 0);
+    return s_drops + s_pub_lost;
 }
 
 void telemetry_flush_now(uint32_t wait_ms)
@@ -582,12 +644,12 @@ void telemetry_print_status(void)
     uint32_t ram = (uint32_t)uxQueueMessagesWaiting(s_evq);
     printf("gen %" PRIu32 "  boot_n %" PRIu32 "  next_seq %" PRIu32 "  pending %" PRIu32 "  lost %" PRIu32
            "  acked %" PRIu32 "\n",
-           s_gen, s_boot, s_open ? tel_queue_next_seq(&s_q) : 0, telemetry_pending(), telemetry_lost(), s_acked);
+           s_gen, s_boot, s_pub_next, telemetry_pending(), telemetry_lost(), s_acked);
     printf("cola %s (%" PRIu32 " ms)  ram %" PRIu32 "/%d  broker %s  demo %s (demo_n %" PRIu32 ")\n",
            s_open ? "abierta" : (s_part ? "abriendo" : "sin particion"), s_open_ms, ram, EVQ_LEN,
-           s_connected ? "si" : "no", s_demo ? "si" : "no", s_demo_n);
+           s_connected ? "si" : "no", s_demo ? "si" : "no", telemetry_demo_count());
     int id = s_inflight_id;
-    if (id >= 0) {
+    if (id > ID_PUBLISHING) {
         printf("en vuelo: msg_id %d, seq %" PRIu32 "..%" PRIu32 ", hace %" PRId64 " s\n", id, s_inflight_first,
                s_inflight_last, (esp_timer_get_time() - s_inflight_us) / 1000000LL);
     } else {
