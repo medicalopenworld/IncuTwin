@@ -17,7 +17,6 @@
 #include "incupray.h"
 #include "rewards.h"
 #include "sdkconfig.h"
-#include "storage.h"
 #include "telemetry.h"
 #include "twin_model.h"
 #include "usage_stats.h"
