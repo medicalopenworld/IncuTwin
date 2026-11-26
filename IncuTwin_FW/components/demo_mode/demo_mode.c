@@ -34,9 +34,9 @@ void demo_mode_set(bool on)
 {
     if (on == twin_model_demo_active()) return;
     if (on) {
+        telemetry_set_demo(true); /* antes de entrar: ningun evento real se cuela entremedias */
         twin_model_demo_enter();
         s_on_us = esp_timer_get_time();
-        telemetry_set_demo(true);
         telemetry_log("demo", "{\"ev\":\"on\"}");
     } else {
         char d[40];
