@@ -252,6 +252,10 @@ Cliente MQTT con `esp-mqtt` (ESP-IDF) o la capa equivalente del framework que us
 - OTA (`esp_https_ota`) desde la primera versión, disparada por `cmd/ota`, con verificación sha256.
 - Si la IncuTwin lleva ≥ 10 min sin conexión al broker, mostrarlo en pantalla; el estado retenido
   la pone al día al reconectar.
+- Telemetría de uso (`incutwin/<id>/ev`, cambio `device-telemetry`): la cola vive en la partición
+  `storage`, que **nunca** se borra en fábrica ni al reacondicionar (si se borra, `seq` vuelve a
+  empezar y el recolector descarta los eventos nuevos como duplicados). `boot_n` y `demo_n` cuentan
+  toda la vida de la IncuTwin, a través de dueños; `gen` separa dueños.
 
 ## 7. Prueba de extremo a extremo (sin ThingsBoard ni firmware)
 

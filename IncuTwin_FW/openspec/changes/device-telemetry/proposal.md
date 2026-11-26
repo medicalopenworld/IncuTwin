@@ -45,3 +45,16 @@ Lo recibe el recolector del VPS (`incutwin-app/docs/superpowers/plans/2026-11-26
 - IncuPray (cambio `incupray`, aún sin implementar) debe llamar a `telemetry_log("incupray", …)`.
 - Broker: rol `collector` (lo añade el plan del recolector, tarea 7).
 - Depende de `hmi-corazones` commiteado en `feat/acompanar`.
+
+## Operación (fábrica y reacondicionado)
+
+- La partición `storage` **nunca** se borra en fábrica ni al reacondicionar una IncuTwin (nada de
+  `esptool erase_flash` ni `erase_region` sobre ella; para empezar de cero basta
+  `storage_factory_reset()` o borrar la `nvs`). En ella vive la cola con el `seq` más alto: si se
+  borra, `seq` vuelve a empezar y el recolector descarta como duplicados (por cliente y `seq`) todos
+  los eventos nuevos hasta pasar el último que ya tenía.
+- Si se borra la `nvs` y `storage` no, el firmware sube `gen` al más alto de la cola y `boot_n` a uno
+  más que el más alto: no vuelven atrás.
+- `boot_n` y `demo_n` (NVS `tel`) cuentan toda la vida de la IncuTwin, a través de dueños: el
+  restablecimiento de fábrica no los pone a 0. Para «arranques o demos de este dueño», filtrar por
+  `gen` en el recolector.
