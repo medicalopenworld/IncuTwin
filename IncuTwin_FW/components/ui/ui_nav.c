@@ -8,9 +8,12 @@
  * debajo y la barra se queda quieta. Se esconde fuera de nuestras pantallas (splash, cambio de WiFi)
  * y en la despedida y el final de «Coge mi mano» (ui_nav_update). Los dialogos y el teclado del
  * nombre se crean despues, tambien en la capa superior, y la tapan. */
+#include <stdio.h>
+
 #include "assets.h"
 #include "esp_log.h"
 #include "storage.h"
+#include "telemetry.h"
 #include "ui_internal.h"
 
 static const char *TAG = "nav";
@@ -32,6 +35,10 @@ static void tab_clicked(lv_event_t *e)
 static void reset_confirmed(lv_event_t *e)
 {
     (void)e;
+    char d[40];
+    snprintf(d, sizeof d, "{\"gen\":%lu}", (unsigned long)telemetry_gen());
+    telemetry_log("reset", d);
+    telemetry_flush_now(2000); /* bloquea a lo sumo 2 s: la pantalla ya no importa, se va a borrar */
     storage_factory_reset();
 }
 

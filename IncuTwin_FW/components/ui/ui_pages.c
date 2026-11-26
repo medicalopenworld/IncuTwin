@@ -197,6 +197,7 @@ static void slide_to(int pos, bool animate)
 {
     s_pos = pos;
     s_page = s_order[pos];
+    if (animate) ui_tel_screen(s_page == UI_PAGE_MAP ? UI_TEL_MAP : s_page == UI_PAGE_STREAK ? UI_TEL_STREAK : UI_TAB_HOME);
     int page = pos;
     for (int i = 1; i < UI_PAGES_COUNT; i++) {
         int pi = pos_of(i);

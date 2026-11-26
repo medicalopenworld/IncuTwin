@@ -7,6 +7,7 @@
 
 #include "app_events.h"
 #include "board.h"
+#include "demo_mode.h"
 #include "esp_app_desc.h"
 #include "esp_console.h"
 #include "esp_log.h"
@@ -92,14 +93,14 @@ static int cmd_rewards(int argc, char **argv)
 static int cmd_incupray(int argc, char **argv)
 {
     if (argc >= 2 && !strcmp(argv[1], "demo")) {
-        if (!twin_model_demo_active()) twin_model_demo_enter();
+        demo_mode_set(true);
         incupray_demo_start();
         printf("IncuPray de la demo: 3 min\n");
         return 0;
     }
     if (argc >= 2 && !strcmp(argv[1], "stop")) {
         incupray_demo_stop();
-        if (twin_model_demo_active()) twin_model_demo_exit();
+        demo_mode_set(false);
         printf("demo cortada\n");
         return 0;
     }
@@ -147,6 +148,10 @@ static int cmd_reboot(int argc, char **argv)
 static int cmd_factory_reset(int argc, char **argv)
 {
     (void)argc; (void)argv;
+    char d[40];
+    snprintf(d, sizeof d, "{\"gen\":%lu}", (unsigned long)telemetry_gen());
+    telemetry_log("reset", d);
+    telemetry_flush_now(2000);
     storage_factory_reset();
     return 0;
 }
@@ -176,11 +181,11 @@ static int cmd_sim_state(int argc, char **argv)
         return 1;
     }
     if (!strcmp(argv[1], "demo-on")) { /* la demo de verdad se activa con pulsacion larga */
-        twin_model_demo_enter();
+        demo_mode_set(true);
         return 0;
     }
     if (!strcmp(argv[1], "demo-off")) {
-        twin_model_demo_exit();
+        demo_mode_set(false);
         return 0;
     }
     twin_model_ingest(argv[1], strlen(argv[1]));

@@ -1,4 +1,7 @@
 #include "demo_mode.h"
+
+#include <stdio.h>
+
 #include "incupray.h"
 
 #include "board.h"
@@ -6,6 +9,7 @@
 #include "esp_timer.h"
 #include "scenarios.h"
 #include "sound.h"
+#include "telemetry.h"
 #include "twin_model.h"
 
 static const char *TAG = "demo";
@@ -20,6 +24,29 @@ static bool s_raw_last;
 static uint32_t s_raw_since_ms;
 static uint32_t s_press_start_ms;
 static bool s_long_done;
+
+/* Entra o sale de la demo y lo registra: dentro de la demo telemetry solo deja pasar `demo`.
+ * Entrar: set_demo(true) y luego `on`; salir: `off` (con la duracion) y luego set_demo(false). */
+static int64_t s_on_us;
+
+void demo_mode_set(bool on)
+{
+    if (on == twin_model_demo_active()) return;
+    if (on) {
+        twin_model_demo_enter();
+        s_on_us = esp_timer_get_time();
+        telemetry_set_demo(true);
+        telemetry_log("demo", "{\"ev\":\"on\"}");
+    } else {
+        char d[40];
+        snprintf(d, sizeof d, "{\"ev\":\"off\",\"dur_s\":%lu}",
+                 (unsigned long)((esp_timer_get_time() - s_on_us) / 1000000));
+        telemetry_log("demo", d);
+        telemetry_set_demo(false);
+        incupray_demo_stop();
+        twin_model_demo_exit();
+    }
+}
 
 static void apply_idx(size_t idx)
 {
@@ -46,11 +73,10 @@ static void on_short(void)
 static void on_long(void)
 {
     if (twin_model_demo_active()) {
-        incupray_demo_stop();
-        twin_model_demo_exit();
+        demo_mode_set(false);
         ESP_LOGI(TAG, "OFF");
     } else {
-        twin_model_demo_enter();
+        demo_mode_set(true);
         s_idx = 0;
         apply_idx(s_idx);
         ESP_LOGI(TAG, "ON");

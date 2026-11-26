@@ -8,5 +8,5 @@ idf_component_register(
     PRIV_REQUIRES espressif__esp_lvgl_port assets twin_types twin_model settings identity
                   usage_stats sound app_events board storage captive_portal net_wifi hand_hold world_map accompany
                   baby_name event_log stay_log rewards ota_update incupray
-                  esp_app_format esp_system esp_timer heap
+                  esp_app_format esp_system esp_timer heap telemetry
 )

@@ -1,5 +1,6 @@
 #include "ui.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "assets.h"
@@ -13,6 +14,8 @@
 #include "freertos/semphr.h"
 #include "settings.h"
 #include "sound.h"
+#include "tel_logic.h"
+#include "telemetry.h"
 #include "twin_model.h"
 #include "ui_internal.h"
 #include "ui_name.h"
@@ -60,6 +63,21 @@ static void history_show(void)
     s_history_ms = lv_tick_get();
 }
 
+/* Telemetria `screen`: un solo filtro para pestañas y paneles (no repite la misma en < 5 s).
+ * id: UI_TAB_* (0..4) o UI_TEL_MAP / UI_TEL_STREAK; el panel del bebe es la pestaña Inicio. */
+void ui_tel_screen(int id)
+{
+    static const char *const names[] = { "home", "notices", "hearts", "history", "settings" };
+    static int s_last_page = -1;
+    static uint32_t s_last_ms;
+    const char *name = id >= 0 && id < UI_TAB_COUNT ? names[id] : id == UI_TEL_MAP ? "map" :
+                       id == UI_TEL_STREAK ? "streak" : NULL;
+    if (!name || !tel_screen_should_log(id, lv_tick_get(), &s_last_page, &s_last_ms)) return;
+    char d[32];
+    snprintf(d, sizeof d, "{\"p\":\"%s\"}", name);
+    telemetry_log("screen", d);
+}
+
 void ui_go(ui_tab_t tab)
 {
     if (tab == s_tab || tab >= UI_TAB_COUNT) return;
@@ -67,6 +85,7 @@ void ui_go(ui_tab_t tab)
     lv_screen_load_anim_t anim = tab > s_tab ? LV_SCR_LOAD_ANIM_MOVE_LEFT : LV_SCR_LOAD_ANIM_MOVE_RIGHT;
     ESP_LOGI(TAG, "pantalla: %s -> %s", TAB_NAME[s_tab], TAB_NAME[tab]);
     s_tab = tab;
+    ui_tel_screen((int)tab);
     ui_nav_set_active(tab);
     if (tab == UI_TAB_NOTICES) notices_show();
     if (tab == UI_TAB_HISTORY) history_show();

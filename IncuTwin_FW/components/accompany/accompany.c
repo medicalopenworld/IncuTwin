@@ -1,5 +1,6 @@
 #include "accompany.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
@@ -14,8 +15,10 @@
 #include "identity.h"
 #include "net_wifi.h"
 #include "settings.h"
+#include "sdkconfig.h"
 #include "sound.h"
 #include "storage.h"
+#include "telemetry.h"
 #include "twin_logic.h"
 #include "twin_model.h"
 
@@ -109,8 +112,58 @@ static void apply_current_locked(void)
     if (i >= 0 && s_store[i].len) twin_model_ingest(s_store[i].json, s_store[i].len);
 }
 
+/* id de IncuNest apto para ir en un JSON sin escapar ([A-Za-z0-9._-]); si no, el campo va vacio */
+static const char *tel_id(const char *id, char *out, size_t n)
+{
+    size_t i = 0;
+    for (; id[i]; i++) {
+        char c = id[i];
+        bool ok = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '.' ||
+                  c == '_' || c == '-';
+        if (!ok || i + 1 >= n) {
+            out[0] = '\0';
+            return out;
+        }
+        out[i] = c;
+    }
+    out[i] = '\0';
+    return out;
+}
+
+/* Telemetria `acc`: una vez por cambio real de fase o de IncuNest actual (PHASE/SWITCH tambien
+ * saltan por cambios de lo que se presenta, sin cambio de fase). */
+static void tel_acc_locked(uint32_t r)
+{
+    static const char *const names[] = { "off", "searching", "waiting", "with", "ending", "farewell" };
+    static int s_last_phase = -1;
+    static char s_last_cur[TWIN_INCUBATOR_ID_LEN];
+    if (!(r & (ACC_R_PHASE | ACC_R_SWITCH))) return;
+    int ph = (int)acc_phase(&s_acc);
+    const char *cur = acc_current(&s_acc);
+    if (ph == s_last_phase && strcmp(cur, s_last_cur) == 0) return;
+    char a[TWIN_INCUBATOR_ID_LEN + 1], b[TWIN_INCUBATOR_ID_LEN + 1];
+    char d[128];
+    snprintf(d, sizeof d, "{\"phase\":\"%s\",\"inc\":\"%s\",\"prev_inc\":\"%s\"}",
+             ph >= 0 && ph < 6 ? names[ph] : "off", tel_id(cur, a, sizeof a), tel_id(s_last_cur, b, sizeof b));
+    telemetry_log("acc", d);
+    s_last_phase = ph;
+    strncpy(s_last_cur, cur, sizeof s_last_cur - 1);
+    s_last_cur[sizeof s_last_cur - 1] = '\0';
+}
+
+/* Telemetria `gesture`: el gesto aceptado (con bebe elegido). sec = dedo acumulado al completarlo
+ * (el minimo configurado; 180 s en el super corazon): accompany no recibe la duracion real. */
+static void tel_gesture_locked(unsigned sec, bool super)
+{
+    char a[TWIN_INCUBATOR_ID_LEN + 1], d[96];
+    snprintf(d, sizeof d, "{\"sec\":%u,\"inc\":\"%s\",\"super\":%d}", sec,
+             tel_id(acc_current(&s_acc), a, sizeof a), super ? 1 : 0);
+    telemetry_log("gesture", d);
+}
+
 static void handle_locked(uint32_t r)
 {
+    tel_acc_locked(r);
     if (r & ACC_R_SWITCH) apply_current_locked();
     if (r & ACC_R_SAVE) save_locked();
     if (r & ACC_R_REMIND) {
@@ -146,6 +199,7 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
     uint32_t r = 0;
     if (in == APP_ACC_GESTURE) {
         r = acc_gesture(&s_acc, day);
+        if (r) tel_gesture_locked(CONFIG_INCUTWIN_HAND_MIN_S, false);
         if (r && day == ACC_NO_DAY) {
             s_gesture_pending = true;
             s_gesture_at = now_s();
@@ -155,6 +209,7 @@ static void on_input(void *arg, esp_event_base_t base, int32_t id, void *data)
         }
     } else if (in == APP_ACC_SUPER) {
         r = acc_super(&s_acc, day);
+        if (r) tel_gesture_locked(ACC_SUPER_S, true);
         if (r && day == ACC_NO_DAY) {
             s_gesture_pending = s_super_pending = true;
             s_gesture_at = now_s();

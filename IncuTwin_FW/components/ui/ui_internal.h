@@ -106,6 +106,10 @@ void ui_nav_update(void);
 /* Desliza 220 ms a la pantalla de `tab` (a la izquierda si su indice sube); al entrar en
  * Notificaciones marca los avisos como vistos. */
 void ui_go(ui_tab_t tab);
+/* Telemetria `screen` (filtrada): id = UI_TAB_* o los paneles extra de Inicio */
+#define UI_TEL_MAP    10
+#define UI_TEL_STREAK 11
+void ui_tel_screen(int id);
 
 /* Dialogo modal con nuestras fuentes (la de LVGL no tiene ¿ ni acentos), 208 px de ancho,
  * boton de cierre y un boton de accion que recibe `user_data`. Devuelve el msgbox. */

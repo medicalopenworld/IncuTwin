@@ -13,6 +13,7 @@
 #include "net_wifi.h"
 #include "rewards.h"
 #include "storage.h"
+#include "telemetry.h"
 
 static const char *TAG = "incupray";
 
@@ -88,9 +89,26 @@ static void track_locked(const char *id)
 
 /* ------------------------------------------------------------- broker */
 
-static void publish_participation_locked(const char *why)
+/* Telemetria `incupray`: ev = join|leave|close (NULL = el aviso periodico, sin evento). held_s y
+ * hearts son los acumulados de esa IncuPray; los corazones ya salen como `heart` (why incupray)
+ * desde rewards, aqui solo se resume. Nunca en la demo (s_demo ya corta antes). */
+static void tel_incupray(const char *ev)
+{
+    for (const char *c = s_saved.id; *c; c++) {
+        bool ok = (*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z') || (*c >= '0' && *c <= '9') ||
+                  *c == '.' || *c == '_' || *c == '-';
+        if (!ok) return; /* id raro: sin escapar no se registra */
+    }
+    char d[120];
+    snprintf(d, sizeof d, "{\"id\":\"%s\",\"ev\":\"%s\",\"held_s\":%lu,\"hearts\":%u}", s_saved.id, ev,
+             (unsigned long)s_saved.held_s, (unsigned)s_saved.hearts);
+    telemetry_log("incupray", d);
+}
+
+static void publish_participation_locked(const char *why, const char *tel_ev)
 {
     if (s_demo || !s_saved.joined) return;
+    if (tel_ev) tel_incupray(tel_ev);
     char topic[80], p[IP_PARTICIPATION_MAX + 1];
     int n = ip_participation_build(p, sizeof(p), s_saved.id, s_saved.held_s, s_saved.hearts);
     if (n < 0) return;
@@ -102,12 +120,12 @@ static void report_cb(void *arg)
 {
     (void)arg;
     LOCK();
-    if (s_in && !s_demo) publish_participation_locked("cada minuto");
+    if (s_in && !s_demo) publish_participation_locked("cada minuto", NULL);
     /* la ventana se ha cerrado: fuera */
     const ip_window_t *w = win();
     if (s_in && w && !s_demo && ip_phase(w, epoch_now()) == IP_AFTER) {
         s_in = false;
-        publish_participation_locked("cierre");
+        publish_participation_locked("cierre", "close");
     }
     UNLOCK();
 }
@@ -242,7 +260,7 @@ bool incupray_join(uint16_t *paid)
         save_locked();
         ESP_LOGI(TAG, "dentro de la IncuPray %s (apuesta %u)", sv->id, sv->paid);
     }
-    publish_participation_locked("al entrar");
+    publish_participation_locked("al entrar", "join");
     UNLOCK();
     notify();
     return first;
@@ -252,7 +270,7 @@ void incupray_leave(void)
 {
     if (!s_mutex) return;
     LOCK();
-    if (s_in) publish_participation_locked("al salir");
+    if (s_in) publish_participation_locked("al salir", "leave");
     s_in = false;
     if (s_demo) { /* la demo acaba al salir */
         s_demo = false;
