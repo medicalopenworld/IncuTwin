@@ -15,6 +15,8 @@ Hace:
   2. Anade a la rule chain raiz un nodo "rule chain" hacia ella, conectado desde el Message Type
      Switch en: Post telemetry, Post attributes, Activity Event, Inactivity Event.
   3. Pone incutwin_enabled=true e inactivityTimeout=180000 en las incubadoras de --enable.
+     Desde el 26-nov-2026 el filtro deja pasar a toda IncuNest salvo las que tengan
+     incutwin_enabled=false (duplicadas antiguas por SN y sin SN): las nuevas publican solas.
   4. Si existe la cadena IncuTwin_history (tb/tb_apply_history.py), conecta los eventos
      baby_in/baby_back/baby_out a ella: una copia por panel de itw_panels (spec tb-stay-history).
 No toca ningun otro nodo ni dispositivo.
@@ -71,7 +73,7 @@ def chain_metadata(rc_id, hist_id=None, mqtt=None):
             "serverAttributeNames": ["incutwin_enabled"], "latestTsKeyNames": [], "getLatestValueWithTs": False, "fetchTo": "METADATA"}, 1, 150, 200,
            "Solo lee un atributo (cacheado). Las 353 incubadoras pasan por aquí; solo las habilitadas siguen."),
       node("filter.TbJsFilterNode", "filtro incutwin_enabled",
-           {"scriptLang": "JS", "jsScript": "return metadata.ss_incutwin_enabled === 'true';", "tbelScript": "return metadata.ss_incutwin_enabled == 'true';"}, 0, 400, 200),
+           {"scriptLang": "JS", "jsScript": "return metadata.ss_incutwin_enabled !== 'false';", "tbelScript": "return metadata.ss_incutwin_enabled != 'false';"}, 0, 400, 200),
       node("metadata.TbGetAttributesNode", "estado previo + SN",
            {"tellFailureIfAbsent": False,
             "clientAttributeNames": ["baby_seq", "baby_admission_epoch", "baby_kangaroo_count", "baby_thermo_min", "baby_phototherapy_min", "baby_name", "baby_weight_g", "baby_sex"],

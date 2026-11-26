@@ -197,6 +197,14 @@ flashear. Y `pair.sh <serie> <incubator_id>` / `unpair.sh`. Más adelante, la Cl
 
 ## 5. Lado ThingsBoard (repo IncuNest / rule chains)
 
+**Qué IncuNest publican** (26-nov-2026): todas, salvo las que tengan el atributo de servidor
+`incutwin_enabled=false`. El filtro de la cadena `IncuNest_IncuTwin_state` pasó de «solo las que lo
+tienen a true» a «todas menos las que lo tienen a false», así que una IncuNest nueva publica su
+estado sin hacer nada. Ese día se puso a true en 284 y a false en 90 (87 dispositivos antiguos con
+un SN repetido —solo publica el de actividad más reciente— y los que no tienen SN). Listas y copia
+de la cadena anterior en `handoff/telemetria-2026-11-26/` (fuera de git). Las IncuTwin siguen
+descartando por su cuenta las de España, las de país desconocido y las que no tienen bebé.
+
 Objetivo: rule chain "IncuNest events" que termine en un nodo **MQTT** (External → "mqtt",
 existe en Community) publicando en `mosquitto:1883`.
 
