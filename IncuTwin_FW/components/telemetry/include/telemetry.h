@@ -57,7 +57,8 @@ uint32_t telemetry_demo_count(void); /* NVS tel/demo_n */
  * sesion y espera su PUBACK como mucho wait_ms (bloquea al que llama). */
 void telemetry_flush_now(uint32_t wait_ms);
 
-/* Comando de consola `tel`: gen, boot_n, next_seq, pending, lost y lote en vuelo. */
+/* Comando de consola `tel`: gen, boot_n, next_seq, pending, lost, lote en vuelo y pila libre minima
+ * de la tarea telemetry y de esp_timer. */
 void telemetry_print_status(void);
 
 #ifdef __cplusplus

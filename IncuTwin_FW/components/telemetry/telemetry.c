@@ -679,4 +679,9 @@ void telemetry_print_status(void)
     } else {
         printf("en vuelo: ninguno\n");
     }
+    /* Pila: lo minimo que ha quedado libre desde el arranque (en ESP-IDF, en bytes). esp_timer
+     * publica la foto de metrics desde su callback: se mira tras uno de esos envios. */
+    TaskHandle_t tmr = xTaskGetHandle("esp_timer");
+    printf("pila libre min: telemetry %u/%d B  esp_timer %u/%d B\n", (unsigned)uxTaskGetStackHighWaterMark(s_task),
+           TASK_STACK, tmr ? (unsigned)uxTaskGetStackHighWaterMark(tmr) : 0u, CONFIG_ESP_TIMER_TASK_STACK_SIZE);
 }
