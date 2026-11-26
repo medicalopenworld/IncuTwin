@@ -257,33 +257,47 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
 
 ## Pendiente en placa
 
-COM12 está reservado por otra sesión; estos pasos se hacen juntos cuando quede libre. Los builds de
-`idf.py build` y `idf.py -C test_apps build` están hechos y limpios (desde PowerShell).
+Hecho el 26-nov-2026 con el firmware 2b39d56 (telemetría + tienda): Unity en COM12 y pruebas con
+red en ITW-DEEF3C (placa de desarrollo). Recolector desplegado en el VPS ese mismo día (MOW-Infra
+f80a2ff): `metrics` ya solo va al recolector.
 
-- [ ] T5: Unity en placa tras `43020ee` (`idf.py -C test_apps` en COM12, todo en verde); publicación
+- [x] T5: Unity en placa tras `43020ee` (`idf.py -C test_apps` en COM12, todo en verde); publicación
   de `metrics` disparada por el temporizador; marca de agua de pila de la tarea de `esp_timer`
-  (`uxTaskGetStackHighWaterMark`) con margen.
+  (`uxTaskGetStackHighWaterMark`) con margen. *(201 tests, 0 fallos; `metrics (recompensas)` con
+  gen/inc/phase/q; esp_timer ≥ 1312 B libres.)*
 - [ ] 6.2: checklist manual de `.superpowers/sdd/tasks/task-6-report.md` («Pendiente 6.2» y ronda 1) con
   `mosquitto_sub -t 'incutwin/<id>/ev'`: gesto, pestañas, ajustes, demo, onboarding, `acc`, IncuPray,
   restablecimiento de fábrica.
-- [ ] 7.2: `idf.py -C test_apps` en COM12, todo en verde.
+- [x] 7.2: `idf.py -C test_apps` en COM12, todo en verde. *(201 tests, 0 fallos, 2b39d56.)*
 - [ ] 7.3: un día de uso normal con el recolector local: `events` sin huecos de `seq`, `snapshots` con
   `phase` e `inc`.
-- [ ] Desplegar en el broker real: `python tools/broker_bootstrap.py` (rol y cliente `collector`;
+- [x] Desplegar en el broker real: `python tools/broker_bootstrap.py` (rol y cliente `collector`;
   `removeRoleACL gateway ... metrics` a mano; `persistence true` y `max_queued_messages` ~100000).
-- [ ] Unity de la revisión final (solo compilados, falta correrlos en placa): `tel: diff compra del
+  *(26-nov, desde el repo del VPS: MOW-Infra f80a2ff, MOW-Ops 8af5e01; tb-gateway sin `metrics`.)*
+- [x] Unity de la revisión final (solo compilados, falta correrlos en placa): `tel: diff compra del
   ultimo articulo y ultimo sello`, `telq: gen y boot mas altos de la cola tras borrar la NVS`,
   `telq: registro corto o con otro `d` no da gen ni boot`, `tel: tel_ids_floor solo sube`.
-- [ ] Reconexión con un lote en vuelo (repetir tras el arreglo de la tarea 4, 6d3a9be): publicar un
+  *(Dentro de los 201 en verde.)*
+- [x] Reconexión con un lote en vuelo (repetir tras el arreglo de la tarea 4, 6d3a9be): publicar un
   lote, cortar el WiFi antes del PUBACK y volver; el mismo lote (mismos `seq`) sale otra vez y el
   recolector descarta los duplicados; `tel` acaba en `pending 0` y «en vuelo: ninguno».
-- [ ] Lote lleno de ~4 KB: 20 eventos con `d` largo (p. ej. 20 `setting` o `incupray` seguidos sin
+  *(DEEF3C: «sesion caida con el lote … en vuelo (seq 79..98)», reenviado con otro msg_id y
+  confirmado; `pending 0`, en vuelo ninguno.)*
+- [x] Lote lleno de ~4 KB: 20 eventos con `d` largo (p. ej. 20 `setting` o `incupray` seguidos sin
   conexión). `mqtt_link` tiene `buffer.size` 2048, así que el envío sale fragmentado: comprobar que
   llega entero al broker, con un solo PUBACK, y que el recolector lo acepta.
-- [ ] Marca de agua de pila: `tel` imprime «pila libre min» de la tarea `telemetry` (4608 B) y de
+  *(DEEF3C: un lote de 20 eventos y 3882 B, un PUBACK a los ~0,65 s, sin pérdidas.)*
+- [x] Marca de agua de pila: `tel` imprime «pila libre min» de la tarea `telemetry` (4608 B) y de
   `esp_timer` (3584 B). Mirarla tras un rato de uso con lotes y borrados de sector, y la de
   `esp_timer` justo después de una publicación de `metrics` disparada por el temporizador (la
   periódica o la de «recompensas»). Margen esperado ≥ 512 B en las dos.
+  *(Tras ≥ 5 borrados de sector: telemetry ≥ 2292 B, esp_timer ≥ 1312 B libres.)*
+- [x] Cortes TLS ~1,8 s tras conectar (mañana del 26-nov, incutwin-0A1284): sin daño. Al reiniciar,
+  la radio se apaga antes de cerrar el socket; el broker conserva la conexión vieja hasta que la
+  nueva toma la sesión, y el RST que ve Traefik es la placa contestando por el puerto antiguo. En 6
+  arranques con diagnóstico ninguna sesión establecida se cayó. Una vez hubo un RST en el saludo
+  TLS (reintento a los 4,5 s) de origen sin confirmar (Traefik o router). Mejora opcional: cerrar
+  MQTT antes de `esp_restart`.
 - [ ] Tirones de la UI durante el borrado de un sector (30-400 ms, cada 16 eventos): con muchos
   eventos seguidos (pestañas, ajustes), la animación de cambio de pantalla y el latido no se cortan.
 - [ ] Borrado de la NVS con la cola viva (arreglo de la revisión final): `nvs_flash_erase` de la
@@ -311,5 +325,6 @@ COM12 está reservado por otra sesión; estos pasos se hacen juntos cuando quede
   (≥ 896) con todo al máximo. *Hecho:* campos de la tienda (`hat_boy`, `hat_girl`, `blanket`,
   `santa`, `snow`, `unlocked` con `%llu`) tras `named_incunest` y luego los de telemetría. Medido
   749 B con todo al máximo (ts de 20 cifras, `unlocked` = UINT64_MAX, fw 47 y inc 23); se queda en 896.
-- [ ] `idf.py -C test_apps` en placa con las dos ramas juntas.
+- [x] `idf.py -C test_apps` en placa con las dos ramas juntas. *(COM12, 26-nov, 2b39d56: 201 tests,
+  0 fallos.)*
 
