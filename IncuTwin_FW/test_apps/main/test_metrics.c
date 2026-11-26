@@ -56,7 +56,7 @@ TEST_CASE("metrics: inc y fw no rompen el JSON", "[metrics]") {
     rw_state_t r; rw_init(&r);
     metrics_usage_t u = { 0 };
     metrics_extra_t x = X_BASE;
-    x.inc = "a\"b"; x.fw = "1\2";
+    x.inc = "a\"b"; x.fw = "1\x02"; /* caracter de control: no es [A-Za-z0-9._-] */
     char out[METRICS_PAYLOAD_MAX + 1];
     TEST_ASSERT_GREATER_THAN(0, metrics_payload_build(out, sizeof(out), &u, &r, &x));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"inc\":\"\""));
@@ -76,7 +76,7 @@ TEST_CASE("metrics: pasaporte lleno cabe", "[metrics]") {
     char out[METRICS_PAYLOAD_MAX + 1];
     int n = metrics_payload_build(out, sizeof(out), &u, &r, &x);
     TEST_ASSERT_GREATER_THAN(0, n);
-    printf("METRICS_MAX_LEN=%d\n", n);
+    TEST_ASSERT_LESS_THAN(METRICS_PAYLOAD_MAX, n); /* medido: 607 */
 }
 
 TEST_CASE("metrics: canje", "[metrics]") {
