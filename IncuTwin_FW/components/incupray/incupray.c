@@ -91,7 +91,9 @@ static void track_locked(const char *id)
 
 /* Telemetria `incupray`: ev = join|leave|close (NULL = el aviso periodico, sin evento). held_s y
  * hearts son los acumulados de esa IncuPray; los corazones ya salen como `heart` (why incupray)
- * desde rewards, aqui solo se resume. Nunca en la demo (s_demo ya corta antes). */
+ * desde rewards, aqui solo se resume. join lleva ademas `paid`, la apuesta cobrada al entrar (0 o
+ * 3): rewards_spend no emite evento, asi que es la unica pista para analizar la apuesta. Nunca en la
+ * demo (s_demo ya corta antes). */
 static void tel_incupray(const char *ev)
 {
     for (const char *c = s_saved.id; *c; c++) {
@@ -99,9 +101,11 @@ static void tel_incupray(const char *ev)
                   *c == '.' || *c == '_' || *c == '-';
         if (!ok) return; /* id raro: sin escapar no se registra */
     }
-    char d[120];
-    snprintf(d, sizeof d, "{\"id\":\"%s\",\"ev\":\"%s\",\"held_s\":%lu,\"hearts\":%u}", s_saved.id, ev,
-             (unsigned long)s_saved.held_s, (unsigned)s_saved.hearts);
+    char d[136];
+    char paid[16] = "";
+    if (strcmp(ev, "join") == 0) snprintf(paid, sizeof paid, ",\"paid\":%u", (unsigned)s_saved.paid);
+    snprintf(d, sizeof d, "{\"id\":\"%s\",\"ev\":\"%s\",\"held_s\":%lu,\"hearts\":%u%s}", s_saved.id, ev,
+             (unsigned long)s_saved.held_s, (unsigned)s_saved.hearts, paid);
     telemetry_log("incupray", d);
 }
 
