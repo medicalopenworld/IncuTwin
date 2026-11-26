@@ -8,9 +8,11 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "net_wifi.h"
+#include "rewards_tel.h"
 #include "sdkconfig.h"
 #include "stays.h"
 #include "storage.h"
+#include "telemetry.h"
 
 static const char *TAG = "rewards";
 
@@ -95,6 +97,12 @@ static void log_news(const rw_news_t *n, const rw_state_t *s, const char *what)
              n->level_up ? ", sube de nivel" : "", n->garland ? ", guirnalda" : "");
 }
 
+static void tel_sink(const char *kind, const char *d, void *ctx)
+{
+    (void)ctx;
+    telemetry_log(kind, d);
+}
+
 static bool news_any(const rw_news_t *n) { return n->hearts || n->new_seals || n->level_up || n->garland; }
 
 static void on_acc_input(void *arg, esp_event_base_t base, int32_t id, void *data)
@@ -109,6 +117,7 @@ static void on_acc_input(void *arg, esp_event_base_t base, int32_t id, void *dat
     bool valid = today(&day, &tm);
     LOCK();
     rw_news_t n;
+    rw_state_t before = s_real;
     if (in == APP_ACC_GESTURE) {
         rw_gesture_t g = { .time_valid = valid, .day = day, .year = tm.tm_year + 1900, .month = tm.tm_mon + 1,
                            .mday = tm.tm_mday, .rest_mask = s_rest, .country = s_country, .stay = s_stay };
@@ -116,6 +125,7 @@ static void on_acc_input(void *arg, esp_event_base_t base, int32_t id, void *dat
     } else {
         n = rw_on_super(&s_real, valid, day);
     }
+    tel_rewards_diff(&before, &s_real, &n, in == APP_ACC_GESTURE ? "gesture" : "super", tel_sink, NULL);
     bool changed = news_any(&n) || in == APP_ACC_GESTURE; /* el pais o el bebe pueden ser nuevos */
     if (changed) save_locked();
     if (news_any(&n)) log_news(&n, &s_real, in == APP_ACC_GESTURE ? "gesto" : "super corazon");
@@ -153,7 +163,9 @@ static void on_state(void *arg, esp_event_base_t base, int32_t id, void *data)
         if (k) s_stay = k;
     }
     if (home && !s_was_home) { /* se fue a casa: el bebe de antes de irse */
+        rw_state_t before = s_real;
         n = rw_on_home(&s_real, s_stay);
+        tel_rewards_diff(&before, &s_real, &n, "home", tel_sink, NULL);
         save = news_any(&n);
     }
     s_was_home = home;
@@ -218,9 +230,16 @@ rw_unlock_t rewards_unlock(rw_item_t item, uint16_t *missing)
         UNLOCK();
         return RW_UNLOCK_NOT_FOR_SALE;
     }
+    rw_state_t before = s_real;
     rw_unlock_t res = rw_unlock(demo ? &s_demo : &s_real, item, month, mday, missing);
     bool ok = res == RW_UNLOCK_OK;
-    if (ok && !demo) save_locked();
+    if (ok && !demo) {
+        save_locked();
+        /* Solo con exito: `spend` sale del diff (baja el saldo y aparece el bit: una compra de verdad,
+         * uno por compra; elegir o poner/quitar algo ya suyo no cambia saldo ni bits y no emite). */
+        tel_rewards_diff(&before, &s_real, NULL, "unlock", tel_sink, NULL);
+        if (item == RW_ITEM_NAMED_INCUNEST) telemetry_log("redeem", "{\"item\":\"named_incunest\"}");
+    }
     UNLOCK();
     if (ok) post(NULL, demo);
     return res;
@@ -243,9 +262,11 @@ void rewards_add(uint8_t hearts)
     if (!s_mutex || !hearts) return;
     LOCK();
     bool demo = s_demo_on;
+    rw_state_t before = s_real;
     rw_news_t n = rw_add(demo ? &s_demo : &s_real, hearts);
     if (!demo) {
         save_locked();
+        tel_rewards_diff(&before, &s_real, &n, "incupray", tel_sink, NULL);
         log_news(&n, &s_real, "incupray");
     }
     UNLOCK();

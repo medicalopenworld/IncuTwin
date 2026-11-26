@@ -7,12 +7,15 @@
 #include "app_events.h"
 #include "esp_app_desc.h"
 #include "esp_log.h"
+#include "freertos/FreeRTOS.h"
+#include "freertos/semphr.h"
 #include "esp_timer.h"
 #include "hand_payload.h"
 #include "identity.h"
 #include "metrics_payload.h"
 #include "rewards.h"
 #include "settings.h"
+#include "telemetry.h"
 #include "usage_stats.h"
 #include "mqtt_link.h"
 #include "net_wifi.h"
@@ -28,9 +31,22 @@ static esp_timer_handle_t s_metrics_timer; /* agrupa los cambios de recompensas 
 
 /* Uso y recompensas para ThingsBoard (spec device-metrics): QoS 1, no retenido. Lo de la demo no
  * se publica. */
+static SemaphoreHandle_t s_metrics_mtx; /* publish_metrics corre en la tarea de esp_timer y en la de eventos */
+static char s_metrics_payload[METRICS_PAYLOAD_MAX + 1]; /* estatico: la pila de esp_timer es de 3,5 KB */
+
+static void publish_metrics_locked(const char *why);
+
 static void publish_metrics(const char *why)
 {
-    char topic[80], payload[METRICS_PAYLOAD_MAX + 1];
+    xSemaphoreTake(s_metrics_mtx, portMAX_DELAY);
+    publish_metrics_locked(why);
+    xSemaphoreGive(s_metrics_mtx);
+}
+
+static void publish_metrics_locked(const char *why)
+{
+    char topic[80];
+    char *const payload = s_metrics_payload;
     rw_state_t r;
     bool demo = false;
     rewards_copy(&r, &demo);
@@ -38,7 +54,16 @@ static void publish_metrics(const char *why)
     usage_stats_t us = usage_get();
     metrics_usage_t u = { .ts = net_wifi_time_valid() ? (int64_t)time(NULL) : 0, .on_s = us.on_s,
                           .conn_s = us.conn_s, .hand_s = us.hand_s, .hand_n = us.hand_n };
-    int n = metrics_payload_build(payload, sizeof(payload), &u, &r);
+    static const char *const PHASES[] = { "off", "searching", "waiting", "with", "ending", "farewell" };
+    twin_snapshot_t s = twin_model_get(); /* una sola foto: inc y phase coherentes con status */
+    const char *inc = s.link.paired ? s.link.incubator_id : "";
+    unsigned ph = (unsigned)s.acc;
+    metrics_extra_t x = { .gen = telemetry_gen(), .boot_n = telemetry_boot(), .demo_n = telemetry_demo_count(),
+                          .q = telemetry_pending(), .lost = telemetry_lost(),
+                          .fw = esp_app_get_description()->version, .inc = inc,
+                          .phase = PHASES[ph < sizeof(PHASES) / sizeof(PHASES[0]) ? ph : 0],
+                          .lang = settings_lang(), .vol = settings_volume(), .bright = settings_brightness() };
+    int n = metrics_payload_build(payload, sizeof(s_metrics_payload), &u, &r, &x);
     if (n < 0) return;
     snprintf(topic, sizeof(topic), "incutwin/%s/metrics", mqtt_link_client_id());
     if (mqtt_link_publish(topic, payload, (size_t)n, 1, false)) ESP_LOGI(TAG, "metrics (%s): %s", why, payload);
@@ -138,6 +163,8 @@ static void on_hand_hold(void *arg, esp_event_base_t base, int32_t id, void *dat
 
 void cloud_status_start(void)
 {
+    s_metrics_mtx = xSemaphoreCreateMutex();
+    configASSERT(s_metrics_mtx);
     const esp_timer_create_args_t t = { .callback = timer_cb, .name = "status_hourly" };
     ESP_ERROR_CHECK(esp_timer_create(&t, &s_timer));
     const esp_timer_create_args_t m = { .callback = metrics_timer_cb, .name = "metrics" };

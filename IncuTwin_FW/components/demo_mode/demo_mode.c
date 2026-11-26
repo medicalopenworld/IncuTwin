@@ -1,4 +1,7 @@
 #include "demo_mode.h"
+
+#include <stdio.h>
+
 #include "incupray.h"
 
 #include "board.h"
@@ -6,6 +9,8 @@
 #include "esp_timer.h"
 #include "scenarios.h"
 #include "sound.h"
+#include "storage.h"
+#include "telemetry.h"
 #include "twin_model.h"
 
 static const char *TAG = "demo";
@@ -21,7 +26,41 @@ static uint32_t s_raw_since_ms;
 static uint32_t s_press_start_ms;
 static bool s_long_done;
 
-static void on_long(void);
+/* Entra o sale de la demo y lo registra: dentro de la demo telemetry solo deja pasar `demo`.
+ * Entrar: set_demo(true) y luego `on`; salir: `off` (con la duracion) y luego set_demo(false). */
+static int64_t s_on_us;
+
+void demo_mode_set(bool on)
+{
+    if (on == twin_model_demo_active()) return;
+    if (on) {
+        telemetry_set_demo(true); /* antes de entrar: ningun evento real se cuela entremedias */
+        twin_model_demo_enter();
+        s_on_us = esp_timer_get_time();
+        telemetry_log("demo", "{\"ev\":\"on\"}");
+    } else {
+        char d[40];
+        snprintf(d, sizeof d, "{\"ev\":\"off\",\"dur_s\":%lu}",
+                 (unsigned long)((esp_timer_get_time() - s_on_us) / 1000000));
+        telemetry_log("demo", d);
+        telemetry_set_demo(false);
+        incupray_demo_stop();
+        twin_model_demo_exit();
+    }
+}
+
+/* Restablecimiento de fabrica con telemetria: sale antes de la demo (si no, telemetry_log solo deja
+ * pasar `demo` y el `reset` se perderia), registra `reset` con el gen actual, guarda y envia lo
+ * pendiente (espera < 2 s) y borra. Lo usan la UI (pulsacion larga en Ajustes) y la consola. */
+void demo_mode_factory_reset(void)
+{
+    demo_mode_set(false);
+    char d[40];
+    snprintf(d, sizeof d, "{\"gen\":%lu}", (unsigned long)telemetry_gen());
+    telemetry_log("reset", d);
+    telemetry_flush_now(2000);
+    storage_factory_reset();
+}
 
 static void apply_idx(size_t idx)
 {
@@ -45,24 +84,23 @@ static void on_short(void)
     apply_idx(s_idx);
 }
 
-void demo_mode_set(bool on)
+/* Lo de la pulsacion larga encima de demo_mode_set (que es la unica que entra y sale y lo registra):
+ * al entrar empieza por el primer escenario, y pita. Sin cambio de estado no hace nada. */
+void demo_mode_button(bool on)
 {
-    if (on != twin_model_demo_active()) on_long();
+    if (on == twin_model_demo_active()) return;
+    demo_mode_set(on);
+    if (on) {
+        s_idx = 0;
+        apply_idx(s_idx);
+    }
+    ESP_LOGI(TAG, "%s", on ? "ON" : "OFF");
+    sound_request(SOUND_TEST);
 }
 
 static void on_long(void)
 {
-    if (twin_model_demo_active()) {
-        incupray_demo_stop();
-        twin_model_demo_exit();
-        ESP_LOGI(TAG, "OFF");
-    } else {
-        twin_model_demo_enter();
-        s_idx = 0;
-        apply_idx(s_idx);
-        ESP_LOGI(TAG, "ON");
-    }
-    sound_request(SOUND_TEST);
+    demo_mode_button(!twin_model_demo_active());
 }
 
 static void sample_cb(void *arg)

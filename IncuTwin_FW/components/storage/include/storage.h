@@ -33,6 +33,8 @@ extern "C" {
 #define STORAGE_NS_REWARDS_SIM "rewardssim"
 #define STORAGE_NS_INCUPRAY "incupray" /* IncuPray: avisos, apuesta y minutos de la ultima (spec incupray) */
 #define STORAGE_NS_OTA      "ota"      /* OTA pendiente: se reintenta tras un corte (spec ota-update) */
+#define STORAGE_NS_TEL      "tel"      /* telemetria: gen, boot_n, acked, fw, demo_n (sobrevive al reset) */
+#define STORAGE_TEL_GEN     "gen"      /* tel/gen: +1 en cada restablecimiento de fabrica */
 
 esp_err_t storage_init(void); /* nvs_flash_init con recuperacion si cambia la version */
 
@@ -53,7 +55,9 @@ bool storage_set_blob(const char *ns, const char *key, const void *val, size_t l
 bool storage_erase_key(const char *ns, const char *key);
 bool storage_erase_ns(const char *ns);
 
-/* Borra prov, settings, twin, acc y bname (NO factory, mqtt ni usage) y reinicia. */
+/* Borra prov, settings, twin, acc, bname, rewards e incupray (NO factory, mqtt, usage ni tel),
+ * sube tel/gen (nuevo dueno para la telemetria; su cola en la particion `storage` no se toca) y
+ * reinicia. */
 void storage_factory_reset(void) __attribute__((noreturn));
 
 #ifdef __cplusplus

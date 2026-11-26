@@ -7,6 +7,7 @@
 
 #include "app_events.h"
 #include "board.h"
+#include "demo_mode.h"
 #include "esp_app_desc.h"
 #include "esp_console.h"
 #include "esp_log.h"
@@ -16,9 +17,8 @@
 #include "incupray.h"
 #include "rewards.h"
 #include "ui_debug.h"
-#include "demo_mode.h"
 #include "sdkconfig.h"
-#include "storage.h"
+#include "telemetry.h"
 #include "twin_model.h"
 #include "usage_stats.h"
 
@@ -50,6 +50,14 @@ static int cmd_info(int argc, char **argv)
         printf("hora       sin SNTP\n");
     }
     board_log_memory(TAG);
+    return 0;
+}
+
+/* Telemetria de uso: identidades, cola y lote en vuelo (soporte y verificacion) */
+static int cmd_tel(int argc, char **argv)
+{
+    (void)argc; (void)argv;
+    telemetry_print_status();
     return 0;
 }
 
@@ -97,7 +105,7 @@ static int cmd_demo(int argc, char **argv)
         printf("demo on|off\n");
         return 1;
     }
-    demo_mode_set(strcmp(argv[1], "on") == 0);
+    demo_mode_button(strcmp(argv[1], "on") == 0); /* como el boton: primer escenario y pitido */
     return 0;
 }
 
@@ -144,14 +152,14 @@ static int cmd_rewards(int argc, char **argv)
 static int cmd_incupray(int argc, char **argv)
 {
     if (argc >= 2 && !strcmp(argv[1], "demo")) {
-        if (!twin_model_demo_active()) twin_model_demo_enter();
+        demo_mode_set(true);
         incupray_demo_start();
         printf("IncuPray de la demo: 3 min\n");
         return 0;
     }
     if (argc >= 2 && !strcmp(argv[1], "stop")) {
         incupray_demo_stop();
-        if (twin_model_demo_active()) twin_model_demo_exit();
+        demo_mode_set(false);
         printf("demo cortada\n");
         return 0;
     }
@@ -199,7 +207,7 @@ static int cmd_reboot(int argc, char **argv)
 static int cmd_factory_reset(int argc, char **argv)
 {
     (void)argc; (void)argv;
-    storage_factory_reset();
+    demo_mode_factory_reset();
     return 0;
 }
 
@@ -228,11 +236,11 @@ static int cmd_sim_state(int argc, char **argv)
         return 1;
     }
     if (!strcmp(argv[1], "demo-on")) { /* la demo de verdad se activa con pulsacion larga */
-        twin_model_demo_enter();
+        demo_mode_set(true);
         return 0;
     }
     if (!strcmp(argv[1], "demo-off")) {
-        twin_model_demo_exit();
+        demo_mode_set(false);
         return 0;
     }
     twin_model_ingest(argv[1], strlen(argv[1]));
@@ -259,6 +267,7 @@ void console_start(void)
     const esp_console_cmd_t cmds[] = {
         { .command = "info", .help = "identidad, enlace y estado", .func = cmd_info },
         { .command = "usage", .help = "contadores de uso", .func = cmd_usage },
+        { .command = "tel", .help = "telemetria: gen, boot_n, next_seq, pending, lost, lote en vuelo y pila", .func = cmd_tel },
         { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` solo en la demo", .func = cmd_rewards },
         { .command = "demo", .help = "demo on|off: como 2 s del boton BOOT", .func = cmd_demo },
         { .command = "pantalla", .help = "captura de la pantalla (para tools/screenshot.py)", .func = cmd_screen },

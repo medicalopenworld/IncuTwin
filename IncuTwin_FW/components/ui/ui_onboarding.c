@@ -13,6 +13,7 @@
 #include "identity.h"
 #include "net_wifi.h"
 #include "settings.h"
+#include "telemetry.h"
 #include "ui_internal.h"
 
 static const char *TAG = "onboarding";
@@ -185,6 +186,10 @@ static void build_done(void)
 
 static void show_step(ob_step_t step)
 {
+    static const char *const tel_step[] = { "connect", "wifi_try", "server", "done" };
+    char d[32];
+    snprintf(d, sizeof d, "{\"step\":\"%s\"}", tel_step[step]);
+    telemetry_log("onboard", d);
     s_step = step;
     s_step_t0 = lv_tick_get();
     switch (step) {

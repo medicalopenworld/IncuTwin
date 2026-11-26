@@ -111,6 +111,11 @@ static void on_mqtt_event(void *arg, esp_event_base_t base, int32_t id, void *da
         }
         schedule_retry();
         break;
+    case MQTT_EVENT_PUBLISHED: {
+        app_evt_puback_t pev = { .msg_id = ev->msg_id };
+        app_events_post(TWIN_EVT_MQTT_PUBACK, &pev, sizeof(pev));
+        break;
+    }
     case MQTT_EVENT_SUBSCRIBED:
         if (ev->error_handle && ev->error_handle->error_type == MQTT_ERROR_TYPE_SUBSCRIBE_FAILED) {
             if (ev->msg_id == s_acc_sub_msg_id) {
@@ -278,9 +283,17 @@ void mqtt_link_set_accompany(bool on)
     }
 }
 
+/* esp_mqtt_client_publish (no enqueue): con sesion y QoS 1 envia ya y devuelve el msg_id que
+ * llevara el MQTT_EVENT_PUBLISHED. Con QoS 1 y sin sesion encolaria en el outbox, pero aqui se
+ * rechaza antes (s_connected). */
+int mqtt_link_publish_id(const char *topic, const char *payload, size_t len, int qos, bool retain)
+{
+    if (!s_connected) return -1;
+    int id = esp_mqtt_client_publish(s_client, topic, payload, (int)len, qos, retain ? 1 : 0);
+    return id >= 0 ? id : -1;
+}
+
 bool mqtt_link_publish(const char *topic, const char *payload, size_t len, int qos, bool retain)
 {
-    if (!s_connected) return false;
-    int id = esp_mqtt_client_publish(s_client, topic, payload, (int)len, qos, retain ? 1 : 0);
-    return id >= 0;
+    return mqtt_link_publish_id(topic, payload, len, qos, retain) >= 0;
 }
