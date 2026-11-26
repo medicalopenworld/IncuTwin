@@ -69,7 +69,7 @@ static void publish_metrics_locked(const char *why)
     if (mqtt_link_publish(topic, payload, (size_t)n, 1, false)) ESP_LOGI(TAG, "metrics (%s): %s", why, payload);
 
     /* el canje de la IncuNest con tu nombre, hasta que llegue una vez */
-    if ((r.unlocked & (1u << RW_ITEM_NAMED_INCUNEST)) && !r.redeem_sent) {
+    if ((r.unlocked & RW_BIT(RW_ITEM_NAMED_INCUNEST)) && !r.redeem_sent) {
         char rp[REDEEM_PAYLOAD_MAX + 1];
         n = redeem_payload_build(rp, sizeof(rp), u.ts);
         snprintf(topic, sizeof(topic), "incutwin/%s/redeem", mqtt_link_client_id());

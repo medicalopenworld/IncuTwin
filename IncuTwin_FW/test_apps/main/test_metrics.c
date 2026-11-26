@@ -1,4 +1,6 @@
 /* Payloads de metricas y canje (metrics_payload, spec device-metrics). */
+#include <stdint.h>
+#include <stdio.h>
 #include <string.h>
 
 #include "metrics_payload.h"
@@ -63,20 +65,42 @@ TEST_CASE("metrics: inc y fw no rompen el JSON", "[metrics]") {
     TEST_ASSERT_NOT_NULL(strstr(out, "\"fw\":\"\""));
 }
 
+TEST_CASE("metrics: gorros, manta y Navidad", "[metrics]") {
+    rw_state_t r; rw_init(&r);
+    r.hat_boy = RW_ITEM_HAT_BOY_MINT; r.santa_on = 1;
+    r.unlocked |= RW_BIT(RW_ITEM_SNOW);
+    metrics_usage_t u = { .ts = 1764100000 };
+    metrics_extra_t x = X_BASE;
+    char out[METRICS_PAYLOAD_MAX + 1];
+    TEST_ASSERT_GREATER_THAN(0, metrics_payload_build(out, sizeof(out), &u, &r, &x));
+    char want[128];
+    snprintf(want, sizeof(want), "\"hat_boy\":%u,\"hat_girl\":%u,\"blanket\":%u,\"santa\":1,\"snow\":0,",
+             RW_ITEM_HAT_BOY_MINT, RW_ITEM_HAT_GIRL_BASIC, RW_ITEM_BLANKET_BASIC);
+    TEST_ASSERT_NOT_NULL(strstr(out, want));
+    snprintf(want, sizeof(want), "\"unlocked\":%llu,", (unsigned long long)r.unlocked);
+    TEST_ASSERT_NOT_NULL(strstr(out, want));
+}
+
 TEST_CASE("metrics: pasaporte lleno cabe", "[metrics]") {
     rw_state_t r; rw_init(&r);
     r.n_countries = RW_PASSPORT_MAX;
     for (int i = 0; i < RW_PASSPORT_MAX; i++) r.passport[i] = (rw_country_t){ { 'A', (char)('A' + i % 26) }, 1 };
     r.balance = 65535; r.earned = 4000000000u;
-    metrics_usage_t u = { .ts = 9999999999LL, .on_s = 4000000000u, .conn_s = 4000000000u,
-                          .hand_s = 4000000000u, .hand_n = 4000000000u };
-    metrics_extra_t x = { .gen = 4000000000u, .boot_n = 4000000000u, .demo_n = 4000000000u, .q = 4000000000u,
-                          .lost = 4000000000u, .fw = "1234567890123456789012345678901", .inc = "123456789012345",
-                          .phase = "searching", .lang = 255, .vol = 3, .bright = 100 };
+    r.streak = r.total_days = r.babies = 65535; r.saved = r.seals = 255;
+    r.unlocked = UINT64_MAX; /* 20 cifras */
+    r.halo = r.bg = r.garland_on = r.hat_boy = r.hat_girl = r.blanket = r.santa_on = r.snow_on = 255;
+    metrics_usage_t u = { .ts = -9223372036854775807LL - 1, .on_s = UINT32_MAX, .conn_s = UINT32_MAX,
+                          .hand_s = UINT32_MAX, .hand_n = UINT32_MAX };
+    /* fw e inc al tope de lo que deja pasar safe_str (47 y 23); la fase mas larga */
+    metrics_extra_t x = { .gen = UINT32_MAX, .boot_n = UINT32_MAX, .demo_n = UINT32_MAX, .q = UINT32_MAX,
+                          .lost = UINT32_MAX, .fw = "12345678901234567890123456789012345678901234567",
+                          .inc = "12345678901234567890123", .phase = "searching", .lang = 255, .vol = 255,
+                          .bright = 255 };
     char out[METRICS_PAYLOAD_MAX + 1];
     int n = metrics_payload_build(out, sizeof(out), &u, &r, &x);
     TEST_ASSERT_GREATER_THAN(0, n);
-    TEST_ASSERT_LESS_THAN(METRICS_PAYLOAD_MAX, n); /* medido: 607 */
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"fw\":\"12345678901234567890123456789012345678901234567\""));
+    TEST_ASSERT_LESS_THAN(METRICS_PAYLOAD_MAX, n); /* medido: 749 */
 }
 
 TEST_CASE("metrics: canje", "[metrics]") {

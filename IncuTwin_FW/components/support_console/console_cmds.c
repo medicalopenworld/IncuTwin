@@ -16,6 +16,7 @@
 #include "identity.h"
 #include "incupray.h"
 #include "rewards.h"
+#include "ui_debug.h"
 #include "sdkconfig.h"
 #include "telemetry.h"
 #include "twin_model.h"
@@ -70,17 +71,76 @@ static int cmd_usage(int argc, char **argv)
 }
 
 /* Solo lectura: lo que lleva ganado este panel (soporte y verificacion) */
-static int cmd_rewards(int argc, char **argv)
+/* Captura de la pantalla para tools/screenshot.py */
+static int cmd_screen(int argc, char **argv)
 {
     (void)argc; (void)argv;
+    return ui_debug_screenshot() == 0 ? 0 : 1;
+}
+
+/* tienda <gorros|mantas|fondos|efectos|corazones|cerrar> [nina] [probar <id>] [comprar] */
+static int cmd_shop(int argc, char **argv)
+{
+    if (argc < 2) {
+        printf("tienda <gorros|mantas|fondos|efectos|corazones|cerrar> [nina] [probar <id>] [comprar]\n");
+        return 1;
+    }
+    bool girl = false, buy = false;
+    int item = -1;
+    for (int i = 2; i < argc; i++) {
+        if (strcmp(argv[i], "nina") == 0) girl = true;
+        else if (strcmp(argv[i], "comprar") == 0) buy = true;
+        else if (strcmp(argv[i], "probar") == 0 && i + 1 < argc) item = atoi(argv[++i]);
+    }
+    if (!ui_debug_shop(argv[1], girl, item, buy)) {
+        printf("pestaña desconocida: %s\n", argv[1]);
+        return 1;
+    }
+    return 0;
+}
+
+static int cmd_demo(int argc, char **argv)
+{
+    if (argc < 2 || (strcmp(argv[1], "on") && strcmp(argv[1], "off"))) {
+        printf("demo on|off\n");
+        return 1;
+    }
+    demo_mode_button(strcmp(argv[1], "on") == 0); /* como el boton: primer escenario y pitido */
+    return 0;
+}
+
+static int cmd_rewards(int argc, char **argv)
+{
+    if (argc >= 3 && strcmp(argv[1], "comprar") == 0) { /* solo en la demo: no gasta corazones reales */
+        bool demo = false;
+        rw_state_t tmp;
+        rewards_copy(&tmp, &demo);
+        if (!demo) {
+            printf("solo en la demo (demo on)\n");
+            return 1;
+        }
+        uint16_t missing = 0;
+        rw_unlock_t res = rewards_unlock((rw_item_t)atoi(argv[2]), &missing);
+        printf("comprar %s: %d (faltan %u)\n", argv[2], (int)res, missing);
+        return res == RW_UNLOCK_OK ? 0 : 1;
+    }
+    if (argc >= 3 && strcmp(argv[1], "fecha") == 0) { /* pruebas de Navidad: no se guarda */
+        int m = atoi(argv[2]), d = argc >= 4 ? atoi(argv[3]) : 1;
+        rewards_force_date(m, d);
+        if (m) printf("fecha forzada: %d/%d\n", d, m);
+        else printf("fecha de verdad\n");
+        return 0;
+    }
     rw_state_t r;
     bool demo = false;
     rewards_copy(&r, &demo);
     printf("%ssaldo=%u ganados=%lu nivel=%d racha=%u abrazos=%u dias=%u bebes=%u sellos=0x%02x\n",
            demo ? "(demo) " : "", r.balance, (unsigned long)r.earned, (int)rw_level(r.earned), r.streak, r.saved,
            r.total_days, r.babies, r.seals);
-    printf("ultimo_dia=%ld super_dia=%ld desbloqueados=0x%04x halo=%u fondo=%u guirnalda=%u pasaporte=",
-           (long)r.last_day, (long)r.super_day, r.unlocked, r.halo, r.bg, r.garland_on);
+    printf("ultimo_dia=%ld super_dia=%ld desbloqueados=0x%llx halo=%u fondo=%u guirnalda=%u\n",
+           (long)r.last_day, (long)r.super_day, (unsigned long long)r.unlocked, r.halo, r.bg, r.garland_on);
+    printf("gorro_nino=%u gorro_nina=%u manta=%u papa_noel=%u copos=%u pasaporte=", r.hat_boy, r.hat_girl,
+           r.blanket, r.santa_on, r.snow_on);
     for (int i = 0; i < r.n_countries; i++) printf("%c%c%s ", r.passport[i].iso[0], r.passport[i].iso[1],
                                                    r.passport[i].star ? "*" : "");
     printf("\n");
@@ -208,7 +268,11 @@ void console_start(void)
         { .command = "info", .help = "identidad, enlace y estado", .func = cmd_info },
         { .command = "usage", .help = "contadores de uso", .func = cmd_usage },
         { .command = "tel", .help = "telemetria: gen, boot_n, next_seq, pending, lost, lote en vuelo y pila", .func = cmd_tel },
-        { .command = "rewards", .help = "corazones, racha, sellos y pasaporte (solo lectura)", .func = cmd_rewards },
+        { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` solo en la demo", .func = cmd_rewards },
+        { .command = "demo", .help = "demo on|off: como 2 s del boton BOOT", .func = cmd_demo },
+        { .command = "pantalla", .help = "captura de la pantalla (para tools/screenshot.py)", .func = cmd_screen },
+        { .command = "tienda", .help = "tienda <gorros|mantas|fondos|efectos|corazones|cerrar> [nina] [probar <id>] [comprar]",
+          .func = cmd_shop },
         { .command = "incupray", .help = "incupray [demo|stop|join|leave|hold <s>]: estado de la IncuPray", .func = cmd_incupray },
         { .command = "unpair", .help = "borra el incubator_id local", .func = cmd_unpair },
         { .command = "reboot", .help = "reinicia el panel", .func = cmd_reboot },

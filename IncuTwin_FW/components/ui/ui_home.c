@@ -364,18 +364,60 @@ void ui_home_goto_baby(void)
     if (ui_pages_goto(UI_PAGE_BABY)) page_changed();
 }
 
-/* Guirnalda: puesta, conseguida y en su temporada (1-dic .. 6-ene, con hora) */
+/* ----------------------------------------------------------------- copos */
+
+#define SNOW_N 12
+static lv_obj_t *s_snow[SNOW_N];
+static bool s_snow_ok;  /* Inicio con el bebe a la vista, sin gesto ni llamada */
+static bool s_snow_run;
+
+static void snow_y_cb(void *var, int32_t v) { lv_obj_set_y((lv_obj_t *)var, v); }
+
+/* Copos que caen despacio a los lados del bebe (cambio tienda): sin parpadeos */
+static void snow_create(void)
+{
+    static const int8_t X[SNOW_N] = { 10, 34, 22, 46, 6, 40, 190, 214, 202, 226, 186, 218 };
+    for (int i = 0; i < SNOW_N; i++) {
+        s_snow[i] = lv_label_create(s_scr);
+        lv_label_set_text(s_snow[i], "*");
+        lv_obj_set_style_text_font(s_snow[i], i % 3 ? &lv_font_es_16 : &lv_font_es_20, 0);
+        lv_obj_set_style_text_color(s_snow[i], lv_color_hex(0x9EC2E6), 0);
+        lv_obj_set_pos(s_snow[i], X[i], -20);
+        lv_obj_set_clickable(s_snow[i], false);
+        lv_obj_set_hidden(s_snow[i], true);
+    }
+}
+
+static void snow_set(bool on)
+{
+    if (on == s_snow_run || !s_snow[0]) return;
+    s_snow_run = on;
+    for (int i = 0; i < SNOW_N; i++) {
+        lv_obj_set_hidden(s_snow[i], !on);
+        lv_anim_delete(s_snow[i], snow_y_cb);
+        if (!on) continue;
+        lv_anim_t a;
+        lv_anim_init(&a);
+        lv_anim_set_var(&a, s_snow[i]);
+        lv_anim_set_exec_cb(&a, snow_y_cb);
+        lv_anim_set_values(&a, 40, ICON_Y - 22);
+        lv_anim_set_duration(&a, 10000 + (uint32_t)(i * 517) % 6000);
+        lv_anim_set_delay(&a, (uint32_t)(i * 1300) % 9000);
+        lv_anim_set_repeat_count(&a, LV_ANIM_REPEAT_INFINITE);
+        lv_anim_start(&a);
+    }
+}
+
+/* Navidad (24-dic .. 6-ene, con hora): guirnalda, copos y Papa Noel, puestos y conseguidos */
 static void garland_apply(void)
 {
     const rw_state_t *r = ui_rewards();
-    bool on = r->garland_on && (r->unlocked & (1u << RW_ITEM_GARLAND)) && net_wifi_time_valid();
-    if (on) {
-        time_t t = time(NULL);
-        struct tm tm;
-        localtime_r(&t, &tm);
-        on = rw_garland_season(tm.tm_mon + 1, tm.tm_mday);
-    }
+    int m, d;
+    rewards_local_md(&m, &d);
+    bool on = rw_wears(r, RW_ITEM_GARLAND, m, d);
     if (on == lv_obj_is_hidden(s_garland)) lv_obj_set_hidden(s_garland, !on);
+    snow_set(s_snow_ok && rw_wears(r, RW_ITEM_SNOW, m, d));
+    ui_outfit_apply();
 }
 
 /* Han cambiado las recompensas: halo en reposo, fondo, guirnalda, latido del boton y paginas */
@@ -719,6 +761,7 @@ lv_obj_t *ui_home_create(void)
     lv_obj_set_scrollable(s_halo, false);
     lv_obj_set_clickable(s_halo, false);
     halo_start_anim(2600);
+    snow_create(); /* detras del bebe */
 
     hold_create_below_baby();
 
@@ -1192,6 +1235,8 @@ void ui_home_apply(const twin_snapshot_t *s)
     else if (inc->photo)                         halo_set_mode(HALO_PHOTO);
     else if (inc->thermo == TWIN_THERMO_HEATING) halo_set_mode(HALO_WARM);
     else                                         halo_set_mode(HALO_CALM);
+    s_snow_ok = s->show_baby && !calling && hh_idle && ui_pages_current() == 0;
+    garland_apply();
 
     /* el modo del halo puede haber repintado el fondo: el gesto manda sobre el */
     hold_refresh(false);

@@ -292,14 +292,24 @@ COM12 está reservado por otra sesión; estos pasos se hacen juntos cuando quede
 
 ## Al fusionar con la tienda (`feat/acompanar`)
 
-- [ ] `demo_mode_set()`: las dos ramas la definen. Se queda la de esta rama (la que registra `demo`
+- [x] `demo_mode_set()`: las dos ramas la definen. Se queda la de esta rama (la que registra `demo`
   y llama a `telemetry_set_demo`); lo que la de la tienda hace además (reiniciar el escenario,
   pitido) va a `on_long` o al comando de consola. Si se dejan las dos, una llama a la otra y se
-  repite sin fin.
-- [ ] `spend` y `redeem`: volver a colgarlos del resultado de éxito `rw_unlock_t` de la tienda (en
+  repite sin fin. *Hecho (merge de feat/acompanar):* lo de la tienda vive en `demo_mode_button(on)`
+  (demo_mode_set + primer escenario al entrar + pitido); la usan `on_long` y el comando `demo on|off`
+  de la tienda. `sim_state demo-on/off`, `incupray demo|stop` y `demo_mode_factory_reset` siguen
+  llamando a `demo_mode_set`, el único sitio que entra/sale y registra.
+- [x] `spend` y `redeem`: volver a colgarlos del resultado de éxito `rw_unlock_t` de la tienda (en
   vez del diff de saldo y `unlocked` de aquí). `rewards_tel.c` ya toma la anchura de `unlocked` del
-  campo, así que con `uint64_t` y ~26 artículos sigue viendo todos los bits.
-- [ ] `metrics_payload.c`: unir los campos de las dos ramas y volver a medir `METRICS_PAYLOAD_MAX`
-  (≥ 896) con todo al máximo.
+  campo, así que con `uint64_t` y ~26 artículos sigue viendo todos los bits. *Hecho:* en
+  `rewards_unlock` solo con `RW_UNLOCK_OK` y fuera de la demo se llama a `tel_rewards_diff(…, "unlock")`
+  y, si es la IncuNest con tu nombre, `redeem`. `spend` sigue saliendo solo del diff (una fuente, ya
+  probada en test_telemetry): solo hay compra si baja el saldo y aparece el bit, así que elegir o
+  poner/quitar algo ya suyo no emite, y no hay `spend` explícito que lo duplique. La apuesta de la
+  IncuPray (`rewards_spend`) sigue sin evento.
+- [x] `metrics_payload.c`: unir los campos de las dos ramas y volver a medir `METRICS_PAYLOAD_MAX`
+  (≥ 896) con todo al máximo. *Hecho:* campos de la tienda (`hat_boy`, `hat_girl`, `blanket`,
+  `santa`, `snow`, `unlocked` con `%llu`) tras `named_incunest` y luego los de telemetría. Medido
+  749 B con todo al máximo (ts de 20 cifras, `unlocked` = UINT64_MAX, fw 47 y inc 23); se queda en 896.
 - [ ] `idf.py -C test_apps` en placa con las dos ramas juntas.
 

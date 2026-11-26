@@ -84,18 +84,23 @@ static void on_short(void)
     apply_idx(s_idx);
 }
 
-static void on_long(void)
+/* Lo de la pulsacion larga encima de demo_mode_set (que es la unica que entra y sale y lo registra):
+ * al entrar empieza por el primer escenario, y pita. Sin cambio de estado no hace nada. */
+void demo_mode_button(bool on)
 {
-    if (twin_model_demo_active()) {
-        demo_mode_set(false);
-        ESP_LOGI(TAG, "OFF");
-    } else {
-        demo_mode_set(true);
+    if (on == twin_model_demo_active()) return;
+    demo_mode_set(on);
+    if (on) {
         s_idx = 0;
         apply_idx(s_idx);
-        ESP_LOGI(TAG, "ON");
     }
+    ESP_LOGI(TAG, "%s", on ? "ON" : "OFF");
     sound_request(SOUND_TEST);
+}
+
+static void on_long(void)
+{
+    demo_mode_button(!twin_model_demo_active());
 }
 
 static void sample_cb(void *arg)

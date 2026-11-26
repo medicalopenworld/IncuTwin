@@ -38,16 +38,18 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
                      "{\"ts\":%lld,\"on_s\":%lu,\"conn_s\":%lu,\"hand_s\":%lu,\"hand_n\":%lu,"
                      "\"hearts\":%u,\"earned\":%lu,\"level\":%d,\"streak\":%u,\"saved\":%u,\"days\":%u,"
                      "\"babies\":%u,\"seals\":%u,\"seals_n\":%d,\"countries\":\"%s\",\"countries_n\":%u,"
-                     "\"stars\":%u,\"unlocked\":%u,\"halo\":%u,\"bg\":%u,\"garland\":%u,\"named_incunest\":%u,"
+                     "\"stars\":%u,\"unlocked\":%llu,\"halo\":%u,\"bg\":%u,\"garland\":%u,\"named_incunest\":%u,"
+                     "\"hat_boy\":%u,\"hat_girl\":%u,\"blanket\":%u,\"santa\":%u,\"snow\":%u,"
                      "\"gen\":%lu,\"fw\":\"%s\",\"inc\":\"%s\",\"phase\":\"%s\",\"lang\":%u,\"vol\":%u,"
                      "\"bright\":%u,\"demo_n\":%lu,\"boot_n\":%lu,\"q\":%lu,\"lost\":%lu}",
                      (long long)u->ts, (unsigned long)u->on_s, (unsigned long)u->conn_s, (unsigned long)u->hand_s,
                      (unsigned long)u->hand_n, r->balance, (unsigned long)r->earned, (int)rw_level(r->earned),
                      r->streak, r->saved, r->total_days, r->babies, r->seals, __builtin_popcount(r->seals), cc,
-                     r->n_countries, stars, r->unlocked, r->halo, r->bg, r->garland_on,
-                     (r->unlocked & (1u << RW_ITEM_NAMED_INCUNEST)) ? 1u : 0u, (unsigned long)x->gen, fw, inc, phase,
-                     (unsigned)x->lang, (unsigned)x->vol, (unsigned)x->bright, (unsigned long)x->demo_n,
-                     (unsigned long)x->boot_n, (unsigned long)x->q, (unsigned long)x->lost);
+                     r->n_countries, stars, (unsigned long long)r->unlocked, r->halo, r->bg, r->garland_on,
+                     (r->unlocked & RW_BIT(RW_ITEM_NAMED_INCUNEST)) ? 1u : 0u, r->hat_boy, r->hat_girl, r->blanket,
+                     r->santa_on, r->snow_on, (unsigned long)x->gen, fw, inc, phase, (unsigned)x->lang,
+                     (unsigned)x->vol, (unsigned)x->bright, (unsigned long)x->demo_n, (unsigned long)x->boot_n,
+                     (unsigned long)x->q, (unsigned long)x->lost);
     return (n < 0 || (size_t)n >= out_len) ? -1 : n;
 }
 

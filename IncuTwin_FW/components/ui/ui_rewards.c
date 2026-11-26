@@ -2,6 +2,7 @@
  * colores de los temas (halo en reposo y fondo de Inicio), nombres de niveles, sellos y opciones y
  * el dibujo de cada sello (pagina de Logros y franja). Todo en la tarea de LVGL. */
 #include "assets.h"
+#include "baby_widget.h"
 #include "rewards.h"
 #include "ui_internal.h"
 
@@ -84,8 +85,48 @@ const char *ui_item_name(rw_item_t i)
         STR_ITEM_HALO_SKY, STR_ITEM_HALO_LAVENDER, STR_ITEM_HALO_MINT, STR_ITEM_HALO_PEACH, STR_ITEM_HALO_LILAC,
         STR_ITEM_BG_DEFAULT, STR_ITEM_BG_CREAM, STR_ITEM_BG_PINK, STR_ITEM_BG_AQUA, STR_ITEM_GARLAND,
         STR_ITEM_NAMED_INCUNEST,
+        STR_ITEM_BASIC_HAT, STR_ITEM_MINT, STR_ITEM_CHICK, STR_ITEM_CLOUD,           /* gorros de niño */
+        STR_ITEM_BASIC_HAT, STR_ITEM_LILAC, STR_ITEM_PEACH, STR_ITEM_MINT,           /* gorros de niña */
+        STR_ITEM_BASIC_BLANKET, STR_ITEM_CREAM, STR_ITEM_MINT, STR_ITEM_LAVENDER, STR_ITEM_PEACH, /* mantas */
+        STR_ITEM_SANTA, STR_ITEM_SNOW,
     };
     return i < RW_ITEM_COUNT ? tr(S[i]) : "";
+}
+
+/* ------------------------------------------------------------- ropa del bebe */
+
+uint8_t ui_hat_style(rw_item_t i)
+{
+    switch (i) {
+    case RW_ITEM_HAT_BOY_MINT:
+    case RW_ITEM_HAT_GIRL_MINT:   return BABY_HAT_MINT;
+    case RW_ITEM_HAT_BOY_CHICK:   return BABY_HAT_CHICK;
+    case RW_ITEM_HAT_BOY_CLOUD:   return BABY_HAT_CLOUD;
+    case RW_ITEM_HAT_GIRL_LILAC:  return BABY_HAT_LILAC;
+    case RW_ITEM_HAT_GIRL_PEACH:  return BABY_HAT_PEACH;
+    default:                      return BABY_HAT_BASIC;
+    }
+}
+
+uint8_t ui_blanket_style(rw_item_t i)
+{
+    switch (i) {
+    case RW_ITEM_BLANKET_CREAM:    return BABY_BLANKET_CREAM;
+    case RW_ITEM_BLANKET_MINT:     return BABY_BLANKET_MINT;
+    case RW_ITEM_BLANKET_LAVENDER: return BABY_BLANKET_LAVENDER;
+    case RW_ITEM_BLANKET_PEACH:    return BABY_BLANKET_PEACH;
+    default:                       return BABY_BLANKET_BASIC;
+    }
+}
+
+void ui_outfit_apply(void)
+{
+    const rw_state_t *r = ui_rewards();
+    int m, d;
+    rewards_local_md(&m, &d);
+    bool santa = rw_wears(r, RW_ITEM_SANTA, m, d);
+    baby_set_outfit(ui_hat_style(rw_hat_for(r, false, 0, 0)), ui_hat_style(rw_hat_for(r, true, 0, 0)),
+                    ui_blanket_style((rw_item_t)r->blanket), santa);
 }
 
 /* ------------------------------------------------------------- sellos */

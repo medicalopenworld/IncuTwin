@@ -11,7 +11,19 @@ static const uint16_t PRICE[RW_ITEM_COUNT] = {
     [RW_ITEM_BG_DEFAULT] = 0, [RW_ITEM_BG_CREAM] = 10, [RW_ITEM_BG_PINK] = 20, [RW_ITEM_BG_AQUA] = 20,
     [RW_ITEM_GARLAND] = 0,
     [RW_ITEM_NAMED_INCUNEST] = 365, /* un año de corazones */
+    [RW_ITEM_HAT_BOY_BASIC] = 0, [RW_ITEM_HAT_BOY_MINT] = 15, [RW_ITEM_HAT_BOY_CHICK] = 15,
+    [RW_ITEM_HAT_BOY_CLOUD] = 20,
+    [RW_ITEM_HAT_GIRL_BASIC] = 0, [RW_ITEM_HAT_GIRL_LILAC] = 15, [RW_ITEM_HAT_GIRL_PEACH] = 15,
+    [RW_ITEM_HAT_GIRL_MINT] = 20,
+    [RW_ITEM_BLANKET_BASIC] = 0, [RW_ITEM_BLANKET_CREAM] = 15, [RW_ITEM_BLANKET_MINT] = 15,
+    [RW_ITEM_BLANKET_LAVENDER] = 20, [RW_ITEM_BLANKET_PEACH] = 20,
+    [RW_ITEM_SANTA] = 10, [RW_ITEM_SNOW] = 10,
 };
+_Static_assert(RW_ITEM_COUNT <= 64, "unlocked es de 64 bits");
+_Static_assert(sizeof(rw_state_v1_t) == RW_STATE_V1_SIZE, "el guardado v1 no puede cambiar");
+
+/* De serie: lo que cualquier IncuTwin tiene sin comprar */
+#define RW_STOCK (RW_BIT(RW_ITEM_HALO_SKY) | RW_BIT(RW_ITEM_BG_DEFAULT) | RW_BIT(RW_ITEM_HAT_BOY_BASIC) |                   RW_BIT(RW_ITEM_HAT_GIRL_BASIC) | RW_BIT(RW_ITEM_BLANKET_BASIC))
 
 #define DEC_DAYS_FOR_GARLAND 10
 #define BIT(x) (1u << (x))
@@ -22,9 +34,41 @@ void rw_init(rw_state_t *s)
     s->version = RW_VERSION;
     s->last_day = RW_DAY_NONE;
     s->super_day = RW_DAY_NONE;
-    s->unlocked = BIT(RW_ITEM_HALO_SKY) | BIT(RW_ITEM_BG_DEFAULT);
+    s->unlocked = RW_STOCK;
     s->halo = RW_ITEM_HALO_SKY;
     s->bg = RW_ITEM_BG_DEFAULT;
+    s->hat_boy = RW_ITEM_HAT_BOY_BASIC;
+    s->hat_girl = RW_ITEM_HAT_GIRL_BASIC;
+    s->blanket = RW_ITEM_BLANKET_BASIC;
+}
+
+bool rw_migrate_v1(rw_state_t *out, const rw_state_v1_t *in)
+{
+    if (in->version != 1 || in->n_countries > RW_PASSPORT_MAX) return false;
+    rw_init(out);
+    out->saved = in->saved;
+    out->seals = in->seals;
+    out->n_countries = in->n_countries;
+    out->balance = in->balance;
+    out->streak = in->streak;
+    out->total_days = in->total_days;
+    out->babies = in->babies;
+    out->dec_year = in->dec_year;
+    out->unlocked = RW_STOCK | (uint64_t)in->unlocked; /* los bits de v1 valen igual en v2 */
+    out->earned = in->earned;
+    out->last_day = in->last_day;
+    out->super_day = in->super_day;
+    out->dec_days = in->dec_days;
+    out->last_stay = in->last_stay;
+    out->last_stay_cc[0] = in->last_stay_cc[0];
+    out->last_stay_cc[1] = in->last_stay_cc[1];
+    out->last_stay_home = in->last_stay_home;
+    out->halo = in->halo <= RW_HALO_LAST ? in->halo : RW_ITEM_HALO_SKY;
+    out->bg = in->bg >= RW_BG_FIRST && in->bg <= RW_BG_LAST ? in->bg : RW_ITEM_BG_DEFAULT;
+    out->garland_on = in->garland_on;
+    out->redeem_sent = in->redeem_sent;
+    memcpy(out->passport, in->passport, sizeof(out->passport));
+    return true;
 }
 
 /* Howard Hinnant, days_from_civil */
@@ -51,7 +95,33 @@ uint32_t rw_level_min(rw_level_t level) { return level < RW_LEVEL_COUNT ? LEVEL_
 
 uint16_t rw_price(rw_item_t item) { return item < RW_ITEM_COUNT ? PRICE[item] : 0; }
 
-bool rw_garland_season(int month, int mday) { return month == 12 || (month == 1 && mday <= 6); }
+bool rw_xmas_season(int month, int mday)
+{
+    return (month == 12 && mday >= 24) || (month == 1 && mday >= 1 && mday <= 6);
+}
+
+bool rw_is_xmas(rw_item_t item) { return item == RW_ITEM_SANTA || item == RW_ITEM_SNOW || item == RW_ITEM_GARLAND; }
+
+static bool owns(const rw_state_t *s, rw_item_t i) { return i < RW_ITEM_COUNT && (s->unlocked & RW_BIT(i)); }
+
+bool rw_wears(const rw_state_t *s, rw_item_t item, int month, int mday)
+{
+    if (!rw_xmas_season(month, mday) || !owns(s, item)) return false;
+    switch (item) {
+    case RW_ITEM_SANTA:   return s->santa_on;
+    case RW_ITEM_SNOW:    return s->snow_on;
+    case RW_ITEM_GARLAND: return s->garland_on;
+    default:              return false;
+    }
+}
+
+rw_item_t rw_hat_for(const rw_state_t *s, bool girl, int month, int mday)
+{
+    if (rw_wears(s, RW_ITEM_SANTA, month, mday)) return RW_ITEM_SANTA;
+    rw_item_t h = (rw_item_t)(girl ? s->hat_girl : s->hat_boy);
+    if (girl) return h >= RW_HAT_GIRL_FIRST && h <= RW_HAT_GIRL_LAST ? h : RW_ITEM_HAT_GIRL_BASIC;
+    return h >= RW_HAT_BOY_FIRST && h <= RW_HAT_BOY_LAST ? h : RW_ITEM_HAT_BOY_BASIC;
+}
 
 /* Suma corazones y anota si se sube de nivel */
 static void earn(rw_state_t *s, rw_news_t *n, uint8_t hearts)
@@ -136,7 +206,7 @@ rw_news_t rw_on_gesture(rw_state_t *s, const rw_gesture_t *g)
             }
             s->dec_days |= BIT(g->mday);
             if (__builtin_popcount(s->dec_days) >= DEC_DAYS_FOR_GARLAND && !(s->unlocked & BIT(RW_ITEM_GARLAND))) {
-                s->unlocked |= (uint16_t)BIT(RW_ITEM_GARLAND);
+                s->unlocked |= RW_BIT(RW_ITEM_GARLAND);
                 s->garland_on = 1;
                 n.garland = true;
             }
@@ -190,24 +260,39 @@ bool rw_spend(rw_state_t *s, uint16_t n)
     return true;
 }
 
-bool rw_unlock(rw_state_t *s, rw_item_t item, uint16_t *missing)
+rw_unlock_t rw_unlock(rw_state_t *s, rw_item_t item, int month, int mday, uint16_t *missing)
 {
     if (missing) *missing = 0;
-    if (item >= RW_ITEM_COUNT) return false;
-    if (item == RW_ITEM_NAMED_INCUNEST && (s->unlocked & BIT(item))) return false; /* una sola vez */
-    if (!(s->unlocked & BIT(item))) {
-        if (item == RW_ITEM_GARLAND) return false; /* solo con diciembre */
-        if (s->balance < PRICE[item]) {
-            if (missing) *missing = (uint16_t)(PRICE[item] - s->balance);
-            return false;
+    if (item >= RW_ITEM_COUNT) return RW_UNLOCK_NOT_FOR_SALE;
+    if (item == RW_ITEM_NAMED_INCUNEST && owns(s, item)) return RW_UNLOCK_DONE; /* una sola vez */
+    if (rw_is_xmas(item) && !rw_xmas_season(month, mday)) return RW_UNLOCK_OFF_SEASON;
+    if (!owns(s, item)) {
+        if (item == RW_ITEM_GARLAND) return RW_UNLOCK_NOT_FOR_SALE; /* solo con diciembre */
+        uint16_t price = PRICE[item];
+        if (s->balance < price) {
+            if (missing) *missing = (uint16_t)(price - s->balance);
+            return RW_UNLOCK_NO_FUNDS;
         }
-        s->balance = (uint16_t)(s->balance - PRICE[item]);
-        s->unlocked |= (uint16_t)BIT(item);
+        s->balance = (uint16_t)(s->balance - price);
+        s->unlocked |= RW_BIT(item);
+        if (item == RW_ITEM_SANTA) s->santa_on = 0; /* al comprarlo queda puesto (se alterna abajo) */
+        if (item == RW_ITEM_SNOW) s->snow_on = 0;
     }
-    if (item >= RW_HALO_FIRST && item <= RW_HALO_LAST) s->halo = (uint8_t)item;
+    if (item <= RW_HALO_LAST) s->halo = (uint8_t)item;
     else if (item >= RW_BG_FIRST && item <= RW_BG_LAST) s->bg = (uint8_t)item;
     else if (item == RW_ITEM_GARLAND) s->garland_on = !s->garland_on;
-    return true;
+    else if (item == RW_ITEM_SANTA) s->santa_on = !s->santa_on;
+    else if (item == RW_ITEM_SNOW) s->snow_on = !s->snow_on;
+    else if (item >= RW_HAT_BOY_FIRST && item <= RW_HAT_BOY_LAST) {
+        s->hat_boy = (uint8_t)item;
+        s->santa_on = 0; /* elegir un gorro quita Papa Noel */
+    } else if (item >= RW_HAT_GIRL_FIRST && item <= RW_HAT_GIRL_LAST) {
+        s->hat_girl = (uint8_t)item;
+        s->santa_on = 0;
+    } else if (item >= RW_BLANKET_FIRST && item <= RW_BLANKET_LAST) {
+        s->blanket = (uint8_t)item;
+    }
+    return RW_UNLOCK_OK;
 }
 
 void rw_seed_streak(rw_state_t *s, uint8_t week, uint8_t rest, int32_t today)
@@ -232,7 +317,7 @@ void rw_seed_streak(rw_state_t *s, uint8_t week, uint8_t rest, int32_t today)
 void rw_demo_seed(rw_state_t *s)
 {
     rw_init(s);
-    s->balance = 12;
+    s->balance = 50; /* que en la demo se pueda comprar de todo (la tienda empieza en 10) */
     s->earned = 12;
     s->seals = (uint8_t)(BIT(RW_SEAL_FIRST) | BIT(RW_SEAL_WEEK));
     s->n_countries = 1;
