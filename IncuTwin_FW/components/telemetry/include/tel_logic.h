@@ -31,6 +31,10 @@ typedef struct {
     uint32_t boot;
 } tel_event_t;
 
+/* true solo si s es un objeto JSON completo y valido (RFC 8259) sin nada detras, de < max_len bytes,
+ * con anidamiento <= 4 y sin caracteres de control. Sin malloc ni recursion mas alla del limite. */
+bool tel_json_object_ok(const char *s, size_t max_len);
+
 /* {"s":..,"t":..,"up":..,"k":"..","d":{..}}; longitud escrita, o -1 si no cabe */
 int tel_event_encode(char *out, size_t len, const tel_event_t *e);
 
