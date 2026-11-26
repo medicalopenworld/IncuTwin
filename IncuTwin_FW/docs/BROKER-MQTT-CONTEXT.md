@@ -288,6 +288,12 @@ por admin, publicar y recibir con un cliente normal.
 
 ## 9. IncuTwins en ThingsBoard: IoT Gateway
 
+**Desplegado el 26-nov-2026** (runbook en el repo del VPS: `private/ops/MOSQUITTO.md` §3). Diferencias
+con lo de abajo: todo vive en el **tenant «IncuTwin»** de ThingsBoard, separado del de las IncuNest
+(sin datos clínicos); el gateway es `incutwin-gateway` con perfil `IncuTwin_gateway`; el `clientId` MQTT es `tb-gateway`; las RPC solo
+para dispositivos `incutwin-*`; «Coge mi mano» todavía no llega a la IncuNest (la cadena busca la
+incubadora por la relación `MirroredBy`, que estos dispositivos no tienen).
+
 ThingsBoard en el VPS es la **4.3.1.4** (Community). El nodo MQTT de la rule chain tiene la opción
 *Retained message*, así que el apartado 5 no tiene bloqueo.
 

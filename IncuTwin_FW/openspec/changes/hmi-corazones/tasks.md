@@ -41,7 +41,8 @@ Verificación en la IncuTwin de COM12: `test_apps` on-target y después el firmw
 - [x] 5.4 Barra de cinco botones: sobre para Notificaciones, pollito para Historial
 - [x] 5.5 Latido visible al ritmo real en el icono del corazón; burbuja sin número
 - [x] 5.6 Rol `gateway` en `broker_bootstrap.py` y mapeos del IoT Gateway en BROKER-MQTT-CONTEXT §9
-- [ ] 5.7 Desplegar: `broker_bootstrap.py`, las dos entradas del gateway y el aviso de canje en ThingsBoard
+- [x] 5.7 Desplegar: `broker_bootstrap.py`, las dos entradas del gateway y el aviso de canje en ThingsBoard
+      (26-nov-2026: tb-gateway en el VPS; COM12 visto en TB con métricas; RPC de vuelta probada)
 
 ## 4. Verificación
 
