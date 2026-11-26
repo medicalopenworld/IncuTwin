@@ -1,5 +1,7 @@
 #include "storage.h"
 
+#include <inttypes.h>
+
 #include "esp_log.h"
 #include "esp_system.h"
 #include "freertos/FreeRTOS.h"
@@ -147,6 +149,12 @@ void storage_factory_reset(void)
     storage_erase_ns(STORAGE_NS_BNAME);
     storage_erase_ns(STORAGE_NS_REWARDS);
     storage_erase_ns(STORAGE_NS_INCUPRAY);
+    /* telemetria: nuevo dueno = gen + 1; ni el namespace tel ni la cola se borran (los eventos de
+     * antes del reset, el propio `reset` incluido, salen luego con el gen antiguo) */
+    uint32_t gen = 1;
+    if (!storage_get_u32(STORAGE_NS_TEL, STORAGE_TEL_GEN, &gen) || gen == 0) gen = 1;
+    storage_set_u32(STORAGE_NS_TEL, STORAGE_TEL_GEN, gen + 1);
+    ESP_LOGW(TAG, "factory reset: telemetria gen %" PRIu32 " -> %" PRIu32, gen, gen + 1);
     vTaskDelay(pdMS_TO_TICKS(200)); /* que salga el log */
     esp_restart();
 }
