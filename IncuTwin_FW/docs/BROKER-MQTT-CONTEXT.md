@@ -163,7 +163,7 @@ $CTRL addRoleACL collector subscribePattern 'incutwin/+/hand' allow
 $CTRL addRoleACL collector subscribePattern 'incutwin/+/incupray' allow
 $CTRL addRoleACL collector subscribePattern 'incutwin/+/redeem' allow
 $CTRL addRoleACL collector subscribePattern 'incubators/+/state' allow
-$CTRL createClient collector            # contraseña → MQTT_COLLECTOR_PASS del recolector
+$CTRL createClient collector            # la contraseña va en broker.env como MQTT_COLLECTOR_PASS (broker_bootstrap.py la genera si está vacía)
 $CTRL addClientRole collector collector
 $CTRL removeRoleACL gateway subscribePattern 'incutwin/+/metrics'   # si el gateway ya lo tenía
 # (`tools/broker_bootstrap.py` hace lo mismo salvo el removeRoleACL: no quita ACL de roles existentes.)
@@ -358,7 +358,7 @@ espera la telemetría `hand_hold` y la lleva a `IncuTwin_hand_hold`:
                     { "type": "int", "key": "hold_s", "value": "${hold_s}" } ] } }
 ```
 
-**No se despliega: la analítica va al recolector (incutwin-app, `docs/analitica.md`).** Métricas de uso y recompensas (spec `device-metrics`): una tercera entrada en `mapping` y
+**Obsoleto: no se despliega, la analítica va al recolector (incutwin-app, `docs/analitica.md`). No ejecutar el `addRoleACL gateway … metrics` ni el mapping de este bloque.** Métricas de uso y recompensas (spec `device-metrics`): una tercera entrada en `mapping` y
 `$CTRL addRoleACL gateway subscribePattern 'incutwin/+/metrics' allow`. El panel publica, por
 ejemplo, `{"ts":1764100000,"on_s":3600,"conn_s":3500,"hand_s":120,"hand_n":4,"hearts":23,
 "earned":30,"level":1,"streak":9,"saved":1,"days":12,"babies":2,"seals":3,"seals_n":2,

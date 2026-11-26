@@ -99,9 +99,9 @@ bool tel_screen_should_log(int page, uint32_t now_ms, int *last_page, uint32_t *
   - `tel: diff racha rota y abrazo guardado`, `tel: diff compra`, `tel: diff país nuevo con estrella`
   - `tel: pantalla repetida en < 5 s no se registra; otra pantalla sí`
   - `tel: t=0 antes de hora y t>0 después` (encode respeta `t`)
-- [x] 1.2 `idf.py -C test_apps build flash monitor -p COM12` → los nuevos FAIL.
+- [x] 1.2 `idf.py -C test_apps build flash monitor -p COM12` → los nuevos FAIL. (COM12, 26-nov, 14 `tel:` en FAIL, 92d51de)
 - [x] 1.3 Implementa `tel_logic.c`.
-- [x] 1.4 → todos los tests en verde (también los 146 de antes).
+- [x] 1.4 → todos los tests en verde (también los 146 de antes). (COM12, 26-nov, 172 tests, 0 fallos, 92d51de)
 - [x] 1.5 Commit `Añade la lógica de eventos de telemetría con sus tests`.
 
 ## 2. Cola persistente (`tel_queue`)
@@ -146,7 +146,7 @@ registros sin confirmar suman a `lost`).
     el más viejo pendiente es el 11 o posterior y los últimos siempre están)
   - `telq: registro a medias se ignora` (escribir medio registro en el doble y reabrir)
   - `telq: next_seq tras borrar la NVS` (acked 0, flash con seq hasta 900 → 901)
-- [x] 2.2 → FAIL. 2.3 Implementa `tel_queue.c`. 2.4 → verde.
+- [x] 2.2 → FAIL (COM12, 26-nov, 181 tests, 9 `telq:` en FAIL). 2.3 Implementa `tel_queue.c`. 2.4 → verde (COM12, 26-nov, 181 y tras la ronda de corrección 184 tests, 0 fallos, 81b5ad1 y 5f22cd7).
 - [x] 2.5 Commit `Añade la cola persistente de eventos de telemetría`.
 
 ## 3. PUBACK en `mqtt_link`
@@ -190,9 +190,9 @@ NVS `tel`: `gen` (empieza en 1), `boot_n`, `acked`, `fw` (último firmware visto
   `net {"off_s":n}` al conectar tras ≥ 600 s sin broker.
 - [x] 4.2 Comando serie `tel`: imprime `gen`, `boot_n`, `next_seq`, `pending`, `lost`, en vuelo.
 - [x] 4.3 Flash en COM12 con el recolector local (o `mosquitto_sub -t 'incutwin/+/ev' -v` contra el
-  broker de pruebas): tras arrancar llega un lote con `boot`; `tel` muestra `pending 0`.
+  broker de pruebas): tras arrancar llega un lote con `boot`; `tel` muestra `pending 0`. (COM12, 26-nov: lote de arranque con `boot`, PUBACK aceptado; da7f1b8 + 6d3a9be)
 - [x] 4.4 Sin WiFi: generar eventos, reiniciar dos veces, conectar → llegan todos en orden, `seq`
-  sin huecos.
+  sin huecos. (COM12, 26-nov: sin WiFi y dos reinicios, `seq` 94..108 en orden, un lote por arranque; da7f1b8 + 6d3a9be)
 - [x] 4.5 Commit `Registra y envía los eventos de telemetría con cola y PUBACK`.
 
 ## 5. Foto ampliada en `metrics`
@@ -215,8 +215,8 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
 
 - [x] 5.1 Tests que fallan: los escenarios «Acompañando» y «Buscando» de la spec `device-metrics`
   de este cambio; «pasaporte lleno cabe» con `x` al máximo (`fw` de 31 caracteres, `inc` de 15).
-- [x] 5.2 → FAIL. 5.3 Implementa; `cloud_status` rellena `x` con `accompany_current()`, la fase de
-  `twin_model_get()`, `settings_*()` y `telemetry_*()`. 5.4 → verde.
+- [x] 5.2 → FAIL (COM12, 26-nov). 5.3 Implementa; `cloud_status` rellena `x` con `accompany_current()`, la fase de
+  `twin_model_get()`, `settings_*()` y `telemetry_*()`. 5.4 → verde (COM12, 26-nov, 187 tests, 0 fallos, 0f95ac2; antes de 43020ee).
 - [x] 5.5 Commit `Amplía la foto de métricas con fase, IncuNest, ajustes y cola`.
 
 ## 6. Productores de eventos
@@ -253,7 +253,7 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
 - [ ] 7.2 `idf.py -C test_apps` en COM12: todo en verde; `idf.py build` sin avisos nuevos.
 - [ ] 7.3 Prueba de extremo a extremo con el recolector local: un día de uso normal en COM12 →
   `events` sin huecos de `seq`, `snapshots` con `phase` e `inc`.
-- [x] 7.4 `openspec validate device-telemetry` y commit `Documenta la telemetría de eventos`.
+- [x] 7.4 `openspec validate device-telemetry` y commit `docs(telemetry): documenta el topic ev, el rol collector y las tareas pendientes en placa` (265fe6a).
 
 ## Pendiente en placa
 
