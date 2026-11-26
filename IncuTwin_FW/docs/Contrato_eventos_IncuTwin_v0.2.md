@@ -296,6 +296,9 @@ Hito de integración: **una alta con `baby_outcome = 1` en `TEST-incubadora` lle
 
 ### 3.8 Historial del panel *(v0.3, spec `tb-stay-history`, 10-nov-2026)*
 
+> **Sin uso desde el 26-nov-2026.** La spec se archivó sin terminar: el Historial de la IncuTwin lo construye el
+> propio panel (`stay_log`) y ningún firmware lee `cmd/history`. Un historial de servidor saldrá del backend del VPS.
+
 ThingsBoard guarda en cada panel (server attribute `itw_history`) las estancias que ha acompañado y
 sus "Coge mi mano", y se lo manda retenido en `incutwin/<client_id>/cmd/history`:
 

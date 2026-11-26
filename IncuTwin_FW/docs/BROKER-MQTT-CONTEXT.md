@@ -57,7 +57,7 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/metrics` | la IncuTwin: al conectar, cada hora y 30 s después de cambiar sus recompensas (spec `device-metrics`) | `collector` (analítica; desde el 26-nov-2026 ya no va a ThingsBoard, ver §9) | no | 1 |
 | `incutwin/<client_id>/ev` | la IncuTwin: lotes de eventos de uso con cola persistente en flash, hasta 20 eventos o 4096 bytes por lote (spec `telemetry-events`) | `collector` | no | 1 |
 | `incutwin/<client_id>/redeem` | la IncuTwin, al canjear «Una IncuNest con tu nombre», hasta que llega una vez | gateway → ThingsBoard (aviso a MOW) | no | 1 |
-| `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`) | la IncuTwin | **sí** | 1 |
+| `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`, **archivada el 26-nov-2026: ningún firmware lo consume**, el Historial sale de `stay_log` en el panel) | nadie (antes la IncuTwin) | **sí** | 1 |
 | `incupray/next` | la API de la IncuPray (VPS; hasta entonces `publisher`) | todas las IncuTwin | **sí** | 1 |
 | `incupray/live` | la API, cada 10 s mientras está abierta | todas las IncuTwin | no | 1 |
 | `incupray/summary` | la API, al cerrarse | todas las IncuTwin | **sí** | 1 |
