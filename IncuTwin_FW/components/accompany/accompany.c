@@ -129,13 +129,23 @@ static const char *tel_id(const char *id, char *out, size_t n)
     return out;
 }
 
+/* Ultimo estado de `acc` registrado (o el guardado al arrancar, que no se registra) */
+static int s_last_phase = -1;
+static char s_last_cur[TWIN_INCUBATOR_ID_LEN];
+
+static void tel_acc_remember(int ph, const char *cur)
+{
+    s_last_phase = ph;
+    strncpy(s_last_cur, cur, sizeof s_last_cur - 1);
+    s_last_cur[sizeof s_last_cur - 1] = '\0';
+}
+
 /* Telemetria `acc`: una vez por cambio real de fase o de IncuNest actual (PHASE/SWITCH tambien
- * saltan por cambios de lo que se presenta, sin cambio de fase). */
+ * saltan por cambios de lo que se presenta, sin cambio de fase). El estado con el que se arranca
+ * no es un cambio: accompany_init lo anota sin registrarlo. */
 static void tel_acc_locked(uint32_t r)
 {
     static const char *const names[] = { "off", "searching", "waiting", "with", "ending", "farewell" };
-    static int s_last_phase = -1;
-    static char s_last_cur[TWIN_INCUBATOR_ID_LEN];
     if (!(r & (ACC_R_PHASE | ACC_R_SWITCH))) return;
     if (twin_model_demo_active()) return; /* en la demo no se anota ni se actualiza lo ultimo visto */
     int ph = (int)acc_phase(&s_acc);
@@ -146,9 +156,7 @@ static void tel_acc_locked(uint32_t r)
     snprintf(d, sizeof d, "{\"phase\":\"%s\",\"inc\":\"%s\",\"prev_inc\":\"%s\"}",
              ph >= 0 && ph < 6 ? names[ph] : "off", tel_id(cur, a, sizeof a), tel_id(s_last_cur, b, sizeof b));
     telemetry_log("acc", d);
-    s_last_phase = ph;
-    strncpy(s_last_cur, cur, sizeof s_last_cur - 1);
-    s_last_cur[sizeof s_last_cur - 1] = '\0';
+    tel_acc_remember(ph, cur);
 }
 
 static void handle_locked(uint32_t r)
@@ -227,6 +235,7 @@ void accompany_init(void)
     /* no elegir hasta conectar con el broker (on_mqtt pone la espera de verdad); el reloj se
      * compara con desbordamiento, asi que "nunca" es media vuelta por delante, no 0xFFFFFFFF */
     acc_hold_pick(&s_acc, now_s() + 0x70000000u);
+    tel_acc_remember((int)acc_phase(&s_acc), acc_current(&s_acc)); /* sin evento al arrancar */
     s_store = heap_caps_calloc(ACC_MAX_INC, sizeof(stored_t), MALLOC_CAP_SPIRAM);
     if (!s_store) ESP_LOGE(TAG, "sin PSRAM para los estados de las IncuNest");
     ESP_LOGI(TAG, "modo acompañar %s (fase %d, actual '%s', %u IncuNest en el historial)",
