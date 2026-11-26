@@ -179,6 +179,59 @@ TEST_CASE("tel: diff compra del ultimo articulo y ultimo sello", "[telemetry]") 
     TEST_ASSERT_EQUAL_STRING(want, r.d[0]);
 }
 
+/* Una compra real = exactamente un `spend`: elegir lo ya comprado, poner/quitar Navidad o la
+ * guirnalda no gastan, y el canje de la IncuNest con nombre sale con su precio. */
+TEST_CASE("tel: una compra emite un solo spend; elegir o alternar no emite", "[telemetry]") {
+    rw_state_t s; rw_init(&s);
+    s.earned = 2000; s.balance = 2000;
+    rec_t r = { 0 };
+    rw_state_t before = s;
+    TEST_ASSERT_EQUAL_INT(RW_UNLOCK_OK, rw_unlock(&s, RW_ITEM_HAT_BOY_MINT, 0, 0, NULL));
+    tel_rewards_diff(&before, &s, NULL, "buy", sink_rec, &r);
+    TEST_ASSERT_EQUAL_INT(1, r.n);
+    TEST_ASSERT_EQUAL_STRING("spend", r.kind[0]);
+    char want[64];
+    snprintf(want, sizeof want, "{\"item\":%d,\"price\":%u,\"bal\":%u}", RW_ITEM_HAT_BOY_MINT,
+             (unsigned)rw_price(RW_ITEM_HAT_BOY_MINT), (unsigned)s.balance);
+    TEST_ASSERT_EQUAL_STRING(want, r.d[0]);
+    TEST_ASSERT_EQUAL_UINT16(2000 - rw_price(RW_ITEM_HAT_BOY_MINT), s.balance);
+
+    /* elegir otra vez lo ya suyo */
+    before = s; memset(&r, 0, sizeof r);
+    TEST_ASSERT_EQUAL_INT(RW_UNLOCK_OK, rw_unlock(&s, RW_ITEM_HAT_BOY_MINT, 0, 0, NULL));
+    tel_rewards_diff(&before, &s, NULL, "buy", sink_rec, &r);
+    TEST_ASSERT_EQUAL_INT(0, r.n);
+
+    /* Papa Noel y copos: comprar (en temporada) gasta una vez; alternar no gasta */
+    before = s; memset(&r, 0, sizeof r);
+    TEST_ASSERT_EQUAL_INT(RW_UNLOCK_OK, rw_unlock(&s, RW_ITEM_SANTA, 12, 25, NULL));
+    tel_rewards_diff(&before, &s, NULL, "buy", sink_rec, &r);
+    TEST_ASSERT_EQUAL_INT(1, r.n);
+    TEST_ASSERT_EQUAL_STRING("spend", r.kind[0]);
+    TEST_ASSERT_EQUAL_INT(RW_UNLOCK_OK, rw_unlock(&s, RW_ITEM_SNOW, 12, 25, NULL));
+    s.unlocked |= RW_BIT(RW_ITEM_GARLAND); /* la guirnalda es gratis: se consigue con diciembre */
+    const rw_item_t toggles[] = { RW_ITEM_SANTA, RW_ITEM_SNOW, RW_ITEM_GARLAND };
+    for (unsigned i = 0; i < sizeof toggles / sizeof toggles[0]; i++) {
+        for (int k = 0; k < 2; k++) {
+            before = s; memset(&r, 0, sizeof r);
+            TEST_ASSERT_EQUAL_INT(RW_UNLOCK_OK, rw_unlock(&s, toggles[i], 12, 25, NULL));
+            tel_rewards_diff(&before, &s, NULL, "buy", sink_rec, &r);
+            TEST_ASSERT_EQUAL_INT(0, r.n);
+        }
+    }
+
+    /* la IncuNest con tu nombre */
+    before = s; memset(&r, 0, sizeof r);
+    TEST_ASSERT_EQUAL_INT(RW_UNLOCK_OK, rw_unlock(&s, RW_ITEM_NAMED_INCUNEST, 0, 0, NULL));
+    tel_rewards_diff(&before, &s, NULL, "buy", sink_rec, &r);
+    TEST_ASSERT_EQUAL_INT(1, r.n);
+    TEST_ASSERT_EQUAL_STRING("spend", r.kind[0]);
+    TEST_ASSERT_EQUAL_UINT16(365, rw_price(RW_ITEM_NAMED_INCUNEST));
+    snprintf(want, sizeof want, "{\"item\":%d,\"price\":365,\"bal\":%u}", RW_ITEM_NAMED_INCUNEST,
+             (unsigned)s.balance);
+    TEST_ASSERT_EQUAL_STRING(want, r.d[0]);
+}
+
 TEST_CASE("tel: diff apuesta sin desbloqueo no es compra", "[telemetry]") {
     rw_state_t b, a; rw_init(&b); a = b;
     b.earned = 40; b.balance = 40;
