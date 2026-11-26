@@ -271,3 +271,35 @@ COM12 está reservado por otra sesión; estos pasos se hacen juntos cuando quede
   `phase` e `inc`.
 - [ ] Desplegar en el broker real: `python tools/broker_bootstrap.py` (rol y cliente `collector`;
   `removeRoleACL gateway ... metrics` a mano; `persistence true` y `max_queued_messages` ~100000).
+- [ ] Unity de la revisión final (solo compilados, falta correrlos en placa): `tel: diff compra del
+  ultimo articulo y ultimo sello`, `telq: gen y boot mas altos de la cola tras borrar la NVS`,
+  `telq: registro corto o con otro `d` no da gen ni boot`, `tel: tel_ids_floor solo sube`.
+- [ ] Reconexión con un lote en vuelo (repetir tras el arreglo de la tarea 4, 6d3a9be): publicar un
+  lote, cortar el WiFi antes del PUBACK y volver; el mismo lote (mismos `seq`) sale otra vez y el
+  recolector descarta los duplicados; `tel` acaba en `pending 0` y «en vuelo: ninguno».
+- [ ] Lote lleno de ~4 KB: 20 eventos con `d` largo (p. ej. 20 `setting` o `incupray` seguidos sin
+  conexión). `mqtt_link` tiene `buffer.size` 2048, así que el envío sale fragmentado: comprobar que
+  llega entero al broker, con un solo PUBACK, y que el recolector lo acepta.
+- [ ] Marca de agua de pila: `tel` imprime «pila libre min» de la tarea `telemetry` (4608 B) y de
+  `esp_timer` (3584 B). Mirarla tras un rato de uso con lotes y borrados de sector, y la de
+  `esp_timer` justo después de una publicación de `metrics` disparada por el temporizador (la
+  periódica o la de «recompensas»). Margen esperado ≥ 512 B en las dos.
+- [ ] Tirones de la UI durante el borrado de un sector (30-400 ms, cada 16 eventos): con muchos
+  eventos seguidos (pestañas, ajustes), la animación de cambio de pantalla y el latido no se cortan.
+- [ ] Borrado de la NVS con la cola viva (arreglo de la revisión final): `nvs_flash_erase` de la
+  partición `nvs` (no de `storage`) y reaprovisionar; al arrancar sale el aviso «NVS por detrás de
+  la cola» y el `boot` lleva el `gen` de antes y un `b` mayor que todos los de la cola.
+
+## Al fusionar con la tienda (`feat/acompanar`)
+
+- [ ] `demo_mode_set()`: las dos ramas la definen. Se queda la de esta rama (la que registra `demo`
+  y llama a `telemetry_set_demo`); lo que la de la tienda hace además (reiniciar el escenario,
+  pitido) va a `on_long` o al comando de consola. Si se dejan las dos, una llama a la otra y se
+  repite sin fin.
+- [ ] `spend` y `redeem`: volver a colgarlos del resultado de éxito `rw_unlock_t` de la tienda (en
+  vez del diff de saldo y `unlocked` de aquí). `rewards_tel.c` ya toma la anchura de `unlocked` del
+  campo, así que con `uint64_t` y ~26 artículos sigue viendo todos los bits.
+- [ ] `metrics_payload.c`: unir los campos de las dos ramas y volver a medir `METRICS_PAYLOAD_MAX`
+  (≥ 896) con todo al máximo.
+- [ ] `idf.py -C test_apps` en placa con las dos ramas juntas.
+
