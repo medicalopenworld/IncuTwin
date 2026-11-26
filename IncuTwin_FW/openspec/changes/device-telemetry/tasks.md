@@ -299,8 +299,9 @@ f80a2ff): `metrics` ya solo va al recolector.
   arranques con diagnóstico ninguna sesión establecida se cayó. Una vez hubo un RST en el saludo
   TLS (reintento a los 4,5 s) de origen sin confirmar (Traefik o router). Mejora opcional: cerrar
   MQTT antes de `esp_restart`.
-- [ ] Tirones de la UI durante el borrado de un sector (30-400 ms, cada 16 eventos): con muchos
+- [x] Tirones de la UI durante el borrado de un sector (30-400 ms, cada 16 eventos): con muchos
   eventos seguidos (pestañas, ajustes), la animación de cambio de pantalla y el latido no se cortan.
+  *(26-nov: Pablo revisa la interfaz en ITW-DEEF3C con 2b39d56 y va correctamente.)*
 - [ ] Borrado de la NVS con la cola viva (arreglo de la revisión final): `nvs_flash_erase` de la
   partición `nvs` (no de `storage`) y reaprovisionar; al arrancar sale el aviso «NVS por detrás de
   la cola» y el `boot` lleva el `gen` de antes y un `b` mayor que todos los de la cola.
