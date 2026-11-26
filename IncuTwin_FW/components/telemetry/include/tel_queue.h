@@ -3,15 +3,20 @@
  * C puro sobre una interfaz de flash (tel_flash_t): en el firmware la pega con esp_partition va en
  * telemetry.c; en test_apps, un doble en RAM. Sin malloc: tel_queue_t se declara en estatico.
  *
- * Formato: anillo de registros de 256 B, 16 por sector de 4096 B. Cada registro:
- *   off  0 u32 magia TEL_QUEUE_MAGIC     off 12 u32 CRC32 de [4..12) + evento
- *   off  4 u32 seq                       off 16 u32 hecho: 0xFFFFFFFF pendiente; otro valor =
- *   off  8 u16 longitud del evento                 confirmado o descartado (se escribe sin borrar)
- *   off 10 u16 version (1)               off 20 u32 reservado (0xFFFFFFFF)
- *   off 24 tel_event_t                   resto hasta 256 sin escribir (0xFF)
- * Un registro con magia, longitud o CRC malos (p. ej. a medias por un corte de luz) se ignora.
+ * Formato (fijo: lo leeran versiones futuras): anillo de registros de 256 B, 16 por sector de
+ * 4096 B, sobre los primeros TEL_QUEUE_BYTES de la flash que se pase. Cada registro:
+ *   off  0 u32 magia TEL_QUEUE_MAGIC     off 12 u32 CRC32 de la cabecera [0..12)
+ *   off  4 u32 seq                       off 16 u32 CRC32 de los `len` bytes del evento
+ *   off  8 u16 len (<= 232)              off 20 u32 hecho: 0xFFFFFFFF pendiente; otro valor =
+ *   off 10 u16 ver del evento (1)                  confirmado o descartado (se escribe sin borrar)
+ *   off 24 evento (`len` bytes; ver 1 = tel_event_t)   resto hasta 256 sin escribir (0xFF)
+ * Toda cabecera sana cuenta para el seq mas alto y la posicion de escritura, sea de la version que
+ * sea. Solo se envian los de ver 1 con su CRC bien; si `len` no coincide con tel_event_t se rellena
+ * con ceros o se recorta (anadir campos al final o crecer `d` no cambia `ver`; cambiar el
+ * significado de los bytes si). Un registro a medias por un corte de luz se ignora.
  * Un sector se borra justo antes de reutilizarlo. La cola guarda como mucho TEL_QUEUE_CAP
  * pendientes (menos si la flash es pequena); al pasarse descarta el mas viejo y suma `lost`.
+ * No es reentrante: el que llama serializa el acceso (p. ej. con un mutex).
  */
 #pragma once
 
@@ -30,6 +35,7 @@ extern "C" {
 #define TEL_QUEUE_CAP      5000u                     /* pendientes como mucho */
 #define TEL_QUEUE_BYTES    (320u * TEL_QUEUE_SECTOR) /* 1,25 MB de `storage`: 5.120 huecos */
 #define TEL_QUEUE_MAGIC    0x314C4554u               /* "TEL1" */
+#define TEL_QUEUE_EV_VER   1u                        /* `ver` de los registros que escribe esta version */
 
 typedef struct {   /* lo que la cola necesita de la flash; esp_partition en telemetry.c, RAM en test */
     bool (*read)(void *ctx, uint32_t off, void *buf, size_t len);

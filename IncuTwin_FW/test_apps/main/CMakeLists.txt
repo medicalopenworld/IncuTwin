@@ -28,6 +28,6 @@ idf_component_register(
                  "${COMP}/ota_update/include" "${COMP}/hand_hold/include"
                  "${COMP}/world_map/include" "${COMP}/accompany/include"
                  "${COMP}/baby_name/include" "${COMP}/event_log/include" "${COMP}/stay_log/include" "${COMP}/rewards/include" "${COMP}/telemetry/include" "${COMP}/incupray/include" "${COMP}/settings/include" "${COMP}/ui"
-    PRIV_REQUIRES unity twin_model twin_types espressif__cjson esp_psram   # esp_psram: el doble de flash de 1,25 MB va en PSRAM
+    PRIV_REQUIRES unity twin_model twin_types espressif__cjson esp_psram esp_timer   # esp_psram: el doble de flash de 1,25 MB va en PSRAM
     WHOLE_ARCHIVE   # los TEST_CASE se registran por constructores: no dejar que el linker los descarte
 )

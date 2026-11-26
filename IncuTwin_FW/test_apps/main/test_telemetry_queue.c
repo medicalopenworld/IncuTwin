@@ -2,11 +2,13 @@
  * El doble imita la flash de verdad: borrar pone 0xFF por sectores de 4096 y escribir solo baja
  * bits (AND), asi que reescribir sin borrar se nota. Puede simular un corte de luz a mitad de una
  * escritura (`budget`). La cola grande (1,25 MB) va en PSRAM. */
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "esp_heap_caps.h"
+#include "esp_timer.h"
 #include "tel_queue.h"
 #include "unity.h"
 
@@ -16,12 +18,20 @@ typedef struct {
     int32_t budget;      /* bytes que aun se escriben antes del "corte de luz"; < 0 sin limite */
     uint32_t bad_writes; /* escrituras que querian subir bits 0 -> 1 (sin borrar antes) */
     uint32_t erases;
+    uint32_t reads;
+    uint32_t oob;           /* accesos fuera del doble */
+    uint32_t fail_writes;   /* las siguientes N escrituras devuelven false sin escribir nada */
+    uint32_t silent_writes; /* las siguientes N devuelven true sin escribir nada */
 } tel_flash_ram_t;
 
 static bool tel_flash_ram_read(void *ctx, uint32_t off, void *buf, size_t len)
 {
     tel_flash_ram_t *r = ctx;
-    if ((uint64_t)off + len > r->size) return false;
+    r->reads++;
+    if ((uint64_t)off + len > r->size) {
+        r->oob++;
+        return false;
+    }
     memcpy(buf, r->mem + off, len);
     return true;
 }
@@ -29,7 +39,18 @@ static bool tel_flash_ram_read(void *ctx, uint32_t off, void *buf, size_t len)
 static bool tel_flash_ram_write(void *ctx, uint32_t off, const void *buf, size_t len)
 {
     tel_flash_ram_t *r = ctx;
-    if ((uint64_t)off + len > r->size) return false;
+    if ((uint64_t)off + len > r->size) {
+        r->oob++;
+        return false;
+    }
+    if (r->fail_writes) {
+        r->fail_writes--;
+        return false;
+    }
+    if (r->silent_writes) {
+        r->silent_writes--;
+        return true;
+    }
     const uint8_t *s = buf;
     for (size_t i = 0; i < len; i++) {
         if (r->budget == 0) return false; /* corte de luz: lo demas no llega */
@@ -256,31 +277,180 @@ TEST_CASE("telq: el anillo da vueltas sin perder ni repetir", "[telemetry]") {
 }
 
 TEST_CASE("telq: registro a medias se ignora", "[telemetry]") {
-    /* Corte de luz escribiendo un evento: a mitad de un sector y justo al empezar uno nuevo. */
+    /* Corte de luz escribiendo un evento: a mitad de un sector y justo al empezar uno nuevo; con la
+     * cabecera a medias (10 B) o entera pero sin el evento (100 B). */
     const uint32_t before[] = { 5, 16 };
-    for (int c = 0; c < 2; c++) {
+    const int32_t budget[] = { 10, 100 };
+    for (int c = 0; c < 4; c++) {
         tel_flash_ram_t r;
         tel_flash_t f = tel_flash_ram_new(&r, 8);
         static tel_queue_t q;
         tel_queue_open(&q, &f, 0);
-        uint32_t n = before[c];
+        uint32_t n = before[c % 2];
         push_n(&q, n);
-        r.budget = 100; /* el siguiente registro solo llega hasta el byte 100 */
+        r.budget = budget[c / 2];
         tel_event_t e = EVQ(n + 1, "screen");
-        tel_queue_push(&q, &e);
+        TEST_ASSERT_FALSE(tel_queue_push(&q, &e));
         r.budget = -1;
 
         tel_queue_open(&q, &f, 0); /* arranque tras el corte */
         expect_pending_run(&q, 1, n);
-        TEST_ASSERT_EQUAL_UINT32(n + 1, tel_queue_next_seq(&q));
+        /* con la cabecera entera su seq ya cuenta: un hueco de seq, nunca uno repetido */
+        uint32_t next = budget[c / 2] >= 24 ? n + 2 : n + 1;
+        TEST_ASSERT_EQUAL_UINT32(next, tel_queue_next_seq(&q));
         push_n(&q, 3); /* la cola sigue sana: no escribe encima del registro roto */
-        expect_pending_run(&q, 1, n + 3);
-        tel_queue_open(&q, &f, 0);
-        expect_pending_run(&q, 1, n + 3);
-        TEST_ASSERT_EQUAL_UINT32(n + 4, tel_queue_next_seq(&q));
+        for (int k = 0; k < 2; k++) {
+            static tel_event_t ev[24];
+            TEST_ASSERT_EQUAL_UINT32(n + 3, tel_queue_pending(&q));
+            TEST_ASSERT_EQUAL_INT((int)n + 3, tel_queue_peek(&q, ev, 24));
+            for (uint32_t i = 0; i < n; i++) TEST_ASSERT_EQUAL_UINT32(i + 1, ev[i].seq);
+            for (uint32_t i = 0; i < 3; i++) TEST_ASSERT_EQUAL_UINT32(next + i, ev[n + i].seq);
+            tel_queue_open(&q, &f, 0);
+        }
+        TEST_ASSERT_EQUAL_UINT32(next + 3, tel_queue_next_seq(&q));
         TEST_ASSERT_EQUAL_UINT32(0, r.bad_writes);
         free(r.mem);
     }
+}
+
+TEST_CASE("telq: doble fallo de escritura no deja pendientes fantasma", "[telemetry]") {
+    tel_flash_ram_t r;
+    tel_flash_t f = tel_flash_ram_new(&r, 8);
+    static tel_queue_t q;
+    static tel_event_t ev[16];
+    tel_queue_open(&q, &f, 0);
+    push_n(&q, 5);
+    r.fail_writes = 1; /* devuelve false sin escribir */
+    tel_event_t e = EVQ(tel_queue_next_seq(&q), "screen");
+    TEST_ASSERT_FALSE(tel_queue_push(&q, &e));
+    r.silent_writes = 1; /* dice que si pero no escribe: lo pilla la relectura */
+    e = EVQ(tel_queue_next_seq(&q), "screen");
+    TEST_ASSERT_FALSE(tel_queue_push(&q, &e));
+    r.budget = 100; /* y luego un corte a medias */
+    e = EVQ(tel_queue_next_seq(&q), "screen");
+    TEST_ASSERT_FALSE(tel_queue_push(&q, &e));
+    r.budget = -1;
+    TEST_ASSERT_EQUAL_UINT32(5, tel_queue_pending(&q));
+    TEST_ASSERT_EQUAL_UINT32(9, tel_queue_next_seq(&q));
+
+    tel_queue_open(&q, &f, 0);
+    TEST_ASSERT_EQUAL_UINT32(5, tel_queue_pending(&q));
+    TEST_ASSERT_EQUAL_UINT32(9, tel_queue_next_seq(&q)); /* el 8 dejo su cabecera */
+    push_n(&q, 3);
+    tel_queue_open(&q, &f, 0);
+    TEST_ASSERT_EQUAL_UINT32(8, tel_queue_pending(&q));
+    TEST_ASSERT_EQUAL_INT(8, tel_queue_peek(&q, ev, 16));
+    const uint32_t want[8] = { 1, 2, 3, 4, 5, 9, 10, 11 };
+    for (int i = 0; i < 8; i++) TEST_ASSERT_EQUAL_UINT32(want[i], ev[i].seq);
+    tel_queue_ack_through(&q, 11);
+    TEST_ASSERT_EQUAL_UINT32(0, tel_queue_pending(&q));
+    tel_queue_open(&q, &f, 0);
+    TEST_ASSERT_EQUAL_UINT32(0, tel_queue_pending(&q));
+    TEST_ASSERT_EQUAL_UINT32(12, tel_queue_next_seq(&q));
+    TEST_ASSERT_EQUAL_UINT32(0, r.bad_writes);
+    free(r.mem);
+}
+
+/* Lo que escribiria otra version del firmware: cabecera v1 con otro `len`/`ver`. */
+static uint32_t crc32_ref(const void *buf, size_t len)
+{
+    const uint8_t *p = buf;
+    uint32_t c = 0xFFFFFFFFu;
+    while (len--) {
+        c ^= *p++;
+        for (int k = 0; k < 8; k++) c = (c >> 1) ^ (0xEDB88320u & (0u - (c & 1u)));
+    }
+    return ~c;
+}
+
+static void raw_put(tel_flash_ram_t *r, uint32_t slot, uint32_t seq, uint16_t ver,
+                    const uint8_t *payload, uint16_t len)
+{
+    uint8_t *p = r->mem + slot * TEL_QUEUE_REC;
+    memset(p, 0xFF, TEL_QUEUE_REC);
+    uint32_t magic = TEL_QUEUE_MAGIC, done = 0xFFFFFFFFu;
+    memcpy(p + 0, &magic, 4);
+    memcpy(p + 4, &seq, 4);
+    memcpy(p + 8, &len, 2);
+    memcpy(p + 10, &ver, 2);
+    uint32_t hcrc = crc32_ref(p, 12), pcrc = crc32_ref(payload, len);
+    memcpy(p + 12, &hcrc, 4);
+    memcpy(p + 16, &pcrc, 4);
+    memcpy(p + 20, &done, 4);
+    memcpy(p + 24, payload, len);
+}
+
+TEST_CASE("telq: registros de otra version cuentan para seq y se leen si se puede", "[telemetry]") {
+    tel_flash_ram_t r;
+    tel_flash_t f = tel_flash_ram_new(&r, 8);
+    static uint8_t pl[232];
+    tel_event_t e;
+
+    /* hueco 0: ver 1 mas corto (una version con `d` de 128 B) -> se rellena con ceros */
+    e = EVQ(1, "boot");
+    memcpy(pl, &e, sizeof e);
+    raw_put(&r, 0, 1, TEL_QUEUE_EV_VER, pl, (uint16_t)(sizeof e - 32));
+    /* hueco 1: ver 1 mas largo (un campo nuevo al final) -> se recorta, `d` intacto */
+    e = EVQ(2, "screen");
+    memcpy(pl, &e, sizeof e);
+    memset(pl + sizeof e, 0xA5, sizeof pl - sizeof e);
+    raw_put(&r, 1, 2, TEL_QUEUE_EV_VER, pl, sizeof pl);
+    /* hueco 2: ver 1 mas largo con un `d` que ya no cabe -> "{}" en vez de JSON cortado */
+    e = EVQ(3, "screen");
+    memcpy(pl, &e, sizeof e);
+    memset(pl + offsetof(tel_event_t, d), 'x', sizeof pl - offsetof(tel_event_t, d));
+    pl[sizeof pl - 1] = '\0';
+    raw_put(&r, 2, 3, TEL_QUEUE_EV_VER, pl, sizeof pl);
+    /* hueco 3: ver 2 (otro formato) -> no se lee, pero su seq manda */
+    memset(pl, 0x5A, sizeof pl);
+    raw_put(&r, 3, 900, 2, pl, 100);
+
+    static tel_queue_t q;
+    tel_queue_open(&q, &f, 0); /* p. ej. tras un restablecimiento de fabrica con la NVS borrada */
+    TEST_ASSERT_EQUAL_UINT32(901, tel_queue_next_seq(&q));
+    static tel_event_t ev[8];
+    TEST_ASSERT_EQUAL_UINT32(3, tel_queue_pending(&q));
+    TEST_ASSERT_EQUAL_INT(3, tel_queue_peek(&q, ev, 8));
+    TEST_ASSERT_EQUAL_UINT32(1, ev[0].seq);
+    TEST_ASSERT_EQUAL_STRING("boot", ev[0].kind);
+    TEST_ASSERT_EQUAL_UINT32(3, ev[0].up);
+    TEST_ASSERT_EQUAL_STRING("{\"p\":1}", ev[0].d);
+    TEST_ASSERT_EQUAL_UINT32(2, ev[1].seq);
+    TEST_ASSERT_EQUAL_UINT32(6, ev[1].up);
+    TEST_ASSERT_EQUAL_STRING("{\"p\":2}", ev[1].d);
+    TEST_ASSERT_EQUAL_UINT32(3, ev[2].seq);
+    TEST_ASSERT_EQUAL_STRING("{}", ev[2].d);
+
+    tel_event_t n = EVQ(tel_queue_next_seq(&q), "screen");
+    TEST_ASSERT_TRUE(tel_queue_push(&q, &n)); /* va tras el de ver 2, sin pisarlo */
+    tel_queue_open(&q, &f, 0);
+    TEST_ASSERT_EQUAL_UINT32(4, tel_queue_pending(&q));
+    TEST_ASSERT_EQUAL_INT(4, tel_queue_peek(&q, ev, 8));
+    TEST_ASSERT_EQUAL_UINT32(901, ev[3].seq);
+    TEST_ASSERT_EQUAL_UINT32(902, tel_queue_next_seq(&q));
+    TEST_ASSERT_EQUAL_UINT32(0, r.bad_writes);
+    free(r.mem);
+}
+
+TEST_CASE("telq: abrir la cola llena es rapido y no pasa de 1,25 MB", "[telemetry]") {
+    tel_flash_ram_t r;
+    tel_flash_t f = tel_flash_ram_new(&r, TEL_QUEUE_BYTES / TEL_QUEUE_SECTOR);
+    f.size = 0x7D0000; /* la pega pasa la particion `storage` entera */
+    static tel_queue_t q;
+    tel_queue_open(&q, &f, 0);
+    push_n(&q, TEL_QUEUE_CAP);
+    r.reads = 0;
+    int64_t t0 = esp_timer_get_time();
+    tel_queue_open(&q, &f, 0);
+    int64_t dt = esp_timer_get_time() - t0;
+    printf("telq: abrir %u huecos con %u pendientes: %lld us, %u lecturas\n",
+           (unsigned)(TEL_QUEUE_BYTES / TEL_QUEUE_REC), (unsigned)tel_queue_pending(&q), (long long)dt,
+           (unsigned)r.reads);
+    TEST_ASSERT_EQUAL_UINT32(TEL_QUEUE_CAP, tel_queue_pending(&q));
+    TEST_ASSERT_TRUE(r.reads <= TEL_QUEUE_BYTES / 1024); /* una lectura cada 4 huecos */
+    TEST_ASSERT_EQUAL_UINT32(0, r.oob);
+    TEST_ASSERT_EQUAL_UINT32(0, r.bad_writes);
+    free(r.mem);
 }
 
 TEST_CASE("telq: next_seq tras borrar la NVS", "[telemetry]") {
