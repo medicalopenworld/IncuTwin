@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#define METRICS_PAYLOAD_MAX 640
+#define METRICS_PAYLOAD_MAX 768
 #define REDEEM_PAYLOAD_MAX  96
 
 typedef struct {
@@ -21,7 +21,8 @@ typedef struct {
 
 /* {"ts":..,"on_s":..,"conn_s":..,"hand_s":..,"hand_n":..,"hearts":..,"earned":..,"level":..,
  *  "streak":..,"saved":..,"days":..,"babies":..,"seals":..,"seals_n":..,"countries":"TG,CM",
- *  "countries_n":..,"stars":..,"unlocked":..,"halo":..,"bg":..,"garland":..,"named_incunest":..}
+ *  "countries_n":..,"stars":..,"unlocked":..,"halo":..,"bg":..,"garland":..,"named_incunest":..,
+ *  "hat_boy":..,"hat_girl":..,"blanket":..,"santa":0|1,"snow":0|1}
  * Devuelve la longitud escrita o -1 si no cabe. */
 int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, const rw_state_t *r);
 

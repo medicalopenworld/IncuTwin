@@ -29,6 +29,7 @@ PREVIEW = os.path.join(HERE, "preview")
 ASSETS = os.path.join(ROOT, "components", "assets")
 sys.path.insert(0, HERE)
 from lvgl9_c import c_header, emit_argb8888, emit_i8, emit_palettes, write_header  # noqa: E402
+import gen_outfit  # noqa: E402
 
 BABY_H = 185          # alto final del sprite del bebe en px
 SKIN_BASE = (244, 193, 166)   # piel original de Baby.png
@@ -349,6 +350,41 @@ def load_logo():
     return im
 
 
+def save_outfits_preview(idxmaps, size, pals, hat_idx, hat_tab, blk_idx, blk_tab, santa, sx, sy):
+    """preview/outfits.png: gorros (nino arriba, nina debajo), mantas y Papa Noel."""
+    w, h = size
+
+    def render(frame, hat_style, blk_style):
+        pal = list(pals[0])
+        for k, i in enumerate(hat_idx):
+            pal[i] = hat_tab[hat_style][k]
+        for k, i in enumerate(blk_idx):
+            pal[i] = blk_tab[blk_style][k]
+        img = Image.new("RGBA", (w, h))
+        p = img.load()
+        for y in range(h):
+            for x in range(w):
+                p[x, y] = tuple(pal[idxmaps[frame][y * w + x]])
+        return img
+
+    pad, gap = 30, 8
+    cols = max(len(hat_tab), len(blk_tab)) + 1
+    sheet = Image.new("RGBA", ((w + gap) * cols, (h + pad) * 4), (250, 250, 248, 255))
+    for row, frame in enumerate(("sleep", "girl_sleep")):
+        for c in range(len(hat_tab)):
+            im = render(frame, c, 0)
+            sheet.paste(im, (c * (w + gap), row * (h + pad) + pad), im)
+        im = render(frame, 0, 0)
+        layer = Image.new("RGBA", (w + 40, h + pad), (0, 0, 0, 0))
+        layer.paste(im, (0, pad), im)
+        layer.alpha_composite(santa, (max(0, sx), pad + sy))
+        sheet.paste(layer, (len(hat_tab) * (w + gap), row * (h + pad)), layer)
+        for c in range(len(blk_tab)):
+            im = render(frame, 0, c)
+            sheet.paste(im, (c * (w + gap), (row + 2) * (h + pad) + pad), im)
+    sheet.save(os.path.join(PREVIEW, "outfits.png"))
+
+
 def main():
     preview_only = "--preview-only" in sys.argv
     os.makedirs(PREVIEW, exist_ok=True)
@@ -370,6 +406,15 @@ def main():
                           size, face_regions(base))
     sidx = skin_indices(palette, face)
     share_skin(idxmaps, frames, sidx)
+    # tienda: gorro y manta con entradas de paleta propias (gen_outfit)
+    src = Image.open(os.path.join(IMAGES, "Baby.png")).convert("RGBA")
+    hat_mask = gen_outfit.hat_mask_sprite(src, bbox, size)
+    face_px = gen_outfit.face_mask(idxmaps, size, [i for i, _ in sidx])
+    bow_px = gen_outfit.bow_mask_sprite(src.size, bbox, size, draw_bow)
+    hat_idx, blk_idx = gen_outfit.split_outfit(palette, idxmaps, size, hat_mask, face_px, bow_px)
+    hat_tab = gen_outfit.style_table(palette, hat_idx, gen_outfit.HAT_STYLES)
+    blk_tab = gen_outfit.style_table(palette, blk_idx, gen_outfit.BLANKET_STYLES)
+    santa, santa_x, santa_y = gen_outfit.santa_sprite(src.size, bbox, size)
     pals = build_tone_palettes(palette, sidx)
 
     # previsualizaciones
@@ -396,7 +441,9 @@ def main():
             tones.paste(img, (w * t, h * row), img)
     tones.save(os.path.join(PREVIEW, "tones.png"))
     heart.save(os.path.join(PREVIEW, "heart.png"))
-    print(f"frames: {names}  size={size}  palette={len(palette)} skin_entries={len(sidx)}")
+    save_outfits_preview(idxmaps, size, pals, hat_idx, hat_tab, blk_idx, blk_tab, santa, santa_x, santa_y)
+    print(f"frames: {names}  size={size}  palette={len(palette)} skin_entries={len(sidx)} "
+          f"hat_idx={len(hat_idx)} blanket_idx={len(blk_idx)} santa={santa.size}@({santa_x},{santa_y})")
     if preview_only:
         return
 
@@ -406,6 +453,8 @@ def main():
         for n in names:
             emit_i8(f, f"img_baby_{n}", palette, idxmaps[n], size)
         emit_palettes(f, "baby_skin_palettes", pals)
+        gen_outfit.emit_tables(f, hat_idx, hat_tab, blk_idx, blk_tab)
+        emit_argb8888(f, "img_baby_santa", santa)
 
     with open(os.path.join(ASSETS, "img_heart.c"), "w", encoding="utf-8", newline="\n") as f:
         f.write(c_header("Corazon del bebe"))
@@ -419,10 +468,11 @@ def main():
     write_header(
         os.path.join(ASSETS, "include", "assets_baby.h"),
         "Assets del bebe (gen_assets.py)",
-        [f"img_baby_{n}" for n in names] + ["img_heart", "img_logo"],
+        [f"img_baby_{n}" for n in names] + ["img_baby_santa", "img_heart", "img_logo"],
         extra=(f"#define BABY_SKIN_TONE_COUNT {len(pals)}\n"
                f"#define BABY_PALETTE_BYTES (256 * 4)\n"
-               f"extern const uint8_t baby_skin_palettes[{len(pals)}][256 * 4];\n"),
+               f"extern const uint8_t baby_skin_palettes[{len(pals)}][256 * 4];\n"
+               + gen_outfit.header_extra(hat_idx, blk_idx, (santa_x, santa_y))),
     )
     print(f"C escrito en {ASSETS}")
 

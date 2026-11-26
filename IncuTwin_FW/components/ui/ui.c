@@ -272,6 +272,7 @@ static void refresh_cb(lv_timer_t *t)
             ui_notices_retranslate();
             ui_history_retranslate();
             ui_hearts_refresh();
+            ui_shop_refresh();
         }
         do_state = true; /* los textos de Inicio cambian de idioma */
     }
@@ -284,6 +285,7 @@ static void refresh_cb(lv_timer_t *t)
         ui_rewards_refresh();
         ui_home_rewards_apply();
         ui_hearts_refresh();
+        ui_shop_refresh();
         if (news.new_seals || news.level_up || news.garland) {
             ui_notice_push_reward(news.new_seals, news.level_up, (uint8_t)rw_level(ui_rewards()->earned),
                                   news.garland);
@@ -319,6 +321,7 @@ void ui_init(void)
     s_scr_notices = ui_notices_create();
     s_scr_history = ui_history_create();
     s_scr_hearts = ui_hearts_create();
+    ui_shop_create(); /* encima de Corazones, oculta */
     s_scr_settings = ui_settings_create();
     ui_home_rewards_apply();
     ui_nav_create(); /* antes de la franja: los dialogos que se abran luego quedan encima */

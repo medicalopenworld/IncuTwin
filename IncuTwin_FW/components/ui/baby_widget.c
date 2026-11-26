@@ -22,7 +22,10 @@ static const lv_image_dsc_t *const S_SRC[DRAW_COUNT][FR_COUNT] = {
 };
 
 static lv_obj_t *s_img;
+static lv_obj_t *s_santa; /* gorro de Papa Noel encima (tienda) */
 static lv_obj_t *s_heart;
+static uint8_t s_hat[DRAW_COUNT] = { BABY_HAT_BASIC, BABY_HAT_BASIC }; /* estilo de gorro de cada dibujo */
+static uint8_t s_blanket = BABY_BLANKET_BASIC;
 static lv_obj_t *s_zzz[3];
 static uint8_t s_tone;
 static uint8_t s_draw = DRAW_BOY;
@@ -51,13 +54,25 @@ static void frames_init(void)
     }
 }
 
-static void apply_palette(uint8_t tone)
+/* Paleta = tono de piel + colores del gorro + colores de la manta (entradas propias, gen_outfit) */
+static void compose_palette(uint8_t *pal, uint8_t tone, uint8_t hat, uint8_t blanket)
 {
     if (tone >= BABY_SKIN_TONE_COUNT) tone = 0;
+    if (hat >= BABY_HAT_STYLE_COUNT) hat = BABY_HAT_BASIC;
+    if (blanket >= BABY_BLANKET_STYLE_COUNT) blanket = BABY_BLANKET_BASIC;
+    memcpy(pal, baby_skin_palettes[tone], BABY_PALETTE_BYTES);
+    for (int k = 0; k < BABY_HAT_N_IDX; k++) memcpy(pal + baby_hat_idx[k] * 4, baby_hat_colors[hat][k], 4);
+    for (int k = 0; k < BABY_BLANKET_N_IDX; k++) {
+        memcpy(pal + baby_blanket_idx[k] * 4, baby_blanket_colors[blanket][k], 4);
+    }
+}
+
+static void apply_palette(uint8_t tone)
+{
     for (int d = 0; d < DRAW_COUNT; d++) {
         for (int i = 0; i < FR_COUNT; i++) {
             if (s_frames[d][i].data == S_SRC[d][i]->data) continue; /* copia en flash */
-            memcpy((void *)s_frames[d][i].data, baby_skin_palettes[tone], BABY_PALETTE_BYTES);
+            compose_palette((uint8_t *)s_frames[d][i].data, tone, s_hat[d], s_blanket);
 #if LV_CACHE_DEF_SIZE > 0
             lv_image_cache_drop(&s_frames[d][i]); /* la cache guardaria la paleta vieja */
 #endif
@@ -199,6 +214,12 @@ lv_obj_t *baby_widget_create(lv_obj_t *parent, int32_t x, int32_t y)
     s_img = lv_image_create(parent);
     lv_image_set_src(s_img, &s_frames[s_draw][FR_SLEEP]);
     lv_obj_set_pos(s_img, x, y);
+    lv_obj_add_flag(s_img, LV_OBJ_FLAG_OVERFLOW_VISIBLE); /* Papa Noel sobresale por arriba */
+    s_santa = lv_image_create(s_img); /* hijo: respira con el bebe */
+    lv_image_set_src(s_santa, &img_baby_santa);
+    lv_obj_set_pos(s_santa, BABY_SANTA_X, BABY_SANTA_Y);
+    lv_obj_set_clickable(s_santa, false);
+    lv_obj_set_hidden(s_santa, true);
 
     s_heart = lv_image_create(parent);
     lv_image_set_src(s_heart, &img_heart);
@@ -244,4 +265,111 @@ void baby_set_heart_rate(uint16_t bpm)
     restart_heart_anim();
 }
 
+void baby_set_outfit(uint8_t hat_boy, uint8_t hat_girl, uint8_t blanket, bool santa)
+{
+    if (s_santa) lv_obj_set_hidden(s_santa, !santa);
+    if (hat_boy == s_hat[DRAW_BOY] && hat_girl == s_hat[DRAW_GIRL] && blanket == s_blanket) return;
+    s_hat[DRAW_BOY] = hat_boy;
+    s_hat[DRAW_GIRL] = hat_girl;
+    s_blanket = blanket;
+    apply_palette(s_tone);
+}
+
 lv_obj_t *baby_widget_obj(void) { return s_img; }
+
+/* ---------------------------------------------------------------- preview */
+
+typedef struct {
+    lv_image_dsc_t dsc;
+    uint8_t data[]; /* paleta + indices de un fotograma */
+} preview_t;
+
+static void preview_deleted(lv_event_t *e)
+{
+    preview_t *p = lv_event_get_user_data(e);
+#if LV_CACHE_DEF_SIZE > 0
+    lv_image_cache_drop(&p->dsc); /* otro preview podria nacer en la misma direccion */
+#endif
+    heap_caps_free(p);
+}
+
+/* I8 (paleta ya compuesta en `src`) -> ARGB8888 reducido a dw x dh, promediando cada caja de
+ * pixeles (el pintado de LVGL no sabe escalar imagenes con paleta) */
+static void shrink_i8(const lv_image_dsc_t *src, const uint8_t *pal, uint8_t *dst, int32_t dw, int32_t dh)
+{
+    const int32_t sw = src->header.w, sh = src->header.h;
+    const uint8_t *idx = src->data + BABY_PALETTE_BYTES;
+    for (int32_t dy = 0; dy < dh; dy++) {
+        int32_t y0 = dy * sh / dh, y1 = (dy + 1) * sh / dh;
+        if (y1 <= y0) y1 = y0 + 1;
+        for (int32_t dx = 0; dx < dw; dx++) {
+            int32_t x0 = dx * sw / dw, x1 = (dx + 1) * sw / dw;
+            if (x1 <= x0) x1 = x0 + 1;
+            uint32_t b = 0, g = 0, r = 0, a = 0, n = 0;
+            for (int32_t y = y0; y < y1; y++) {
+                for (int32_t x = x0; x < x1; x++) {
+                    const uint8_t *c = pal + idx[y * sw + x] * 4; /* B, G, R, A */
+                    b += c[0] * c[3];
+                    g += c[1] * c[3];
+                    r += c[2] * c[3];
+                    a += c[3];
+                    n++;
+                }
+            }
+            uint8_t *o = dst + (dy * dw + dx) * 4;
+            o[0] = a ? b / a : 0;
+            o[1] = a ? g / a : 0;
+            o[2] = a ? r / a : 0;
+            o[3] = n ? a / n : 0;
+        }
+    }
+}
+
+lv_obj_t *baby_preview_create(lv_obj_t *parent, bool girl, uint8_t tone, uint8_t hat, uint8_t blanket, bool santa,
+                              uint16_t scale)
+{
+    const lv_image_dsc_t *src = S_SRC[girl ? DRAW_GIRL : DRAW_BOY][FR_SLEEP];
+    bool small = scale != LV_SCALE_NONE;
+    int32_t dw = small ? src->header.w * scale / 256 : src->header.w;
+    int32_t dh = small ? src->header.h * scale / 256 : src->header.h;
+    size_t bytes = small ? (size_t)dw * dh * 4 : src->data_size;
+    preview_t *p = heap_caps_malloc(sizeof(preview_t) + bytes, MALLOC_CAP_SPIRAM);
+    lv_obj_t *img = lv_image_create(parent);
+    lv_obj_add_flag(img, LV_OBJ_FLAG_OVERFLOW_VISIBLE);
+    lv_obj_set_clickable(img, false);
+    if (!p) { /* sin PSRAM: el dibujo de serie */
+        ESP_LOGW(TAG, "sin PSRAM para probar");
+        lv_image_set_src(img, src);
+        return img;
+    }
+    p->dsc = *src;
+    if (small) {
+        uint8_t pal[BABY_PALETTE_BYTES];
+        compose_palette(pal, tone, hat, blanket);
+        shrink_i8(src, pal, p->data, dw, dh);
+        p->dsc.header.cf = LV_COLOR_FORMAT_ARGB8888;
+        p->dsc.header.w = dw;
+        p->dsc.header.h = dh;
+        p->dsc.header.stride = dw * 4;
+        p->dsc.data_size = bytes;
+    } else {
+        memcpy(p->data, src->data, src->data_size);
+        compose_palette(p->data, tone, hat, blanket);
+    }
+    p->dsc.data = p->data;
+    lv_image_set_src(img, &p->dsc);
+    lv_obj_add_event_cb(img, preview_deleted, LV_EVENT_DELETE, p);
+    if (santa) {
+        lv_obj_t *s = lv_image_create(img);
+        lv_image_set_src(s, &img_baby_santa);
+        lv_obj_set_clickable(s, false);
+        if (small) { /* ARGB8888: este si lo escala LVGL */
+            lv_image_set_pivot(s, 0, 0);
+            lv_image_set_scale(s, scale);
+            lv_obj_set_pos(s, BABY_SANTA_X * (int32_t)scale / 256, BABY_SANTA_Y * (int32_t)scale / 256);
+        } else {
+            lv_obj_set_pos(s, BABY_SANTA_X, BABY_SANTA_Y);
+        }
+    }
+    return img;
+}

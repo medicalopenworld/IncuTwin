@@ -1,4 +1,5 @@
 /* Payloads de metricas y canje (metrics_payload, spec device-metrics). */
+#include <stdio.h>
 #include <string.h>
 
 #include "metrics_payload.h"
@@ -18,7 +19,22 @@ TEST_CASE("metrics: uso, corazones y pasaporte", "[metrics]") {
     TEST_ASSERT_NOT_NULL(strstr(out, "\"level\":1,")); /* Calorcito */
     TEST_ASSERT_NOT_NULL(strstr(out, "\"seals_n\":2,"));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"countries\":\"TG,CM\",\"countries_n\":2,\"stars\":1,"));
-    TEST_ASSERT_NOT_NULL(strstr(out, "\"named_incunest\":0}"));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"named_incunest\":0,"));
+}
+
+TEST_CASE("metrics: gorros, manta y Navidad", "[metrics]") {
+    rw_state_t r; rw_init(&r);
+    r.hat_boy = RW_ITEM_HAT_BOY_MINT; r.santa_on = 1;
+    r.unlocked |= RW_BIT(RW_ITEM_SNOW);
+    metrics_usage_t u = { .ts = 1764100000 };
+    char out[METRICS_PAYLOAD_MAX + 1];
+    TEST_ASSERT_GREATER_THAN(0, metrics_payload_build(out, sizeof(out), &u, &r));
+    char want[128];
+    snprintf(want, sizeof(want), "\"hat_boy\":%u,\"hat_girl\":%u,\"blanket\":%u,\"santa\":1,\"snow\":0}",
+             RW_ITEM_HAT_BOY_MINT, RW_ITEM_HAT_GIRL_BASIC, RW_ITEM_BLANKET_BASIC);
+    TEST_ASSERT_NOT_NULL(strstr(out, want));
+    snprintf(want, sizeof(want), "\"unlocked\":%llu,", (unsigned long long)r.unlocked);
+    TEST_ASSERT_NOT_NULL(strstr(out, want));
 }
 
 TEST_CASE("metrics: pasaporte lleno cabe", "[metrics]") {

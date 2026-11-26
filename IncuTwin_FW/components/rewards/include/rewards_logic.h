@@ -1,4 +1,4 @@
-/* IncuTwin — corazones, racha larga, niveles, sellos, pasaporte y personalizar (spec rewards).
+/* IncuTwin — corazones, racha larga, niveles, sellos, pasaporte y tienda (specs rewards y tienda).
  * Modulo puro (sin NVS ni FreeRTOS): se prueba en test_apps. Todo lo que se gana sale de lo que
  * hace quien acompaña (gesto, super corazon) y de «se fue a casa»; nunca de lo que le pasa al bebe.
  */
@@ -11,7 +11,7 @@
 extern "C" {
 #endif
 
-#define RW_VERSION      1
+#define RW_VERSION      2
 #define RW_PASSPORT_MAX 32
 #define RW_SAVED_MAX    2   /* abrazos guardados */
 #define RW_DAY_NONE     INT32_MIN
@@ -29,6 +29,8 @@ typedef enum {
 
 typedef enum { RW_LEVEL_SPARK = 0, RW_LEVEL_WARMTH, RW_LEVEL_HUG, RW_LEVEL_BLANKET, RW_LEVEL_SUN, RW_LEVEL_COUNT } rw_level_t;
 
+/* El orden es el de los bits de `unlocked`: lo nuevo va siempre detras (los guardados viejos
+ * siguen valiendo). Maximo 64. */
 typedef enum {
     RW_ITEM_HALO_SKY = 0, /* de serie */
     RW_ITEM_HALO_LAVENDER,
@@ -39,22 +41,55 @@ typedef enum {
     RW_ITEM_BG_CREAM,
     RW_ITEM_BG_PINK,
     RW_ITEM_BG_AQUA,
-    RW_ITEM_GARLAND,      /* gratis: 10 dias de diciembre acompañando */
+    RW_ITEM_GARLAND,      /* gratis: 10 dias de diciembre acompañando; se pone del 24-dic al 6-ene */
     RW_ITEM_NAMED_INCUNEST, /* «Una IncuNest con tu nombre»: se canjea una vez; lo cumple MOW */
+    /* ---- tienda (v2) */
+    RW_ITEM_HAT_BOY_BASIC,  /* de serie: el dibujo de siempre */
+    RW_ITEM_HAT_BOY_MINT,
+    RW_ITEM_HAT_BOY_CHICK,  /* Pollito */
+    RW_ITEM_HAT_BOY_CLOUD,  /* Nube */
+    RW_ITEM_HAT_GIRL_BASIC, /* de serie */
+    RW_ITEM_HAT_GIRL_LILAC,
+    RW_ITEM_HAT_GIRL_PEACH,
+    RW_ITEM_HAT_GIRL_MINT,
+    RW_ITEM_BLANKET_BASIC,  /* de serie: azul o rosa segun el bebe */
+    RW_ITEM_BLANKET_CREAM,
+    RW_ITEM_BLANKET_MINT,
+    RW_ITEM_BLANKET_LAVENDER,
+    RW_ITEM_BLANKET_PEACH,
+    RW_ITEM_SANTA,          /* gorro de Papa Noel, para los dos: Navidad */
+    RW_ITEM_SNOW,           /* efecto Copos de nieve: Navidad */
     RW_ITEM_COUNT
 } rw_item_t;
 
-#define RW_HALO_FIRST RW_ITEM_HALO_SKY
-#define RW_HALO_LAST  RW_ITEM_HALO_LILAC
-#define RW_BG_FIRST   RW_ITEM_BG_DEFAULT
-#define RW_BG_LAST    RW_ITEM_BG_AQUA
+#define RW_HALO_FIRST     RW_ITEM_HALO_SKY
+#define RW_HALO_LAST      RW_ITEM_HALO_LILAC
+#define RW_BG_FIRST       RW_ITEM_BG_DEFAULT
+#define RW_BG_LAST        RW_ITEM_BG_AQUA
+#define RW_HAT_BOY_FIRST  RW_ITEM_HAT_BOY_BASIC
+#define RW_HAT_BOY_LAST   RW_ITEM_HAT_BOY_CLOUD
+#define RW_HAT_GIRL_FIRST RW_ITEM_HAT_GIRL_BASIC
+#define RW_HAT_GIRL_LAST  RW_ITEM_HAT_GIRL_MINT
+#define RW_BLANKET_FIRST  RW_ITEM_BLANKET_BASIC
+#define RW_BLANKET_LAST   RW_ITEM_BLANKET_PEACH
+
+#define RW_BIT(item) (1ull << (item))
+
+/* Motivo de rw_unlock */
+typedef enum {
+    RW_UNLOCK_OK = 0,
+    RW_UNLOCK_NO_FUNDS,     /* falta saldo (*missing) */
+    RW_UNLOCK_OFF_SEASON,   /* Navidad fuera del 24-dic .. 6-ene (o sin hora) */
+    RW_UNLOCK_NOT_FOR_SALE, /* la guirnalda sin conseguir, o un articulo que no existe */
+    RW_UNLOCK_DONE,         /* canje ya hecho */
+} rw_unlock_t;
 
 typedef struct {
     char iso[2];
     uint8_t star; /* algun bebe de aqui se fue a casa contigo */
 } rw_country_t;
 
-/* Lo que se guarda (blob versionado) */
+/* Lo que se guarda (blob versionado, clave `state2`) */
 typedef struct {
     uint8_t version;
     uint8_t saved;          /* abrazos guardados 0..RW_SAVED_MAX */
@@ -64,8 +99,9 @@ typedef struct {
     uint16_t streak;        /* dias seguidos con gesto (los de descanso no cuentan ni rompen) */
     uint16_t total_days;    /* dias con gesto en total */
     uint16_t babies;        /* bebes distintos (estancias) con gesto */
-    uint16_t unlocked;      /* bits de rw_item_t */
     uint16_t dec_year;      /* año de dec_days */
+    uint16_t pad0;
+    uint64_t unlocked;      /* RW_BIT(rw_item_t) */
     uint32_t earned;        /* corazones ganados en total (nivel) */
     int32_t last_day;       /* ultimo dia local con gesto; RW_DAY_NONE = nunca */
     int32_t super_day;      /* ultimo dia con super corazon */
@@ -76,10 +112,43 @@ typedef struct {
     uint8_t halo;           /* rw_item_t elegido para el halo en reposo */
     uint8_t bg;             /* rw_item_t elegido para el fondo de Inicio */
     uint8_t garland_on;     /* guirnalda puesta */
+    uint8_t redeem_sent;    /* el canje de la IncuNest con tu nombre ya llego al broker */
+    uint8_t hat_boy;        /* rw_item_t del gorro de los niños */
+    uint8_t hat_girl;       /* rw_item_t del gorro de las niñas */
+    uint8_t blanket;        /* rw_item_t de la manta */
+    uint8_t santa_on;       /* Papa Noel puesto (se ve solo en Navidad) */
+    uint8_t snow_on;        /* copos puestos (idem) */
+    uint8_t unused0;        /* sin uso (fue el regalo de bienvenida, quitado el 26-nov: todo cuesta) */
+    uint8_t reserved[19];   /* para la fase 2 sin otra migracion */
     rw_country_t passport[RW_PASSPORT_MAX];
-    uint8_t redeem_sent;    /* el canje de la IncuNest con tu nombre ya llego al broker (cabe en el
-                             * relleno: el blob no cambia de tamaño) */
 } rw_state_t;
+
+/* El guardado de la version 1 (clave `state`), solo para migrarlo. No tocar. */
+typedef struct {
+    uint8_t version;
+    uint8_t saved;
+    uint8_t seals;
+    uint8_t n_countries;
+    uint16_t balance;
+    uint16_t streak;
+    uint16_t total_days;
+    uint16_t babies;
+    uint16_t unlocked;
+    uint16_t dec_year;
+    uint32_t earned;
+    int32_t last_day;
+    int32_t super_day;
+    uint32_t dec_days;
+    uint32_t last_stay;
+    char last_stay_cc[2];
+    uint8_t last_stay_home;
+    uint8_t halo;
+    uint8_t bg;
+    uint8_t garland_on;
+    rw_country_t passport[RW_PASSPORT_MAX];
+    uint8_t redeem_sent;
+} rw_state_v1_t;
+#define RW_STATE_V1_SIZE 140
 
 /* Un «Coge mi mano» completado */
 typedef struct {
@@ -100,12 +169,21 @@ typedef struct {
 } rw_news_t;
 
 void rw_init(rw_state_t *s);
+/* Version 1 -> 2 conservando todo; false si `in` no es un v1 valido */
+bool rw_migrate_v1(rw_state_t *out, const rw_state_v1_t *in);
 /* Dia civil -> dias desde 1970-01-01 (para contar dias seguidos con la hora local) */
 int32_t rw_day_of(int year, int month, int mday);
 rw_level_t rw_level(uint32_t earned);
 uint32_t rw_level_min(rw_level_t level);
 uint16_t rw_price(rw_item_t item);
-bool rw_garland_season(int month, int mday); /* 1-dic .. 6-ene */
+
+/* Navidad: del 24-dic al 6-ene, ambos incluidos (mes 1..12; 0 = sin hora) */
+bool rw_xmas_season(int month, int mday);
+bool rw_is_xmas(rw_item_t item);
+/* Se ve ahora: Papa Noel, copos o guirnalda conseguidos, puestos y en temporada */
+bool rw_wears(const rw_state_t *s, rw_item_t item, int month, int mday);
+/* Gorro que lleva un bebe ahora (Papa Noel en Navidad si esta puesto) */
+rw_item_t rw_hat_for(const rw_state_t *s, bool girl, int month, int mday);
 
 rw_news_t rw_on_gesture(rw_state_t *s, const rw_gesture_t *g);
 rw_news_t rw_on_super(rw_state_t *s, bool time_valid, int32_t day);
@@ -115,9 +193,9 @@ rw_news_t rw_add(rw_state_t *s, uint8_t hearts);
 /* Gasta `n` si hay saldo (la apuesta de la IncuPray); false y nada si no */
 bool rw_spend(rw_state_t *s, uint16_t n);
 
-/* Desbloquea (resta el precio) y elige; si ya estaba desbloqueado, solo elige. false si no hay
- * saldo (en *missing lo que falta), si es la guirnalda sin conseguir o un canje ya hecho. */
-bool rw_unlock(rw_state_t *s, rw_item_t item, uint16_t *missing);
+/* Compra (resta el precio) y elige; si ya es suyo, solo elige (Papa Noel, copos y
+ * guirnalda: poner / quitar). `month`/`mday` es la fecha local (0, 0 sin hora). */
+rw_unlock_t rw_unlock(rw_state_t *s, rw_item_t item, int month, int mday, uint16_t *missing);
 /* La racha de 7 dias de accompany (bit 0 = hoy) como punto de partida, solo la primera vez */
 void rw_seed_streak(rw_state_t *s, uint8_t week, uint8_t rest, int32_t today);
 /* Estado simulado de la demo */

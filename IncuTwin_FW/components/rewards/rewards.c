@@ -14,7 +14,8 @@
 
 static const char *TAG = "rewards";
 
-#define KEY_STATE "state"
+#define KEY_STATE    "state2" /* RW_VERSION 2 */
+#define KEY_STATE_V1 "state"  /* version 1: se migra y se deja (por si el OTA hace rollback) */
 #if CONFIG_INCUTWIN_SIM
 #define REWARDS_NS STORAGE_NS_REWARDS_SIM
 #else
@@ -31,6 +32,8 @@ static char s_country[TWIN_COUNTRY_LEN];
 static uint8_t s_rest;
 static uint32_t s_stay;     /* estancia del bebe que se ve ahora (se recuerda al irse a casa) */
 static bool s_was_home;
+static void post(const rw_news_t *n, bool demo);
+static int s_force_month, s_force_mday; /* fecha forzada desde la consola (pruebas); 0 = la de verdad */
 
 #define LOCK()   xSemaphoreTake(s_mutex, portMAX_DELAY)
 #define UNLOCK() xSemaphoreGive(s_mutex)
@@ -47,6 +50,31 @@ static bool today(int32_t *day, struct tm *out)
     return true;
 }
 
+bool rewards_local_md(int *month, int *mday)
+{
+    if (s_force_month) {
+        *month = s_force_month;
+        *mday = s_force_mday;
+        return true;
+    }
+    int32_t day;
+    struct tm tm;
+    if (!today(&day, &tm)) {
+        *month = *mday = 0;
+        return false;
+    }
+    *month = tm.tm_mon + 1;
+    *mday = tm.tm_mday;
+    return true;
+}
+
+void rewards_force_date(int month, int mday)
+{
+    s_force_month = month >= 1 && month <= 12 ? month : 0;
+    s_force_mday = s_force_month ? mday : 0;
+    post(NULL, s_demo_on); /* que la pantalla lo repinte (Navidad) */
+}
+
 static void save_locked(void)
 {
     if (!storage_set_blob(REWARDS_NS, KEY_STATE, &s_real, sizeof(s_real))) ESP_LOGW(TAG, "no se pudo guardar");
@@ -55,7 +83,8 @@ static void save_locked(void)
 static void post(const rw_news_t *n, bool demo)
 {
     app_evt_rewards_t ev = { .hearts = n ? n->hearts : 0, .new_seals = n ? n->new_seals : 0,
-                             .level_up = n && n->level_up, .garland = n && n->garland, .demo = demo };
+                             .level_up = n && n->level_up, .garland = n && n->garland,
+                             .demo = demo };
     app_events_post(TWIN_EVT_REWARDS_CHANGED, &ev, sizeof(ev));
 }
 
@@ -147,8 +176,14 @@ void rewards_init(void)
     LOCK();
     if (!storage_get_blob(REWARDS_NS, KEY_STATE, &s_real, sizeof(s_real)) || s_real.version != RW_VERSION ||
         s_real.n_countries > RW_PASSPORT_MAX) {
-        rw_init(&s_real); /* no existe, de otra version o corrupto */
-        s_seed_pending = true;
+        static rw_state_v1_t v1; /* 140 B: fuera de la pila */
+        if (storage_get_blob(REWARDS_NS, KEY_STATE_V1, &v1, sizeof(v1)) && rw_migrate_v1(&s_real, &v1)) {
+            ESP_LOGI(TAG, "migrado de la version 1");
+            save_locked();
+        } else {
+            rw_init(&s_real); /* no existe o corrupto */
+            s_seed_pending = true;
+        }
     }
     rw_demo_seed(&s_demo);
     ESP_LOGI(TAG, "saldo %u, ganados %lu, racha %u, sellos 0x%02x, %u paises", s_real.balance,
@@ -171,20 +206,24 @@ void rewards_copy(rw_state_t *out, bool *demo)
     UNLOCK();
 }
 
-bool rewards_unlock(rw_item_t item, uint16_t *missing)
+rw_unlock_t rewards_unlock(rw_item_t item, uint16_t *missing)
 {
-    if (!s_mutex) return false;
+    if (missing) *missing = 0;
+    if (!s_mutex) return RW_UNLOCK_NOT_FOR_SALE;
+    int month, mday;
+    rewards_local_md(&month, &mday);
     LOCK();
     bool demo = s_demo_on;
     if (demo && item == RW_ITEM_NAMED_INCUNEST) { /* en la demo no se canjea de verdad */
         UNLOCK();
-        return false;
+        return RW_UNLOCK_NOT_FOR_SALE;
     }
-    bool ok = rw_unlock(demo ? &s_demo : &s_real, item, missing);
+    rw_unlock_t res = rw_unlock(demo ? &s_demo : &s_real, item, month, mday, missing);
+    bool ok = res == RW_UNLOCK_OK;
     if (ok && !demo) save_locked();
     UNLOCK();
     if (ok) post(NULL, demo);
-    return ok;
+    return res;
 }
 
 bool rewards_spend(uint16_t n)

@@ -21,6 +21,8 @@ static uint32_t s_raw_since_ms;
 static uint32_t s_press_start_ms;
 static bool s_long_done;
 
+static void on_long(void);
+
 static void apply_idx(size_t idx)
 {
     const twin_scenario_t *sc = scenario_get(idx);
@@ -41,6 +43,11 @@ static void on_short(void)
     }
     incupray_demo_stop();
     apply_idx(s_idx);
+}
+
+void demo_mode_set(bool on)
+{
+    if (on != twin_model_demo_active()) on_long();
 }
 
 static void on_long(void)

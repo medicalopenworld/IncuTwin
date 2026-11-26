@@ -5,11 +5,15 @@
  * Solo se arranca con la UI principal (no en el onboarding). */
 #pragma once
 
+#include <stdbool.h>
+
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 void demo_mode_start(void);
+/* Entra (true) o sale (false) de la demo, como 2 s del boton BOOT (consola `demo on|off`). */
+void demo_mode_set(bool on);
 
 #ifdef __cplusplus
 }

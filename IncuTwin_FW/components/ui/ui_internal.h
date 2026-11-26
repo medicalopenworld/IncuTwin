@@ -41,6 +41,16 @@ const char *ui_level_name(rw_level_t level);
 const char *ui_seal_name(rw_seal_t seal);
 const char *ui_seal_desc(rw_seal_t seal);
 const char *ui_item_name(rw_item_t item);
+uint8_t ui_hat_style(rw_item_t item);     /* BABY_HAT_* del gorro (Papa Noel: el Basico) */
+uint8_t ui_blanket_style(rw_item_t item); /* BABY_BLANKET_* de la manta */
+void ui_outfit_apply(void);               /* gorro, manta y Papa Noel del bebe de Inicio (con la fecha) */
+lv_obj_t *ui_shop_create(void);           /* pantalla Tienda (ui_shop.c) */
+void ui_shop_open(void);
+void ui_shop_refresh(void);               /* tras ui_rewards_refresh o al cambiar de idioma */
+bool ui_shop_visible(void);
+void ui_shop_debug(int tab, bool girl, int try_item, bool buy); /* consola: ui_debug.c */
+void ui_shop_special_clicked(void); /* «Una IncuNest con tu nombre» desde Corazones */
+lv_obj_t *ui_hearts_screen(void);         /* la pantalla Corazones (la tienda va encima) */
 lv_obj_t *ui_seal_icon(lv_obj_t *parent, rw_seal_t seal, bool earned, int32_t d);
 void ui_home_rewards_apply(void);        /* tema, guirnalda y lo que dependa de las recompensas */
 

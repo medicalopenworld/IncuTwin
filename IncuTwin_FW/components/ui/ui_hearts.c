@@ -1,10 +1,10 @@
 /* Pantalla Corazones (spec twin-display "Pantalla Corazones", spec rewards): todo lo que se gana
  * acompañando, en una lista con scroll:
+ *   la tienda: una tarjeta que abre la pantalla Tienda (ui_shop.c), lo primero
  *   saldo y nivel (con lo que falta para el siguiente)
  *   tu racha: la semana (lunes a domingo) y los dias seguidos, con los abrazos guardados
  *   sellos: los siete; tocar uno dice que es y como se consigue
  *   pasaporte: la bandera de cada pais (corazon dorado si un bebe de alli se fue a casa)
- *   tienda: halo, fondo, la guirnalda en su temporada y «Una IncuNest con tu nombre»
  * Los cambios van por `rewards`, que publica TWIN_EVT_REWARDS_CHANGED: la lista se rehace en el
  * refresco de ui.c, nunca dentro del evento de un toque (la fila tocada se borraria con ella). */
 #include <stdio.h>
@@ -23,7 +23,6 @@
 #define WEEK_N       7
 
 static lv_obj_t *s_scr, *s_title, *s_bal, *s_list;
-static rw_item_t s_pending; /* la que se va a desbloquear o canjear (dialogo abierto) */
 
 /* ------------------------------------------------------------- piezas */
 
@@ -90,56 +89,10 @@ static bool now_local(struct tm *tm, int32_t *day)
 
 static void close_mb(lv_event_t *e) { lv_msgbox_close(lv_event_get_user_data(e)); }
 
-static void unlock_confirmed(lv_event_t *e)
-{
-    lv_msgbox_close(lv_event_get_user_data(e));
-    uint16_t missing = 0;
-    rewards_unlock(s_pending, &missing);
-}
-
 static void seal_clicked(lv_event_t *e)
 {
     rw_seal_t seal = (rw_seal_t)(intptr_t)lv_event_get_user_data(e);
     ui_msgbox(ui_seal_name(seal), ui_seal_desc(seal), tr(STR_OK), COL_NAVY, close_mb, NULL);
-}
-
-static void item_clicked(lv_event_t *e)
-{
-    rw_item_t item = (rw_item_t)(intptr_t)lv_event_get_user_data(e);
-    const rw_state_t *r = ui_rewards();
-    char txt[200];
-    bool own = r->unlocked & (1u << item);
-    if (item == RW_ITEM_NAMED_INCUNEST && own) return; /* ya pedida */
-    if (own) {
-        uint16_t missing;
-        rewards_unlock(item, &missing); /* elegir (la guirnalda: poner / quitar) */
-        return;
-    }
-    if (item == RW_ITEM_GARLAND) {
-        ui_msgbox(ui_item_name(item), tr(STR_CUST_GARLAND_HINT), tr(STR_OK), COL_NAVY, close_mb, NULL);
-        return;
-    }
-    bool demo = false;
-    rw_state_t tmp;
-    rewards_copy(&tmp, &demo);
-    if (item == RW_ITEM_NAMED_INCUNEST && demo) {
-        ui_msgbox(ui_item_name(item), tr(STR_REDEEM_DEMO), tr(STR_OK), COL_NAVY, close_mb, NULL);
-        return;
-    }
-    uint16_t price = rw_price(item);
-    if (r->balance < price) {
-        snprintf(txt, sizeof(txt), tr(STR_CUST_MISSING), (unsigned)(price - r->balance));
-        ui_msgbox(ui_item_name(item), txt, tr(STR_OK), COL_NAVY, close_mb, NULL);
-        return;
-    }
-    s_pending = item;
-    if (item == RW_ITEM_NAMED_INCUNEST) {
-        snprintf(txt, sizeof(txt), tr(STR_REDEEM_Q), (unsigned)price);
-        ui_msgbox(ui_item_name(item), txt, tr(STR_REDEEM), COL_CORAL, unlock_confirmed, NULL);
-    } else {
-        snprintf(txt, sizeof(txt), tr(STR_CUST_UNLOCK_Q), ui_item_name(item), (unsigned)price);
-        ui_msgbox(ui_item_name(item), txt, tr(STR_CUST_UNLOCK), COL_CORAL, unlock_confirmed, NULL);
-    }
 }
 
 /* ------------------------------------------------------------- bloques */
@@ -279,95 +232,78 @@ static void passport_card(const rw_state_t *r)
     }
 }
 
-static void group_label(ui_str_t id)
+/* La tienda: una tarjeta que la abre */
+static void shop_clicked(lv_event_t *e)
 {
-    lv_obj_t *l = label(s_list, tr(id), &lv_font_es_12, COL_NAVY_DARK);
-    lv_obj_set_style_pad_top(l, 2, 0);
+    (void)e;
+    ui_shop_open();
 }
 
-static void item_row(rw_item_t item, const rw_state_t *r)
+static void shop_card(void)
 {
-    bool own = r->unlocked & (1u << item);
-    bool named = item == RW_ITEM_NAMED_INCUNEST;
-    bool chosen = item == RW_ITEM_GARLAND ? (own && r->garland_on) : !named && (r->halo == item || r->bg == item);
-
     lv_obj_t *row = lv_obj_create(s_list);
-    lv_obj_set_size(row, ROW_W, named ? LV_SIZE_CONTENT : 40);
-    lv_obj_set_style_min_height(row, 40, 0);
+    lv_obj_set_size(row, ROW_W, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_ver(row, 8, 0);
     lv_obj_set_style_bg_color(row, COL_CARD, 0);
     lv_obj_set_style_bg_color(row, COL_BG_PHOTO, LV_STATE_PRESSED);
     lv_obj_set_style_radius(row, 12, 0);
-    lv_obj_set_style_border_width(row, chosen || named ? 2 : 0, 0);
-    lv_obj_set_style_border_color(row, named ? COL_SUPER : COL_CORAL, 0);
-    lv_obj_set_style_pad_hor(row, 8, 0);
-    lv_obj_set_style_pad_ver(row, named ? 6 : 0, 0);
+    lv_obj_set_style_border_width(row, 2, 0);
+    lv_obj_set_style_border_color(row, COL_CORAL, 0);
+    lv_obj_set_style_pad_hor(row, 10, 0);
     lv_obj_set_style_pad_column(row, 8, 0);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_scrollable(row, false);
     lv_obj_add_flag(row, UI_FLAG_CLICK_SOUND);
-    lv_obj_add_event_cb(row, item_clicked, LV_EVENT_SHORT_CLICKED, (void *)(intptr_t)item);
+    lv_obj_add_event_cb(row, shop_clicked, LV_EVENT_SHORT_CLICKED, NULL);
+    lv_obj_t *col = box(row, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_grow(col, 1);
+    lv_obj_set_height(col, LV_SIZE_CONTENT);
+    label(col, tr(STR_SHOP), &lv_font_es_16, COL_NAVY);
+    lv_obj_set_style_pad_row(col, 2, 0);
+    label(col, tr(STR_SHOP_ENTRY), &lv_font_es_12, COL_NAVY_DARK);
+    label(row, LV_SYMBOL_RIGHT, &lv_font_es_16, COL_CORAL);
+}
 
-    /* muestra: el color; la guirnalda, un trocito; la IncuNest, la IncuNest */
-    if (named) {
-        lv_obj_t *n = lv_image_create(row);
-        lv_image_set_src(n, &img_incunest_28);
-        lv_obj_set_clickable(n, false);
-    } else {
-        lv_obj_t *sw = lv_obj_create(row);
-        lv_obj_set_size(sw, 26, 26);
-        lv_obj_set_style_radius(sw, LV_RADIUS_CIRCLE, 0);
-        lv_obj_set_style_bg_color(sw, item == RW_ITEM_GARLAND ? COL_CARD : ui_item_color(item), 0);
-        lv_obj_set_style_border_width(sw, 1, 0);
-        lv_obj_set_style_border_color(sw, COL_OFFLINE, 0);
-        lv_obj_set_style_pad_all(sw, 0, 0);
-        lv_obj_set_scrollable(sw, false);
-        lv_obj_set_clickable(sw, false);
-        if (item == RW_ITEM_GARLAND) {
-            lv_obj_t *g = lv_image_create(sw);
-            lv_image_set_src(g, &img_garland);
-            lv_image_set_offset_x(g, -70);
-            lv_obj_set_size(g, 24, 22);
-            lv_obj_center(g);
-        }
-    }
+/* «Una IncuNest con tu nombre» (el canje especial), debajo de la tienda */
+static void special_clicked(lv_event_t *e)
+{
+    (void)e;
+    ui_shop_special_clicked();
+}
 
-    lv_obj_t *name = label(row, ui_item_name(item), &lv_font_es_16, COL_NAVY_DARK);
+static void special_card(const rw_state_t *r)
+{
+    bool own = r->unlocked & RW_BIT(RW_ITEM_NAMED_INCUNEST);
+    lv_obj_t *row = lv_obj_create(s_list);
+    lv_obj_set_size(row, ROW_W, LV_SIZE_CONTENT);
+    lv_obj_set_style_pad_ver(row, 6, 0);
+    lv_obj_set_style_bg_color(row, COL_CARD, 0);
+    lv_obj_set_style_bg_color(row, COL_BG_PHOTO, LV_STATE_PRESSED);
+    lv_obj_set_style_radius(row, 12, 0);
+    lv_obj_set_style_border_width(row, 2, 0);
+    lv_obj_set_style_border_color(row, COL_SUPER, 0);
+    lv_obj_set_style_pad_hor(row, 8, 0);
+    lv_obj_set_style_pad_column(row, 8, 0);
+    lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+    lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_scrollable(row, false);
+    lv_obj_add_flag(row, UI_FLAG_CLICK_SOUND);
+    lv_obj_add_event_cb(row, special_clicked, LV_EVENT_SHORT_CLICKED, NULL);
+    lv_obj_t *n = lv_image_create(row);
+    lv_image_set_src(n, &img_incunest_28);
+    lv_obj_set_clickable(n, false);
+    lv_obj_t *name = label(row, ui_item_name(RW_ITEM_NAMED_INCUNEST), &lv_font_es_14, COL_NAVY_DARK);
+    lv_label_set_long_mode(name, LV_LABEL_LONG_MODE_WRAP);
     lv_obj_set_flex_grow(name, 1);
-    if (named) {
-        lv_obj_set_style_text_font(name, &lv_font_es_14, 0);
-        lv_label_set_long_mode(name, LV_LABEL_LONG_MODE_WRAP);
-    }
-
-    if (named && own) {
+    if (own) {
         label(row, tr(STR_REDEEMED), &lv_font_es_14, COL_OK);
-    } else if (own) {
-        label(row, tr(chosen ? STR_CUST_CHOSEN : STR_CUST_USE), &lv_font_es_14, chosen ? COL_CORAL : COL_NAVY);
-    } else if (item == RW_ITEM_GARLAND) { /* lo que llevas de diciembre: «3/10» */
-        unsigned days = 0;
-        struct tm tm;
-        int32_t today;
-        if (now_local(&tm, &today) && r->dec_year == (uint16_t)(tm.tm_year + 1900)) {
-            days = (unsigned)__builtin_popcount(r->dec_days);
-        }
-        char buf[8];
-        snprintf(buf, sizeof(buf), "%u/10", days);
-        label(row, buf, &lv_font_es_14, COL_OFFLINE);
     } else {
         heart_img(row, 16, 14);
         char buf[8];
-        snprintf(buf, sizeof(buf), "%u", (unsigned)rw_price(item));
-        label(row, buf, &lv_font_es_16, r->balance >= rw_price(item) ? COL_CORAL : COL_OFFLINE);
+        snprintf(buf, sizeof(buf), "%u", (unsigned)rw_price(RW_ITEM_NAMED_INCUNEST));
+        label(row, buf, &lv_font_es_16, r->balance >= rw_price(RW_ITEM_NAMED_INCUNEST) ? COL_CORAL : COL_OFFLINE);
     }
-}
-
-/* La guirnalda sale en su temporada (1-dic .. 6-ene) o si ya se tiene */
-static bool garland_listed(const rw_state_t *r)
-{
-    if (r->unlocked & (1u << RW_ITEM_GARLAND)) return true;
-    struct tm tm;
-    int32_t today;
-    return now_local(&tm, &today) && rw_garland_season(tm.tm_mon + 1, tm.tm_mday);
 }
 
 /* ----------------------------------------------------------------- build */
@@ -417,6 +353,8 @@ void ui_hearts_refresh(void)
     lv_label_set_text_fmt(s_bal, "%u", (unsigned)r->balance);
     int32_t sy = lv_obj_get_scroll_y(s_list);
     lv_obj_clean(s_list);
+    shop_card(); /* la tienda, lo primero (Pablo, 26-nov) */
+    special_card(r);
     level_card(r);
     section(STR_STREAK_TITLE);
     streak_card(r);
@@ -424,20 +362,11 @@ void ui_hearts_refresh(void)
     seals_card(r);
     section(STR_PASSPORT);
     passport_card(r);
-    section(STR_SHOP);
-    group_label(STR_CUST_SPECIAL);
-    item_row(RW_ITEM_NAMED_INCUNEST, r);
-    group_label(STR_CUST_HALO);
-    for (int i = RW_HALO_FIRST; i <= RW_HALO_LAST; i++) item_row((rw_item_t)i, r);
-    group_label(STR_CUST_BG);
-    for (int i = RW_BG_FIRST; i <= RW_BG_LAST; i++) item_row((rw_item_t)i, r);
-    if (garland_listed(r)) {
-        group_label(STR_CUST_SEASON);
-        item_row(RW_ITEM_GARLAND, r);
-    }
     lv_obj_update_layout(s_list);
     lv_obj_scroll_to_y(s_list, sy, LV_ANIM_OFF);
 }
+
+lv_obj_t *ui_hearts_screen(void) { return s_scr; }
 
 void ui_hearts_show_top(void)
 {
