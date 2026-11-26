@@ -85,7 +85,7 @@ void ui_go(ui_tab_t tab)
     lv_screen_load_anim_t anim = tab > s_tab ? LV_SCR_LOAD_ANIM_MOVE_LEFT : LV_SCR_LOAD_ANIM_MOVE_RIGHT;
     ESP_LOGI(TAG, "pantalla: %s -> %s", TAB_NAME[s_tab], TAB_NAME[tab]);
     s_tab = tab;
-    ui_tel_screen((int)tab);
+    ui_tel_screen(tab == UI_TAB_HOME ? ui_tel_home_id() : (int)tab); /* Inicio: el panel que se ve */
     ui_nav_set_active(tab);
     if (tab == UI_TAB_NOTICES) notices_show();
     if (tab == UI_TAB_HISTORY) history_show();

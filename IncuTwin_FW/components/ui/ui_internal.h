@@ -110,6 +110,8 @@ void ui_go(ui_tab_t tab);
 #define UI_TEL_MAP    10
 #define UI_TEL_STREAK 11
 void ui_tel_screen(int id);
+/* Id de telemetria del panel que ensena Inicio ahora: UI_TAB_HOME (bebe), UI_TEL_MAP o UI_TEL_STREAK */
+int ui_tel_home_id(void);
 
 /* Dialogo modal con nuestras fuentes (la de LVGL no tiene ¿ ni acentos), 208 px de ancho,
  * boton de cierre y un boton de accion que recibe `user_data`. Devuelve el msgbox. */
