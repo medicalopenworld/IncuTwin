@@ -250,7 +250,8 @@ int metrics_payload_build(char *out, size_t out_len, const metrics_usage_t *u, c
 
 - [x] 7.1 `docs/BROKER-MQTT-CONTEXT.md` §3: fila de `incutwin/<id>/ev`; `metrics` lo lee
   `collector`. (Hecho aquí también: rol `collector` en `tools/broker_bootstrap.py`, quitado `metrics` del gateway.)
-- [ ] 7.2 `idf.py -C test_apps` en COM12: todo en verde; `idf.py build` sin avisos nuevos.
+- [x] 7.2 `idf.py -C test_apps` en COM12: todo en verde; `idf.py build` sin avisos nuevos.
+  *(26-nov, 2b39d56: 201 tests, 0 fallos; build desde PowerShell sin avisos nuevos.)*
 - [ ] 7.3 Prueba de extremo a extremo con el recolector local: un día de uso normal en COM12 →
   `events` sin huecos de `seq`, `snapshots` con `phase` e `inc`.
 - [x] 7.4 `openspec validate device-telemetry` y commit `docs(telemetry): documenta el topic ev, el rol collector y las tareas pendientes en placa` (265fe6a).

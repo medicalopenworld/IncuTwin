@@ -54,7 +54,7 @@ $CTRL listClients               # prueba de acceso (no usar $SYS para esto)
 | `incutwin/<client_id>/cmd/<otros>` | Pablo / Cloud Function | la IncuTwin | no | 1 |
 | `incutwin/<client_id>/cmd/fw` y `incutwin/all/cmd/fw` | `tools/release.py --set-target` (firmware objetivo: `{"version","url","sha256"}`; vacío = sin objetivo) | la IncuTwin | **sí** | 1 |
 | `incutwin/<client_id>/hand` | la IncuTwin, al completar "Coge mi mano" (spec `hold-my-hand`) | gateway → ThingsBoard (`IncuTwin_hand_hold`) | no | 1 |
-| `incutwin/<client_id>/metrics` | la IncuTwin: al conectar, cada hora y 30 s después de cambiar sus recompensas (spec `device-metrics`) | `collector` (analítica) y, de momento, también gateway → ThingsBoard (ver §9) | no | 1 |
+| `incutwin/<client_id>/metrics` | la IncuTwin: al conectar, cada hora y 30 s después de cambiar sus recompensas (spec `device-metrics`) | `collector` (analítica; desde el 26-nov-2026 ya no va a ThingsBoard, ver §9) | no | 1 |
 | `incutwin/<client_id>/ev` | la IncuTwin: lotes de eventos de uso con cola persistente en flash, hasta 20 eventos o 4096 bytes por lote (spec `telemetry-events`) | `collector` | no | 1 |
 | `incutwin/<client_id>/redeem` | la IncuTwin, al canjear «Una IncuNest con tu nombre», hasta que llega una vez | gateway → ThingsBoard (aviso a MOW) | no | 1 |
 | `incutwin/<client_id>/cmd/history` | ThingsBoard (cadena `IncuTwin_history`, cliente MQTT `thingsboard-history`), cada vez que cambia el historial del panel (spec `tb-stay-history`) | la IncuTwin | **sí** | 1 |
@@ -294,12 +294,13 @@ con lo de abajo: todo vive en el **tenant «IncuTwin»** de ThingsBoard, separad
 para dispositivos `incutwin-*`; «Coge mi mano» todavía no llega a la IncuNest (la cadena busca la
 incubadora por la relación `MirroredBy`, que estos dispositivos no tienen).
 
-**`metrics` sigue entrando en ThingsBoard a propósito** (decisión de Pablo, 26-nov-2026): el rol
-`gateway` del broker conserva `subscribePattern incutwin/+/metrics` y el gateway su mapeo, aunque
-`broker_bootstrap.py` ya no lo pida (solo añade ACL, no quita). Mientras no exista el `collector`
-(a 26-nov aún no está creado en el broker), ThingsBoard es el único sitio donde se guardan. Cuando
-incutwin-app y su recolector funcionen: quitar el mapeo de `mqtt.json`, reiniciar el gateway y
-`removeRoleACL gateway subscribePattern incutwin/+/metrics`.
+**`metrics` ya no entra en ThingsBoard** (26-nov-2026, por la tarde): el recolector de incutwin-app
+está desplegado y guarda `metrics` y `ev` (MOW-Infra f80a2ff, MOW-Ops 8af5e01). Se quitó el mapeo de
+`metrics` del `mqtt.json` del tb-gateway (reiniciado) y se ejecutó
+`removeRoleACL gateway subscribePattern incutwin/+/metrics`; el gateway sigue con `status`, `hand` y
+`redeem`. Lo que ya había de `metrics` en ThingsBoard caduca con su TTL (90 días). Cómo deshacerlo:
+runbook `private/ops/MOSQUITTO.md` del repo del VPS. Hasta esa tarde, por decisión de Pablo, `metrics`
+entró también en ThingsBoard mientras el recolector no existía.
 
 ThingsBoard en el VPS es la **4.3.1.4** (Community). El nodo MQTT de la rule chain tiene la opción
 *Retained message*, así que el apartado 5 no tiene bloqueo.
