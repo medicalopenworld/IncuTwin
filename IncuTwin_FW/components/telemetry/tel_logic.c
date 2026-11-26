@@ -4,10 +4,127 @@
 #include <stdio.h>
 #include <string.h>
 
+/* ------------------------------------------------------------- JSON estricto */
+
+#define TEL_JSON_DEPTH 4
+
+typedef struct { const char *p, *end; } jc_t;
+
+static void j_ws(jc_t *c)
+{
+    while (c->p < c->end && (*c->p == ' ' || *c->p == '\t' || *c->p == '\n' || *c->p == '\r')) c->p++;
+}
+
+static bool j_lit(jc_t *c, const char *w)
+{
+    size_t n = strlen(w);
+    if ((size_t)(c->end - c->p) < n || memcmp(c->p, w, n) != 0) return false;
+    c->p += n;
+    return true;
+}
+
+static bool j_str(jc_t *c)
+{
+    if (c->p >= c->end || *c->p != '"') return false;
+    c->p++;
+    while (c->p < c->end) {
+        unsigned char ch = (unsigned char)*c->p++;
+        if (ch == '"') return true;
+        if (ch < 0x20) return false;
+        if (ch == '\\') {
+            if (c->p >= c->end) return false;
+            char e = *c->p++;
+            if (e == 'u') {
+                for (int i = 0; i < 4; i++) {
+                    if (c->p >= c->end) return false;
+                    char h = *c->p++;
+                    if (!((h >= '0' && h <= '9') || (h >= 'a' && h <= 'f') || (h >= 'A' && h <= 'F'))) return false;
+                }
+            } else if (!strchr("\"\\/bfnrt", e) || e == '\0') {
+                return false;
+            }
+        }
+    }
+    return false;
+}
+
+static bool j_digits(jc_t *c)
+{
+    const char *s = c->p;
+    while (c->p < c->end && *c->p >= '0' && *c->p <= '9') c->p++;
+    return c->p > s;
+}
+
+static bool j_num(jc_t *c)
+{
+    if (c->p < c->end && *c->p == '-') c->p++;
+    if (c->p >= c->end) return false;
+    if (*c->p == '0') c->p++;
+    else if (*c->p >= '1' && *c->p <= '9') j_digits(c);
+    else return false;
+    if (c->p < c->end && *c->p == '.') {
+        c->p++;
+        if (!j_digits(c)) return false;
+    }
+    if (c->p < c->end && (*c->p == 'e' || *c->p == 'E')) {
+        c->p++;
+        if (c->p < c->end && (*c->p == '+' || *c->p == '-')) c->p++;
+        if (!j_digits(c)) return false;
+    }
+    return true;
+}
+
+static bool j_val(jc_t *c, int depth)
+{
+    j_ws(c);
+    if (c->p >= c->end) return false;
+    char ch = *c->p;
+    if (ch == '"') return j_str(c);
+    if (ch == 't') return j_lit(c, "true");
+    if (ch == 'f') return j_lit(c, "false");
+    if (ch == 'n') return j_lit(c, "null");
+    if (ch == '-' || (ch >= '0' && ch <= '9')) return j_num(c);
+    if (ch != '{' && ch != '[') return false;
+    if (depth >= TEL_JSON_DEPTH) return false;
+    bool obj = ch == '{';
+    char close = obj ? '}' : ']';
+    c->p++;
+    j_ws(c);
+    if (c->p < c->end && *c->p == close) {
+        c->p++;
+        return true;
+    }
+    for (;;) {
+        j_ws(c);
+        if (obj) {
+            if (!j_str(c)) return false;
+            j_ws(c);
+            if (c->p >= c->end || *c->p++ != ':') return false;
+        }
+        if (!j_val(c, depth + 1)) return false;
+        j_ws(c);
+        if (c->p >= c->end) return false;
+        char t = *c->p++;
+        if (t == close) return true;
+        if (t != ',') return false;
+    }
+}
+
+bool tel_json_object_ok(const char *s, size_t max_len)
+{
+    if (!s) return false;
+    size_t n = strnlen(s, max_len);
+    if (n < 2 || n >= max_len || s[0] != '{') return false;
+    jc_t c = { s, s + n };
+    if (!j_val(&c, 0)) return false;
+    j_ws(&c);
+    return c.p == c.end;
+}
+
 int tel_event_encode(char *out, size_t len, const tel_event_t *e)
 {
     if (!out || !len || !e) return -1;
-    const char *d = e->d[0] ? e->d : "{}";
+    const char *d = tel_json_object_ok(e->d, sizeof e->d) ? e->d : "{}";
     int n = snprintf(out, len, "{\"s\":%" PRIu32 ",\"t\":%" PRId64 ",\"up\":%" PRIu32 ",\"k\":\"%.*s\",\"d\":%.*s}",
                      e->seq, e->t, e->up, TEL_KIND_MAX - 1, e->kind, TEL_D_MAX - 1, d);
     if (n < 0 || (size_t)n >= len) {

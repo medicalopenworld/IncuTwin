@@ -149,33 +149,10 @@ static bool kind_ok(const char *k)
     return n > 0;
 }
 
-/* Objeto JSON plausible: {...} de < TEL_D_MAX bytes, sin caracteres de control, comillas
- * cerradas y llaves/corchetes equilibrados (lo barato; no valida numeros ni comas). */
+/* Objeto JSON valido (estricto) de < TEL_D_MAX bytes: un d malo invalidaria todo el lote en el servidor. */
 static bool d_ok(const char *s)
 {
-    size_t n = strnlen(s, TEL_D_MAX);
-    if (n < 2 || n >= TEL_D_MAX || s[0] != '{' || s[n - 1] != '}') return false;
-    int depth = 0;
-    bool str = false, esc = false;
-    for (size_t i = 0; i < n; i++) {
-        unsigned char c = (unsigned char)s[i];
-        if (c < 0x20) return false;
-        if (str) {
-            if (esc) esc = false;
-            else if (c == '\\') esc = true;
-            else if (c == '"') str = false;
-            continue;
-        }
-        if (c == '"') {
-            str = true;
-        } else if (c == '{' || c == '[') {
-            if (++depth > 8) return false;
-        } else if (c == '}' || c == ']') {
-            if (--depth < 0) return false;
-            if (depth == 0 && i != n - 1) return false; /* algo detras del objeto */
-        }
-    }
-    return !str && depth == 0;
+    return tel_json_object_ok(s, TEL_D_MAX);
 }
 
 static int64_t epoch_or_0(void)

@@ -70,7 +70,7 @@ TEST_CASE("tel: lote parte a 20", "[telemetry]") {
 TEST_CASE("tel: lote parte por tamano", "[telemetry]") {
     char big[TEL_D_MAX];
     memset(big, 'x', sizeof big);
-    big[0] = '{'; big[TEL_D_MAX - 2] = '}'; big[TEL_D_MAX - 1] = '\0';
+    big[0] = '{'; big[1] = 0x22; big[2] = 'p'; big[3] = 0x22; big[4] = ':'; big[5] = 0x22; big[TEL_D_MAX - 3] = 0x22; big[TEL_D_MAX - 2] = '}'; big[TEL_D_MAX - 1] = '\0';
     static tel_event_t ev[20];
     for (int i = 0; i < 20; i++) ev[i] = EV(5000 + i, 1790000000, 99999, "screen", big);
     static char out[TEL_BATCH_MAX + 64];
@@ -272,4 +272,57 @@ TEST_CASE("tel: pantalla repetida en < 5 s no se registra; otra pantalla si", "[
     TEST_ASSERT_TRUE(tel_screen_should_log(3, 6000, &last_page, &last_ms)); /* otra */
     TEST_ASSERT_TRUE(tel_screen_should_log(2, 6100, &last_page, &last_ms)); /* vuelve: otra respecto a la ultima */
     TEST_ASSERT_TRUE(tel_screen_should_log(2, 11100, &last_page, &last_ms)); /* misma pero pasaron 5 s */
+}
+
+/* --- JSON estricto --- */
+
+TEST_CASE("tel: tel_json_object_ok acepta objetos validos", "[telemetry]") {
+    TEST_ASSERT_TRUE(tel_json_object_ok("{}", TEL_D_MAX));
+    TEST_ASSERT_TRUE(tel_json_object_ok("{\"a\":1}", TEL_D_MAX));
+    TEST_ASSERT_TRUE(tel_json_object_ok("{\"a\":-1.5e3,\"b\":[1,2,{\"c\":null}],\"s\":\"x\\\"y\\u00e9\"}", TEL_D_MAX));
+    TEST_ASSERT_TRUE(tel_json_object_ok("{ \"a\" : [ true , false ] , \"a\" : 0 } ", TEL_D_MAX));
+    TEST_ASSERT_TRUE(tel_json_object_ok("{\"s\":\"\\/\\b\\f\\n\\r\\t\\\\\"}", TEL_D_MAX));
+    TEST_ASSERT_TRUE(tel_json_object_ok("{\"a\":{\"b\":{\"c\":{\"d\":1}}}}", TEL_D_MAX)); /* profundidad 4 */
+}
+
+TEST_CASE("tel: tel_json_object_ok rechaza lo invalido", "[telemetry]") {
+    const char *bad[] = {
+        "{\"i\":00}", "{\"i\":01}", "{\"a\":1,}", "{\"a\"}", "{a:1}", "{\"a\":1}x", "[1]", "\"x\"",
+        "{\"a\":\"abc}", "{\"a\":\"\\q\"}", "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":1}}}}}",
+        "{\"a\":\"x\ty\"}", "{\"a\":+1}", "{\"a\":.5}", "{\"a\":1.}", "{\"a\":NaN}", "", "{", "{\"a\":1",
+        "{\"a\":\"\\u12G4\"}", "{\"a\":-}", "{\"a\":1e}", "{\"a\":tru}",
+    };
+    for (size_t i = 0; i < sizeof bad / sizeof bad[0]; i++) {
+        TEST_ASSERT_FALSE_MESSAGE(tel_json_object_ok(bad[i], TEL_D_MAX), bad[i]);
+    }
+    TEST_ASSERT_FALSE(tel_json_object_ok(NULL, TEL_D_MAX));
+    /* demasiado largo: 159 caracteres caben, 160 no */
+    char big[TEL_D_MAX + 8];
+    memset(big, ' ', sizeof big);
+    big[sizeof big - 1] = '\0';
+    big[0] = '{';
+    big[158] = '}';
+    big[159] = '\0';
+    TEST_ASSERT_TRUE(tel_json_object_ok(big, TEL_D_MAX));
+    big[159] = ' ';
+    big[159] = '}';
+    big[158] = ' ';
+    big[160] = '\0';
+    TEST_ASSERT_FALSE(tel_json_object_ok(big, TEL_D_MAX));
+}
+
+TEST_CASE("tel: un d con JSON invalido sale {} y el lote sigue valido", "[telemetry]") {
+    tel_event_t ev[3] = {
+        EV(1, 0, 1, "boot", "{\"a\":1}"),
+        EV(2, 0, 1, "boot", "{\"i\":00,\"pad\":\"xx\"}"),
+        EV(3, 0, 1, "boot", ""),
+    };
+    char out[TEL_BATCH_MAX + 1];
+    int used = 0;
+    int n = tel_batch_build(out, sizeof out, 1, 1, ev, 3, &used);
+    TEST_ASSERT_EQUAL_INT(3, used);
+    TEST_ASSERT_EQUAL_INT((int)strlen(out), n);
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"s\":2,\"t\":0,\"up\":1,\"k\":\"boot\",\"d\":{}}"));
+    TEST_ASSERT_NULL(strstr(out, "00"));
+    TEST_ASSERT_TRUE(tel_json_object_ok(out, TEL_BATCH_MAX + 1));
 }
