@@ -25,6 +25,10 @@ bool ui_debug_nowifi(const char *mode);
  * la reinician cada segundo durante `secs` s para poder capturarla; "bostezo" bosteza ya. false si no
  * entiende la orden. */
 bool ui_debug_baby(const char *what, int secs);
+/* SOLO PRUEBAS: un dedo de mentira que baja en (x0,y0), va a (x1,y1) en `ms` ms (con `laps` > 0 hace
+ * `laps` idas y vueltas en ese tiempo) y se levanta. Pasa por el mismo camino que el tactil. false si
+ * hay otro trazo en curso o los datos no valen. */
+bool ui_debug_touch(int x0, int y0, int x1, int y1, int ms, int laps);
 
 #ifdef __cplusplus
 }

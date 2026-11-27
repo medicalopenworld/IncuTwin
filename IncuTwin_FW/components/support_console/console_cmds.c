@@ -65,8 +65,9 @@ static int cmd_usage(int argc, char **argv)
 {
     (void)argc; (void)argv;
     usage_stats_t u = usage_get();
-    printf("on_s=%lu conn_s=%lu hand_s=%lu hand_n=%lu\n", (unsigned long)u.on_s,
-           (unsigned long)u.conn_s, (unsigned long)u.hand_s, (unsigned long)u.hand_n);
+    printf("on_s=%lu conn_s=%lu hand_s=%lu hand_n=%lu car_n=%lu tic_n=%lu\n", (unsigned long)u.on_s,
+           (unsigned long)u.conn_s, (unsigned long)u.hand_s, (unsigned long)u.hand_n,
+           (unsigned long)u.caress_n, (unsigned long)u.tickle_n);
     return 0;
 }
 
@@ -103,6 +104,17 @@ static int cmd_nowifi(int argc, char **argv)
 {
     if (argc < 2 || !ui_debug_nowifi(argv[1])) {
         printf("sinwifi on|nina|off|asistente\n");
+        return 1;
+    }
+    return 0;
+}
+
+/* toque x0 y0 x1 y1 ms [vueltas]: SOLO PRUEBAS, un dedo de mentira (ui_debug_touch) */
+static int cmd_touch(int argc, char **argv)
+{
+    if (argc < 6 || !ui_debug_touch(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]),
+                                    argc >= 7 ? atoi(argv[6]) : 0)) {
+        printf("toque <x0> <y0> <x1> <y1> <ms 50-20000> [vueltas 0-50]\n");
         return 1;
     }
     return 0;
@@ -301,6 +313,9 @@ void console_start(void)
         { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` solo en la demo", .func = cmd_rewards },
         { .command = "demo", .help = "demo on|off: como 2 s del boton BOOT", .func = cmd_demo },
         { .command = "pantalla", .help = "captura de la pantalla (para tools/screenshot.py)", .func = cmd_screen },
+        { .command = "toque", .help = "toque <x0> <y0> <x1> <y1> <ms> [vueltas]: SOLO PRUEBAS, un dedo de mentira "
+                                      "(trazo de x0,y0 a x1,y1; con vueltas, idas y vueltas)",
+          .func = cmd_touch },
         { .command = "bebe", .help = "bebe caricia|cosquillas [s]: prueba la reacción del bebé (no cuenta como uso); "
                                      "[s] la repite s segundos para capturarla. bebe bostezo. En la demo: bebe "
                                      "nina|nino|tono <0-4>",

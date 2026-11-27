@@ -37,6 +37,7 @@ void baby_set_shown(bool shown); /* oculta o enseña el bebe y sus "z Z z"; ocul
  * risita la reinicia como cosquillas (nunca la baja a mitad). Con el bebe oculto no hace nada. */
 void baby_react(baby_react_t r);
 bool baby_reacting(void);
+void baby_react_cancel(void); /* corta la reaccion y vuelve al reposo (el gesto «Coge mi mano» manda en los ojos) */
 void baby_yawn(void); /* consola: un bostezo ya (con una reaccion en marcha, al acabarla) */
 lv_obj_t *baby_widget_obj(void);
 /* Un bebe quieto (dormido) con ese tono y esa ropa, con su propia copia en PSRAM (se libera al

@@ -406,6 +406,8 @@ void baby_react(baby_react_t r)
 
 bool baby_reacting(void) { return s_rx != RX_NONE; }
 
+void baby_react_cancel(void) { react_stop(); }
+
 void baby_yawn(void) { start_yawn(); }
 
 void baby_set_heart_rate(uint16_t bpm)
