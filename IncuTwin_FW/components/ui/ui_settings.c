@@ -14,6 +14,7 @@
 #include "twin_model.h"
 #include "twin_logic.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 #include "ui_name.h"
 #include "ui_onboarding.h"
 
@@ -107,7 +108,7 @@ static void tname_refresh(void)
     char name[SETTINGS_NAME_BYTES];
     settings_name(name, sizeof(name));
     lv_label_set_text(s_lbl_tname_val, name[0] ? name : identity_sn());
-    lv_obj_set_style_text_color(s_lbl_tname_val, name[0] ? COL_NAVY : COL_OFFLINE, 0);
+    lv_obj_set_style_text_color(s_lbl_tname_val, name[0] ? COL_INK : COL_MUTED, 0);
 }
 
 static void tname_submit(const char *text)
@@ -132,10 +133,8 @@ static lv_obj_t *toggle_button(lv_obj_t *parent, int32_t x, int32_t y, int32_t w
     lv_obj_t *b = lv_button_create(parent);
     lv_obj_set_size(b, w, h);
     lv_obj_set_pos(b, x, y);
-    lv_obj_set_style_radius(b, 10, 0);
-    lv_obj_set_style_border_width(b, 2, 0);
-    lv_obj_set_style_border_color(b, COL_NAVY, 0);
-    lv_obj_set_style_shadow_width(b, 0, 0);
+    toy_segment(b, NULL, false); /* pieza de juguete: la elegida, rellena de tinta */
+    lv_obj_set_style_pad_all(b, 0, 0);
     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, (void *)(intptr_t)ud);
     lv_obj_t *l = lv_label_create(b);
     lv_label_set_text(l, txt);
@@ -146,15 +145,14 @@ static lv_obj_t *toggle_button(lv_obj_t *parent, int32_t x, int32_t y, int32_t w
 
 static void toggle_set(lv_obj_t *b, bool sel)
 {
-    lv_obj_set_style_bg_color(b, sel ? COL_NAVY : COL_CARD, 0);
-    lv_obj_set_style_text_color(lv_obj_get_child(b, 0), sel ? lv_color_white() : COL_NAVY, 0);
+    toy_segment(b, lv_obj_get_child(b, 0), sel);
 }
 
 static lv_obj_t *section_label(lv_obj_t *parent, int32_t x, int32_t y)
 {
     lv_obj_t *l = lv_label_create(parent);
-    lv_obj_set_style_text_font(l, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(l, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_font(l, &lv_font_title_14, 0);
+    lv_obj_set_style_text_color(l, COL_INK, 0);
     lv_obj_set_pos(l, x, y);
     return l;
 }
@@ -201,8 +199,8 @@ lv_obj_t *ui_settings_create(void)
 
     /* titulo arriba, centrado (como el del Historial) */
     s_lbl_title = lv_label_create(s_body);
-    lv_obj_set_style_text_font(s_lbl_title, &lv_font_es_20, 0);
-    lv_obj_set_style_text_color(s_lbl_title, COL_NAVY, 0);
+    lv_obj_set_style_text_font(s_lbl_title, &lv_font_title_20, 0);
+    lv_obj_set_style_text_color(s_lbl_title, COL_INK, 0);
     lv_obj_align(s_lbl_title, LV_ALIGN_TOP_MID, 0, 9);
 
     /* idioma */
@@ -225,8 +223,16 @@ lv_obj_t *ui_settings_create(void)
     lv_obj_set_size(s_slider, 130, 10);
     lv_obj_set_pos(s_slider, 96, 151);
     lv_slider_set_range(s_slider, SETTINGS_BRIGHT_MIN, SETTINGS_BRIGHT_MAX);
-    lv_obj_set_style_bg_color(s_slider, COL_NAVY, LV_PART_INDICATOR);
-    lv_obj_set_style_bg_color(s_slider, COL_NAVY, LV_PART_KNOB);
+    /* barra de juguete: pista coral suave con borde tinta, relleno coral y boton crema */
+    lv_obj_set_style_bg_color(s_slider, COL_CORAL_SOFT, LV_PART_MAIN);
+    lv_obj_set_style_bg_opa(s_slider, LV_OPA_COVER, LV_PART_MAIN);
+    lv_obj_set_style_border_color(s_slider, COL_INK, LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_slider, TOY_BORDER, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_slider, COL_CORAL, LV_PART_INDICATOR);
+    lv_obj_set_style_bg_color(s_slider, COL_CARD, LV_PART_KNOB);
+    lv_obj_set_style_border_color(s_slider, COL_INK, LV_PART_KNOB);
+    lv_obj_set_style_border_width(s_slider, TOY_BORDER, LV_PART_KNOB);
+    lv_obj_set_style_shadow_width(s_slider, 0, LV_PART_KNOB);
     lv_obj_add_event_cb(s_slider, slider_changed, LV_EVENT_VALUE_CHANGED, NULL);
 
     /* de noche, sin sonido: interruptor y, debajo, desde / hasta en horas enteras */
@@ -236,12 +242,16 @@ lv_obj_t *ui_settings_create(void)
     s_sw_quiet = lv_switch_create(s_content);
     lv_obj_set_size(s_sw_quiet, 44, 24);
     lv_obj_set_pos(s_sw_quiet, 184, 168);
-    lv_obj_set_style_bg_color(s_sw_quiet, COL_NAVY, LV_PART_INDICATOR | LV_STATE_CHECKED);
+    /* interruptor como el de la app: pista coral encendido, apagado gris lavanda, boton blanco */
+    lv_obj_set_style_bg_color(s_sw_quiet, COL_FAINT, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_sw_quiet, COL_CORAL, LV_PART_INDICATOR | LV_STATE_CHECKED);
+    lv_obj_set_style_border_color(s_sw_quiet, COL_INK, LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_sw_quiet, TOY_BORDER, LV_PART_MAIN);
     lv_obj_set_ext_click_area(s_sw_quiet, 6);
     lv_obj_add_event_cb(s_sw_quiet, quiet_switched, LV_EVENT_VALUE_CHANGED, NULL);
     for (int i = 0; i < 2; i++) {
         int32_t x = 12 + i * 112;
-        s_lbl_qcap[i] = small_label(s_content, x, 196, COL_NAVY_DARK);
+        s_lbl_qcap[i] = small_label(s_content, x, 196, COL_MUTED);
         lv_obj_set_width(s_lbl_qcap[i], 104);
         s_btn_qminus[i] = toggle_button(s_content, x, 212, 30, 28, LV_SYMBOL_MINUS, &lv_font_es_14, quiet_step, i);
         s_btn_qplus[i] = toggle_button(s_content, x + 74, 212, 30, 28, LV_SYMBOL_PLUS, &lv_font_es_14, quiet_step,
@@ -249,8 +259,8 @@ lv_obj_t *ui_settings_create(void)
         toggle_set(s_btn_qminus[i], false);
         toggle_set(s_btn_qplus[i], false);
         s_lbl_qval[i] = lv_label_create(s_content);
-        lv_obj_set_style_text_font(s_lbl_qval[i], &lv_font_es_16, 0);
-        lv_obj_set_style_text_color(s_lbl_qval[i], COL_NAVY, 0);
+        lv_obj_set_style_text_font(s_lbl_qval[i], &lv_font_title_16, 0);
+        lv_obj_set_style_text_color(s_lbl_qval[i], COL_INK, 0);
         lv_obj_set_style_text_align(s_lbl_qval[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_size(s_lbl_qval[i], 44, 18);
         lv_obj_set_pos(s_lbl_qval[i], x + 30, 217);
@@ -261,42 +271,32 @@ lv_obj_t *ui_settings_create(void)
     lv_obj_t *tb = lv_button_create(s_content);
     lv_obj_set_size(tb, 216, 32);
     lv_obj_set_pos(tb, 12, 266);
-    lv_obj_set_style_radius(tb, 10, 0);
-    lv_obj_set_style_bg_color(tb, COL_CARD, 0);
-    lv_obj_set_style_bg_color(tb, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_border_width(tb, 2, 0);
-    lv_obj_set_style_border_color(tb, COL_NAVY, 0);
-    lv_obj_set_style_shadow_width(tb, 0, 0);
+    toy_button(tb, false);
     lv_obj_set_style_pad_hor(tb, 10, 0);
     lv_obj_add_event_cb(tb, tname_clicked, LV_EVENT_CLICKED, NULL);
     s_lbl_tname_val = lv_label_create(tb);
     lv_obj_set_width(s_lbl_tname_val, 170);
     lv_label_set_long_mode(s_lbl_tname_val, LV_LABEL_LONG_MODE_DOTS);
-    lv_obj_set_style_text_font(s_lbl_tname_val, &lv_font_es_16, 0);
+    lv_obj_set_style_text_font(s_lbl_tname_val, &lv_font_title_16, 0);
     lv_obj_align(s_lbl_tname_val, LV_ALIGN_LEFT_MID, 0, 0);
     lv_obj_t *pen = lv_label_create(tb);
     lv_label_set_text(pen, LV_SYMBOL_EDIT);
     lv_obj_set_style_text_font(pen, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(pen, COL_NAVY, 0);
+    lv_obj_set_style_text_color(pen, COL_INK, 0);
     lv_obj_align(pen, LV_ALIGN_RIGHT_MID, 0, 0);
-    s_lbl_tname_hint = small_label(s_content, 12, 302, COL_OFFLINE);
+    s_lbl_tname_hint = small_label(s_content, 12, 302, COL_MUTED);
     tname_refresh();
 
     /* pie: red y version a la izquierda, boton WiFi a la derecha
      * (con las barras de cobertura; ambar = WiFi sin servidor) */
-    s_lbl_net = small_label(s_content, 12, 330, COL_NAVY_DARK);
+    s_lbl_net = small_label(s_content, 12, 330, COL_INK);
     lv_obj_set_width(s_lbl_net, 140);
-    s_lbl_ver = small_label(s_content, 12, 346, COL_OFFLINE);
+    s_lbl_ver = small_label(s_content, 12, 346, COL_MUTED);
     lv_obj_set_width(s_lbl_ver, 140);
     s_btn_wifi = lv_button_create(s_content);
     lv_obj_set_size(s_btn_wifi, 76, 32);
     lv_obj_set_pos(s_btn_wifi, 152, 328);
-    lv_obj_set_style_radius(s_btn_wifi, 10, 0);
-    lv_obj_set_style_bg_color(s_btn_wifi, COL_CARD, 0);
-    lv_obj_set_style_bg_color(s_btn_wifi, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_border_width(s_btn_wifi, 2, 0);
-    lv_obj_set_style_border_color(s_btn_wifi, COL_NAVY, 0);
-    lv_obj_set_style_shadow_width(s_btn_wifi, 0, 0);
+    toy_button(s_btn_wifi, false);
     lv_obj_set_style_pad_hor(s_btn_wifi, 6, 0);
     lv_obj_set_style_pad_column(s_btn_wifi, 5, 0);
     lv_obj_set_flex_flow(s_btn_wifi, LV_FLEX_FLOW_ROW);
@@ -307,8 +307,8 @@ lv_obj_t *ui_settings_create(void)
     lv_image_set_src(s_img_wifi, &img_wifi_off);
     lv_obj_t *wl = lv_label_create(s_btn_wifi);
     lv_label_set_text(wl, "WiFi");
-    lv_obj_set_style_text_font(wl, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(wl, COL_NAVY, 0);
+    lv_obj_set_style_text_font(wl, &lv_font_title_14, 0);
+    lv_obj_set_style_text_color(wl, COL_INK, 0);
     lv_label_set_text_fmt(s_lbl_ver, "%s · v%s", identity_sn(), esp_app_get_description()->version);
 
     ui_settings_retranslate();

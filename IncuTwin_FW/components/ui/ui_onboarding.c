@@ -16,6 +16,7 @@
 #include "telemetry.h"
 #include "assets_nowifi.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 #include "ui_nowifi.h"
 
 static const char *TAG = "onboarding";
@@ -60,8 +61,8 @@ static lv_obj_t *title_label(lv_obj_t *parent, const char *txt)
 {
     lv_obj_t *l = lv_label_create(parent);
     lv_label_set_text(l, txt);
-    lv_obj_set_style_text_font(l, &lv_font_es_20, 0);
-    lv_obj_set_style_text_color(l, COL_NAVY, 0);
+    lv_obj_set_style_text_font(l, &lv_font_title_20, 0);
+    lv_obj_set_style_text_color(l, COL_INK, 0);
     lv_obj_align(l, LV_ALIGN_TOP_MID, 0, 10);
     return l;
 }
@@ -87,8 +88,12 @@ static lv_obj_t *make_qr(lv_obj_t *parent, const char *data, int32_t size, int32
     lv_qrcode_set_dark_color(qr, lv_color_black());
     lv_qrcode_set_light_color(qr, lv_color_white());
     lv_qrcode_update(qr, data, strlen(data));
-    lv_obj_set_style_border_width(qr, 6, 0);
+    lv_obj_set_style_border_width(qr, 6, 0); /* margen blanco del QR (que se lea) */
     lv_obj_set_style_border_color(qr, lv_color_white(), 0);
+    lv_obj_set_style_outline_width(qr, TOY_BORDER, 0); /* y el marco de juguete */
+    lv_obj_set_style_outline_color(qr, COL_INK, 0);
+    lv_obj_set_style_radius(qr, 4, 0);
+    toy_shadow(qr, TOY_SHADOW_M + TOY_BORDER); /* desde el QR: que asome 3 px por fuera del marco */
     lv_obj_align(qr, LV_ALIGN_TOP_MID, 0, y);
     return qr;
 }
@@ -97,14 +102,11 @@ static lv_obj_t *primary_button(lv_obj_t *parent, const char *txt, lv_event_cb_t
 {
     lv_obj_t *b = lv_button_create(parent);
     lv_obj_set_size(b, 150, 48);
-    lv_obj_set_style_radius(b, 14, 0);
-    lv_obj_set_style_bg_color(b, COL_NAVY, 0);
-    lv_obj_set_style_shadow_width(b, 0, 0);
     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, ud);
     lv_obj_t *l = lv_label_create(b);
     lv_label_set_text(l, txt);
-    lv_obj_set_style_text_font(l, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(l, lv_color_white(), 0);
+    toy_button(b, true); /* boton principal coral de la app */
+    lv_obj_set_style_text_font(l, &lv_font_title_16, 0);
     lv_obj_center(l);
     return b;
 }
@@ -147,18 +149,15 @@ static void build_connect(void)
     char net[64];
     snprintf(net, sizeof(net), "%s: %s · Pass: %s", tr(STR_OB_NETWORK), portal_ap_ssid(),
              portal_ap_password());
-    lv_obj_t *l = body_label(scr, net, 266, &lv_font_es_12, COL_OFFLINE);
+    lv_obj_t *l = body_label(scr, net, 266, &lv_font_es_12, COL_MUTED);
     (void)l;
     if (s_wifi_failed) {
-        body_label(scr, tr(STR_OB_WIFI_FAIL), 290, &lv_font_es_12, COL_RED);
+        body_label(scr, tr(STR_OB_WIFI_FAIL), 290, &lv_font_es_12, COL_INK); /* tinta: que no parezca una alarma */
     }
     if (s_wifi_only) {
         lv_obj_t *b = primary_button(scr, tr(STR_OB_CANCEL), cancel_clicked, NULL);
         lv_obj_set_size(b, 110, 36);
-        lv_obj_set_style_bg_color(b, COL_CARD, 0);
-        lv_obj_set_style_border_width(b, 2, 0);
-        lv_obj_set_style_border_color(b, COL_NAVY, 0);
-        lv_obj_set_style_text_color(lv_obj_get_child(b, 0), COL_NAVY, 0);
+        toy_button(b, false);
         lv_obj_align(b, LV_ALIGN_TOP_RIGHT, -8, 230);
     }
 }

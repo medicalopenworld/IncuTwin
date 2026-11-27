@@ -14,6 +14,7 @@
 #include "settings.h"
 #include "ui_internal.h"
 #include "ui_rel_time.h"
+#include "ui_toy.h"
 
 #define TITLE_H  40
 #define NOTICES_LIST_H   (UI_NAV_Y - TITLE_H)
@@ -33,10 +34,8 @@ static lv_obj_t *badge(lv_obj_t *row, lv_color_t col, bool filled)
 {
     lv_obj_t *c = lv_obj_create(row);
     lv_obj_set_size(c, BADGE_D, BADGE_D);
-    lv_obj_set_style_radius(c, LV_RADIUS_CIRCLE, 0);
+    toy_box(c, LV_RADIUS_CIRCLE, 0); /* circulo de borde tinta, como los iconos de Inicio */
     lv_obj_set_style_bg_color(c, filled ? col : COL_CARD, 0);
-    lv_obj_set_style_border_width(c, 2, 0);
-    lv_obj_set_style_border_color(c, filled ? col : COL_OFFLINE, 0);
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
@@ -68,14 +67,12 @@ void ui_notice_icon(lv_obj_t *row, uint8_t kind, uint8_t sex)
     lv_obj_t *c;
     switch (kind) {
     case TWIN_NOTICE_ADMISSION: /* llega un bebe */
-        c = badge(row, COL_CORAL, false);
-        lv_obj_set_style_border_color(c, COL_CORAL, 0);
+        c = badge(row, COL_CORAL_SOFT, true); /* coral suave: un bebe te llama */
         badge_image(c, baby_head(sex), false, LV_OPA_COVER, LV_SCALE_NONE);
         break;
     case TWIN_NOTICE_PARENTS:
-        c = badge(row, COL_CORAL, false);
-        lv_obj_set_style_border_color(c, COL_CORAL, 0);
-        badge_image(c, &img_heart, false, LV_OPA_COVER, 180); /* 34x30 a ~24x21 */
+        c = badge(row, COL_CORAL_SOFT, true);
+        lv_obj_center(toy_heart_img(c, TOY_HEART_FULL, 2)); /* corazon de pixeles de 18x16 */
         break;
     case TWIN_NOTICE_HEAT_ON:
     case TWIN_NOTICE_HEAT_OFF: {
@@ -92,7 +89,7 @@ void ui_notice_icon(lv_obj_t *row, uint8_t kind, uint8_t sex)
         break;
     }
     default: /* salida: el mismo bebe en gris, neutro, sin colores de alarma */
-        c = badge(row, COL_OFFLINE, false);
+        c = badge(row, COL_CARD, false);
         badge_image(c, baby_head(sex), false, LV_OPA_60, LV_SCALE_NONE);
         break;
     }
@@ -104,9 +101,7 @@ static void row_create(const event_entry_t *e, uint32_t now, uint8_t lang, bool 
 {
     lv_obj_t *row = lv_obj_create(s_list);
     lv_obj_set_size(row, ROW_W, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(row, COL_CARD, 0);
-    lv_obj_set_style_radius(row, 12, 0);
-    lv_obj_set_style_border_width(row, 0, 0);
+    toy_box(row, TOY_R_CARD, TOY_SHADOW_M); /* tarjeta de juguete, como la app */
     lv_obj_set_style_pad_all(row, 6, 0);
     lv_obj_set_style_pad_column(row, 8, 0);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
@@ -129,7 +124,7 @@ static void row_create(const event_entry_t *e, uint32_t now, uint8_t lang, bool 
     lv_obj_set_width(txt, LV_PCT(100));
     lv_label_set_long_mode(txt, LV_LABEL_LONG_MODE_WRAP);
     lv_obj_set_style_text_font(txt, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(txt, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_color(txt, COL_INK, 0);
     lv_label_set_text(txt, ui_notice_text((twin_notice_t)e->kind));
 
     char when[24], line[64];
@@ -138,7 +133,7 @@ static void row_create(const event_entry_t *e, uint32_t now, uint8_t lang, bool 
     else snprintf(line, sizeof(line), "%s", when);
     lv_obj_t *t = lv_label_create(col);
     lv_obj_set_style_text_font(t, &lv_font_es_12, 0);
-    lv_obj_set_style_text_color(t, COL_OFFLINE, 0);
+    lv_obj_set_style_text_color(t, COL_MUTED, 0);
     lv_label_set_text(t, line);
 }
 
@@ -151,8 +146,8 @@ lv_obj_t *ui_notices_create(void)
     lv_obj_set_scrollable(s_scr, false);
 
     s_title = lv_label_create(s_scr);
-    lv_obj_set_style_text_font(s_title, &lv_font_es_20, 0);
-    lv_obj_set_style_text_color(s_title, COL_NAVY, 0);
+    lv_obj_set_style_text_font(s_title, &lv_font_title_20, 0);
+    lv_obj_set_style_text_color(s_title, COL_INK, 0);
     lv_obj_align(s_title, LV_ALIGN_TOP_MID, 0, 9);
 
     s_list = lv_obj_create(s_scr);
@@ -162,8 +157,9 @@ lv_obj_t *ui_notices_create(void)
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_radius(s_list, 0, 0);
     lv_obj_set_style_pad_hor(s_list, 8, 0);
-    lv_obj_set_style_pad_ver(s_list, 4, 0);
-    lv_obj_set_style_pad_row(s_list, 6, 0);
+    lv_obj_set_style_pad_top(s_list, 4, 0);
+    lv_obj_set_style_pad_bottom(s_list, 8, 0); /* la sombra de la ultima tarjeta */
+    lv_obj_set_style_pad_row(s_list, 9, 0);
     lv_obj_set_flex_flow(s_list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_scroll_dir(s_list, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_ACTIVE);
@@ -177,16 +173,25 @@ lv_obj_t *ui_notices_create(void)
     lv_obj_set_style_pad_all(s_empty, 0, 0);
     lv_obj_set_scrollable(s_empty, false);
     lv_obj_set_clickable(s_empty, false);
-    lv_obj_t *chick = lv_image_create(s_empty);
+    /* el pollito dentro de una pantallita pequeña, como la app */
+    lv_obj_t *st = lv_obj_create(s_empty);
+    lv_obj_set_size(st, 112, 92);
+    lv_obj_align(st, LV_ALIGN_CENTER, 0, -36);
+    toy_box(st, 8, TOY_SHADOW_M);
+    lv_obj_set_style_bg_color(st, COL_STAGE, 0);
+    lv_obj_set_style_pad_all(st, 0, 0);
+    lv_obj_set_scrollable(st, false);
+    lv_obj_set_clickable(st, false);
+    lv_obj_t *chick = lv_image_create(st);
     lv_image_set_src(chick, &img_chick_64);
-    lv_obj_align(chick, LV_ALIGN_CENTER, 0, -36);
+    lv_obj_center(chick);
     s_empty_lbl = lv_label_create(s_empty);
     lv_obj_set_width(s_empty_lbl, 200);
     lv_label_set_long_mode(s_empty_lbl, LV_LABEL_LONG_MODE_WRAP);
-    lv_obj_set_style_text_font(s_empty_lbl, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(s_empty_lbl, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_font(s_empty_lbl, &lv_font_title_16, 0);
+    lv_obj_set_style_text_color(s_empty_lbl, COL_INK, 0);
     lv_obj_set_style_text_align(s_empty_lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_empty_lbl, LV_ALIGN_CENTER, 0, 30);
+    lv_obj_align(s_empty_lbl, LV_ALIGN_CENTER, 0, 36);
 
     ui_notices_retranslate(); /* incluye ui_notices_refresh() */
     return s_scr;

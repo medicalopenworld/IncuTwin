@@ -9,22 +9,23 @@
 #include "assets.h"
 #include "net_wifi.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 
 #define WEEK_N    7
 #define BOX_X     12
 #define BOX_Y     272
 #define BOX_W     216
 #define BOX_H     44
-#define HEART_W   22
-#define HEART_H   19
-#define HEART_Y   5   /* dentro de la caja */
-#define DAY_Y     26
+#define HEART_W   18  /* corazon de pixeles de 9x8 celdas de 2 px */
+#define HEART_H   16
+#define HEART_Y   6   /* dentro de la caja */
+#define DAY_Y     25
 #define STEP_X    29  /* 7 x 29 = 203 dentro de 216 */
 #define FLY_DELAY 350
 #define FLY_MS    900
 #define POP_MS    420
-#define FLY_SCALE_FROM 384 /* 1,5 x el corazon de 34 px */
-#define FLY_SCALE_TO   (256 * HEART_W / 34)
+#define FLY_SCALE_FROM 384 /* 1,5 x el corazon de 27 px que vuela */
+#define FLY_SCALE_TO   (256 * HEART_W / 27)
 
 static lv_obj_t *s_box, *s_week[WEEK_N], *s_day[WEEK_N], *s_fly;
 static lv_obj_t *s_plus;    /* «+1» que va con el corazon y luego sube y se apaga */
@@ -33,11 +34,18 @@ static uint8_t s_hearts;    /* corazones que lleva el corazon que vuela */
 static int s_today;
 static int32_t s_from_x, s_from_y, s_to_x, s_to_y;
 
+/* Corazon de la semana con el corazon de pixeles de la app: lleno coral, dorado (super), azul claro
+ * (dia sin bebes) o vacio (contorno apagado); los dias que aun no han llegado, mas claros. La imagen
+ * es de 9x8 y se estira sin suavizar al tamaño del objeto (multiplo de 9x8). */
 void ui_week_heart_style(lv_obj_t *h, bool on, bool super, bool rest, bool future)
 {
-    lv_obj_set_style_image_recolor(h, super ? COL_SUPER : rest ? COL_REST : COL_OFFLINE, 0);
-    lv_obj_set_style_image_recolor_opa(h, on && !super ? LV_OPA_TRANSP : LV_OPA_COVER, 0);
-    lv_obj_set_style_image_opa(h, on || rest ? LV_OPA_COVER : future ? LV_OPA_20 : LV_OPA_40, 0);
+    toy_heart_t k = on && super ? TOY_HEART_SUPER : on ? TOY_HEART_FULL : rest ? TOY_HEART_REST : TOY_HEART_EMPTY;
+    const lv_image_dsc_t *d = toy_heart_dsc(k, 1);
+    if (lv_image_get_src(h) != d) lv_image_set_src(h, d);
+    lv_image_set_inner_align(h, LV_IMAGE_ALIGN_STRETCH);
+    lv_image_set_antialias(h, false);
+    lv_obj_set_style_image_recolor_opa(h, LV_OPA_TRANSP, 0);
+    lv_obj_set_style_image_opa(h, future ? LV_OPA_50 : LV_OPA_COVER, 0);
 }
 
 static int32_t heart_x(int i) { return 6 + i * STEP_X + 1 + (28 - HEART_W) / 2; }
@@ -49,37 +57,32 @@ void ui_streak_fx_create(lv_obj_t *scr)
     lv_obj_set_pos(s_box, BOX_X, BOX_Y);
     lv_obj_set_style_bg_color(s_box, COL_CARD, 0);
     lv_obj_set_style_bg_opa(s_box, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(s_box, 12, 0);
-    lv_obj_set_style_border_color(s_box, COL_CORAL, 0);
-    lv_obj_set_style_border_width(s_box, 2, 0);
+    toy_box(s_box, TOY_R_CARD, TOY_SHADOW_S);
     lv_obj_set_style_pad_all(s_box, 0, 0);
     lv_obj_set_scrollable(s_box, false);
     lv_obj_set_clickable(s_box, false);
     for (int i = 0; i < WEEK_N; i++) {
         lv_obj_t *h = s_week[i] = lv_image_create(s_box);
-        lv_image_set_src(h, &img_heart);
-        lv_image_set_inner_align(h, LV_IMAGE_ALIGN_STRETCH);
+        ui_week_heart_style(h, false, false, false, false);
         lv_obj_set_size(h, HEART_W, HEART_H);
         lv_obj_set_pos(h, heart_x(i), HEART_Y);
         lv_obj_set_clickable(h, false);
         lv_obj_t *d = s_day[i] = lv_label_create(s_box);
         lv_label_set_text(d, "");
         lv_obj_set_style_text_font(d, &lv_font_es_12, 0);
-        lv_obj_set_style_text_color(d, COL_OFFLINE, 0);
+        lv_obj_set_style_text_color(d, COL_MUTED, 0);
         lv_obj_set_style_text_align(d, LV_TEXT_ALIGN_CENTER, 0);
         lv_obj_set_width(d, 28);
         lv_obj_set_pos(d, 6 + i * STEP_X, DAY_Y);
     }
     lv_obj_set_hidden(s_box, true);
 
-    s_fly = lv_image_create(scr);
-    lv_image_set_src(s_fly, &img_heart);
-    lv_obj_set_clickable(s_fly, false);
+    s_fly = toy_heart_img(scr, TOY_HEART_FULL, 3); /* 27x24 */
     lv_obj_set_hidden(s_fly, true);
 
     s_plus = lv_label_create(scr);
     lv_label_set_text(s_plus, "");
-    lv_obj_set_style_text_font(s_plus, &lv_font_es_20, 0);
+    lv_obj_set_style_text_font(s_plus, &lv_font_title_20, 0);
     lv_obj_set_style_text_color(s_plus, COL_CORAL, 0);
     lv_obj_set_clickable(s_plus, false);
     lv_obj_set_hidden(s_plus, true);
@@ -108,7 +111,7 @@ static void fly_cb(void *var, int32_t v)
     int32_t arc = 60 * v * (1000 - v) / 250000; /* 0 -> 60 -> 0 px */
     int32_t y = s_from_y + (s_to_y - s_from_y) * v / 1000 - arc;
     lv_image_set_scale(o, (uint32_t)(FLY_SCALE_FROM + (FLY_SCALE_TO - FLY_SCALE_FROM) * v / 1000));
-    lv_obj_set_pos(o, x - 17, y - 15); /* el pivote de la escala es el centro de la imagen de 34x30 */
+    lv_obj_set_pos(o, x - 13, y - 12); /* el pivote de la escala es el centro de la imagen de 27x24 */
     lv_obj_set_pos(s_plus, x + 12, y - 30); /* el «+1» va pegado al corazon, arriba a la derecha */
 }
 
@@ -210,7 +213,7 @@ void ui_streak_fx_play(uint8_t week, uint8_t super, uint8_t rest, int32_t x, int
         lv_obj_set_pos(s_week[i], heart_x(i), HEART_Y);
         char d[2] = { ini_ok ? ini[(i + 1) % 7] : '\0', '\0' };
         lv_label_set_text(s_day[i], d);
-        lv_obj_set_style_text_color(s_day[i], off == 0 ? COL_CORAL : COL_OFFLINE, 0);
+        lv_obj_set_style_text_color(s_day[i], off == 0 ? COL_CORAL_INK : COL_MUTED, 0);
     }
 
     lv_obj_set_hidden(s_box, false);
