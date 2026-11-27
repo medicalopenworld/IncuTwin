@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Rama `feat/afecto`, en el worktree `C:\Users\Pablo\Documents\IncuTwin-acompanar`. El firmware está en `IncuTwin_FW/`; las rutas de este plan son relativas a esa carpeta salvo que empiecen por `docs/`.
+- Rama `feat/afecto`, en el worktree `C:\Users\Pablo\Documents\IncuTwin-afecto` (sacada de `feat/acompanar` en 70e3132, firmware 2.0.3). El firmware está en `IncuTwin_FW/`; las rutas de este plan son relativas a esa carpeta salvo que empiecen por `docs/`.
 - Entorno de compilación: `. C:\Espressif\tools\Microsoft.v6.0.1.PowerShell_profile.ps1` (EIM), no `export.ps1`.
 - La placa de pruebas está en COM12 y la comparte otra sesión: avisar a Pablo antes de flashear.
 - Niveles: Manita 0, Caricia 10, Cosquillitas 30, Abrazo 75, Achuchón 150. ES/EN: Manita/Little hand, Caricia/Caress, Cosquillitas/Tickles, Abrazo/Hug, Achuchón/Bear hug.
