@@ -1,6 +1,7 @@
 /* Capturas de pantalla y navegacion de la tienda por la consola (ui_debug.h). */
 #include "ui_debug.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -8,7 +9,9 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
 #include "mbedtls/base64.h"
+#include "assets_nowifi.h"
 #include "ui_internal.h"
+#include "ui_nowifi.h"
 
 /* ------------------------------------------------------------- base64 por lineas */
 
@@ -121,6 +124,61 @@ bool ui_debug_shop(const char *tab, bool girl, int try_item, bool buy)
     s_nav.buy = buy;
     s_nav.item = try_item;
     lv_async_call(shop_async, NULL);
+    lvgl_port_unlock();
+    return true;
+}
+
+/* ------------------------------------------------------------- bebe sin WiFi */
+
+static void nowifi_async(void *arg) { ui_home_nowifi_force((int8_t)(intptr_t)arg); }
+
+/* `sinwifi asistente`: la pantalla del asistente mientras prueba la WiFi (busca 5 s), la
+ * celebracion y vuelta a la pantalla de antes; asi se ve sin borrar la WiFi */
+static lv_obj_t *s_wiz_scr, *s_wiz_prev;
+static ui_nowifi_t *s_wiz_nw;
+
+static void wiz_back(void *arg)
+{
+    (void)arg;
+    lv_screen_load(s_wiz_prev);
+    lv_obj_delete(s_wiz_scr); /* y con ella la instancia del bebe */
+    s_wiz_scr = NULL;
+}
+
+static void wiz_done(void) { lv_async_call(wiz_back, NULL); }
+
+static void wiz_timer(lv_timer_t *t)
+{
+    (void)t;
+    ui_nowifi_celebrate(s_wiz_nw, false, wiz_done);
+}
+
+static void wizard_async(void *arg)
+{
+    (void)arg;
+    if (s_wiz_scr) return;
+    s_wiz_prev = lv_screen_active();
+    s_wiz_scr = lv_obj_create(NULL);
+    lv_obj_set_style_bg_color(s_wiz_scr, COL_BG, 0);
+    lv_obj_set_scrollable(s_wiz_scr, false);
+    s_wiz_nw = ui_nowifi_create(s_wiz_scr, (240 - NOWIFI_W) / 2, 40, 40 + NOWIFI_H + 8);
+    ui_nowifi_search(s_wiz_nw, false);
+    lv_screen_load(s_wiz_scr);
+    lv_timer_t *t = lv_timer_create(wiz_timer, 5000, NULL);
+    lv_timer_set_repeat_count(t, 1);
+}
+
+bool ui_debug_nowifi(const char *mode)
+{
+    if (strcmp(mode, "asistente") == 0) {
+        if (!lvgl_port_lock(3000)) return false;
+        lv_async_call(wizard_async, NULL);
+        lvgl_port_unlock();
+        return true;
+    }
+    int m = strcmp(mode, "on") == 0 ? 1 : strcmp(mode, "nina") == 0 ? 2 : strcmp(mode, "off") == 0 ? 0 : -1;
+    if (m < 0 || !lvgl_port_lock(3000)) return false;
+    lv_async_call(nowifi_async, (void *)(intptr_t)m);
     lvgl_port_unlock();
     return true;
 }

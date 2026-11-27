@@ -17,6 +17,10 @@ int ui_debug_screenshot(void);
  * de comprar (no compra nada hasta confirmar en la pantalla). "cerrar" cierra la tienda y va a
  * Inicio; "corazones" va a la pestaña Corazones. false si la pestaña no existe. */
 bool ui_debug_shop(const char *tab, bool girl, int try_item, bool buy);
+/* Bebe sin WiFi en Inicio: "on" (nino), "nina" o "off" (vuelve a lo de verdad y, con WiFi,
+ * celebra); "asistente" simula la pantalla del asistente probando la WiFi y su celebracion.
+ * Devuelve false si no entiende el modo. */
+bool ui_debug_nowifi(const char *mode);
 
 #ifdef __cplusplus
 }

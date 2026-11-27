@@ -33,6 +33,8 @@
 #include "twin_logic.h"
 #include "ui_internal.h"
 #include "ui_name.h"
+#include "ui_nowifi.h"
+#include "assets_nowifi.h"
 #include "ui_pages.h"
 #include "usage_stats.h"
 
@@ -68,7 +70,15 @@ static const uint32_t LAP_COLS[] = { 0xDE6F63, 0x054E92, 0xF5A93B, 0x3F9E63 };
 #define N_LAP_COLS (sizeof(LAP_COLS) / sizeof(LAP_COLS[0]))
 
 typedef enum { HALO_OFF = 0, HALO_CALM, HALO_WARM, HALO_PHOTO, HALO_CALL } halo_mode_t;
-typedef enum { VIEW_EMPTY = 0, VIEW_BABY, VIEW_PARENTS } home_view_t;
+typedef enum { VIEW_EMPTY = 0, VIEW_BABY, VIEW_PARENTS, VIEW_NOWIFI } home_view_t;
+
+/* Bebe sin WiFi (ui_nowifi.c): sale tras este rato seguido sin WiFi, para que el arranque y
+ * los cortes de unos segundos no lo enseñen; al volver el WiFi celebra y vuelve a lo de siempre */
+#define NOWIFI_DELAY_MS 8000
+#define NOWIFI_TICK_MS  1000
+static uint32_t s_nowifi_since; /* tick en que se vio sin WiFi (0 = hay WiFi) */
+static int8_t s_nowifi_force;   /* consola `sinwifi`: 0 = de verdad, 1 = nino, 2 = nina */
+static ui_nowifi_t *s_nw;
 
 static lv_obj_t *s_scr;
 static lv_obj_t *s_halo, *s_empty_img, *s_parents_img, *s_demo_badge;
@@ -731,6 +741,57 @@ static void info_create(void)
     lv_obj_set_hidden(s_info, true);
 }
 
+/* ------------------------------------------------------------ sin WiFi */
+
+static bool nowifi_girl(void)
+{
+    if (s_nowifi_force) return s_nowifi_force == 2;
+    return s_have_last && s_last.inc.sex == TWIN_SEX_FEMALE;
+}
+
+static void nowifi_reapply(void)
+{
+    if (!s_have_last) return;
+    twin_snapshot_t s = s_last;
+    ui_home_apply(&s);
+}
+
+/* Decide el bebe sin WiFi con el ultimo estado. Devuelve true si ocupa el centro (bucle o
+ * celebracion). Fuera de la demo; la celebracion solo con Inicio a la vista. */
+static bool nowifi_update(void)
+{
+    if (!s_have_last) return false;
+    if ((!s_last.link.wifi || s_nowifi_force) && !s_last.demo) {
+        if (!s_nowifi_since) s_nowifi_since = lv_tick_get() | 1u;
+        if (s_nowifi_force || lv_tick_elaps(s_nowifi_since) >= NOWIFI_DELAY_MS) ui_nowifi_show(s_nw, nowifi_girl());
+    } else {
+        s_nowifi_since = 0;
+        if (ui_nowifi_active(s_nw) && !ui_nowifi_celebrating(s_nw)) {
+            if (!s_last.demo && lv_screen_active() == s_scr) ui_nowifi_celebrate(s_nw, nowifi_girl(), nowifi_reapply);
+            else ui_nowifi_hide(s_nw);
+        }
+    }
+    return ui_nowifi_active(s_nw);
+}
+
+/* Consola `sinwifi`: hace como si no hubiera WiFi (sin esperar los 8 s); al soltarlo, si de
+ * verdad hay WiFi, celebra */
+void ui_home_nowifi_force(int8_t mode)
+{
+    s_nowifi_force = mode;
+    nowifi_reapply();
+}
+
+/* Sin WiFi no llegan estados: el paso de los 8 s lo vigila este temporizador */
+static void nowifi_timer_cb(lv_timer_t *t)
+{
+    (void)t;
+    if (!s_have_last) return;
+    bool before = ui_nowifi_active(s_nw);
+    nowifi_update();
+    if (ui_nowifi_active(s_nw) != before) nowifi_reapply();
+}
+
 /* ----------------------------------------------------------------- build */
 
 lv_obj_t *ui_home_create(void)
@@ -766,6 +827,9 @@ lv_obj_t *ui_home_create(void)
     hold_create_below_baby();
 
     lv_obj_t *baby = baby_widget_create(s_scr, BABY_X, BABY_Y);
+    /* bebe sin WiFi: centrado, acaba en y 249; debajo su texto y los puntos de pagina (273) */
+    s_nw = ui_nowifi_create(s_scr, (240 - NOWIFI_W) / 2, 249 - NOWIFI_H, 252);
+    lv_timer_create(nowifi_timer_cb, NOWIFI_TICK_MS, NULL);
     lv_obj_set_clickable(baby, true);
     lv_obj_add_event_cb(baby, baby_touched, LV_EVENT_ALL, NULL);
 
@@ -854,6 +918,7 @@ lv_obj_t *ui_home_create(void)
  * segundos, por los toques fantasma del tactil). */
 void ui_home_screen_pressed(void)
 {
+    ui_nowifi_skip(s_nw); /* un toque acaba la celebracion del WiFi */
     if (!s_farewell || lv_tick_elaps(s_farewell_ms) < FAREWELL_TOUCH_MIN_MS) return;
     s_farewell = false; /* un aviso por despedida */
     app_evt_acc_input_t in = APP_ACC_TOUCH;
@@ -871,6 +936,7 @@ void ui_home_retranslate(void)
 {
     lv_label_set_text(s_lbl_hand, s_incupray_btn ? "IncuPray" : tr(STR_HAND));
     ui_pages_retranslate();
+    ui_nowifi_retranslate(s_nw);
     hold_refresh(true);
 }
 
@@ -899,7 +965,7 @@ static void row_apply(bool shown)
 
 static void home_set_view(home_view_t view)
 {
-    lv_obj_set_hidden(baby_widget_obj(), view != VIEW_BABY);
+    baby_set_shown(view == VIEW_BABY); /* VIEW_NOWIFI: lo pinta ui_nowifi */
     /* durante el gesto la fila la ocupa su texto */
     row_apply(view == VIEW_BABY && hh_state(&s_hh) == HH_IDLE);
     lv_obj_set_hidden(s_empty_img, view != VIEW_EMPTY);
@@ -1010,7 +1076,7 @@ static void overlay_refresh(void)
         name = baby_name_local();
         if (!name[0] && s->inc.baby == TWIN_BABY_IN) name = tr(STR_NAME_PLACEHOLDER);
     }
-    bool show_name = s->show_baby && name[0] != '\0' && !thanks;
+    bool show_name = s->show_baby && name[0] != '\0' && !thanks && !ui_nowifi_active(s_nw);
     if (show_name) label_set(s_name, name);
     lv_obj_set_hidden(s_name, !show_name);
     lv_obj_set_clickable(s_name, can_name && hh_state(&s_hh) == HH_IDLE); /* no a mitad del gesto */
@@ -1210,7 +1276,11 @@ void ui_home_apply(const twin_snapshot_t *s)
     bool hh_idle = hh_state(&s_hh) == HH_IDLE;
 
     lv_obj_set_hidden(s_demo_badge, !s->demo);
-    home_set_view(s->parents_view ? VIEW_PARENTS : s->show_baby ? VIEW_BABY : VIEW_EMPTY);
+    bool nowifi = nowifi_update();
+    home_set_view(nowifi            ? VIEW_NOWIFI
+                  : s->parents_view ? VIEW_PARENTS
+                  : s->show_baby    ? VIEW_BABY
+                                    : VIEW_EMPTY);
     overlay_refresh();
     garland_apply(); /* la temporada empieza y acaba a medianoche */
     /* El sexo lo decide ThingsBoard (Contrato v0.2 §3.4.1); desconocido = nino, el dibujo
@@ -1230,12 +1300,12 @@ void ui_home_apply(const twin_snapshot_t *s)
     baby_set_heart_rate(s->show_baby ? inc->bpm : 0);
 
     bool calling = s->acc == TWIN_ACC_WAITING || (s->acc != TWIN_ACC_OFF && s->acc_remind);
-    if (!s->show_baby)                          halo_set_mode(HALO_OFF);
+    if (!s->show_baby || nowifi)                halo_set_mode(HALO_OFF);
     else if (calling)                            halo_set_mode(HALO_CALL);
     else if (inc->photo)                         halo_set_mode(HALO_PHOTO);
     else if (inc->thermo == TWIN_THERMO_HEATING) halo_set_mode(HALO_WARM);
     else                                         halo_set_mode(HALO_CALM);
-    s_snow_ok = s->show_baby && !calling && hh_idle && ui_pages_current() == 0;
+    s_snow_ok = s->show_baby && !nowifi && !calling && hh_idle && ui_pages_current() == 0;
     garland_apply();
 
     /* el modo del halo puede haber repintado el fondo: el gesto manda sobre el */

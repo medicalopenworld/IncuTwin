@@ -25,6 +25,7 @@ void ui_home_screen_pressed(void);
 void ui_home_goto_baby(void); /* desde la IncuNest del mapa */
 bool ui_home_overlay_active(void); /* despedida o agradecimiento de «Coge mi mano»: sin barra ni franja */
 bool ui_home_gesture_idle(void);
+void ui_home_nowifi_force(int8_t mode); /* consola `sinwifi`: 0 = de verdad, 1 = nino, 2 = nina */
 void ui_home_incupray_set(bool open); /* el boton «Coge mi mano» pasa a «IncuPray» mientras esta abierta */
 /* IncuPray (ui_incupray.c, spec incupray) */
 void ui_incupray_open(void);   /* entra si la ventana esta abierta */

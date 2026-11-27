@@ -99,6 +99,15 @@ static int cmd_shop(int argc, char **argv)
     return 0;
 }
 
+static int cmd_nowifi(int argc, char **argv)
+{
+    if (argc < 2 || !ui_debug_nowifi(argv[1])) {
+        printf("sinwifi on|nina|off|asistente\n");
+        return 1;
+    }
+    return 0;
+}
+
 static int cmd_demo(int argc, char **argv)
 {
     if (argc < 2 || (strcmp(argv[1], "on") && strcmp(argv[1], "off"))) {
@@ -274,6 +283,8 @@ void console_start(void)
         { .command = "tienda", .help = "tienda <gorros|mantas|fondos|efectos|corazones|cerrar> [nina] [probar <id>] [comprar]",
           .func = cmd_shop },
         { .command = "incupray", .help = "incupray [demo|stop|join|leave|hold <s>]: estado de la IncuPray", .func = cmd_incupray },
+        { .command = "sinwifi", .help = "sinwifi on|nina|off|asistente: bebe sin WiFi en Inicio como si no hubiera WiFi; off vuelve a lo de verdad (con WiFi, celebra); asistente simula el asistente probando la WiFi",
+          .func = cmd_nowifi },
         { .command = "unpair", .help = "borra el incubator_id local", .func = cmd_unpair },
         { .command = "reboot", .help = "reinicia el panel", .func = cmd_reboot },
         { .command = "factory-reset", .help = "borra WiFi y ajustes; vuelve al onboarding",

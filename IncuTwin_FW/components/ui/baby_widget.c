@@ -27,6 +27,7 @@ static lv_obj_t *s_heart;
 static uint8_t s_hat[DRAW_COUNT] = { BABY_HAT_BASIC, BABY_HAT_BASIC }; /* estilo de gorro de cada dibujo */
 static uint8_t s_blanket = BABY_BLANKET_BASIC;
 static lv_obj_t *s_zzz[3];
+static bool s_shown = true; /* las "z Z z" van aparte del sprite: se ocultan con el */
 static uint8_t s_tone;
 static uint8_t s_draw = DRAW_BOY;
 static frame_t s_cur = FR_SLEEP;
@@ -255,7 +256,15 @@ void baby_set_awake(bool awake)
     if (awake == s_awake) return;
     s_awake = awake;
     if (!s_yawning) show_frame(rest_frame());
-    zzz_set_visible(!awake);
+    zzz_set_visible(!awake && s_shown);
+}
+
+void baby_set_shown(bool shown)
+{
+    lv_obj_set_hidden(s_img, !shown);
+    if (shown == s_shown) return;
+    s_shown = shown;
+    zzz_set_visible(!s_awake && shown);
 }
 
 void baby_set_heart_rate(uint16_t bpm)

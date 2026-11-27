@@ -252,6 +252,8 @@ typedef enum {
     STR_SHOP_ENTRY,
     STR_SHOP_PUT_ON,
     STR_SHOP_TAKE_OFF,
+    STR_NOWIFI_MSG,  /* bebe sin WiFi (ui_nowifi.c) */
+    STR_NOWIFI_BACK,
     STR_COUNT
 } ui_str_t;
 

@@ -247,6 +247,8 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_SHOP_ENTRY     */ { "Gorros, mantas y más", "Hats, blankets and more" },
     /* STR_SHOP_PUT_ON    */ { "Ponérselo", "Put it on" },
     /* STR_SHOP_TAKE_OFF  */ { "Quitárselo", "Take it off" },
+    /* STR_NOWIFI_MSG     */ { "Sin WiFi, buscando señal...", "No WiFi, looking for a signal..." },
+    /* STR_NOWIFI_BACK    */ { "¡WiFi conectado!", "WiFi connected!" },
 };
 
 /* Paises de la barra del pais (ISO 3166-1 alfa-2). Solo caracteres de las fuentes

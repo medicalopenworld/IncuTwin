@@ -24,6 +24,7 @@ void baby_set_heart_rate(uint16_t bpm); /* 0 oculta el corazon */
 /* Tienda: estilos BABY_HAT_* del gorro de los niños y de las niñas, BABY_BLANKET_* de la manta
  * y el gorro de Papa Noel encima (se aplica con el tono de piel, en las copias de PSRAM). */
 void baby_set_outfit(uint8_t hat_boy, uint8_t hat_girl, uint8_t blanket, bool santa);
+void baby_set_shown(bool shown); /* oculta o enseña el bebe y sus "z Z z" */
 lv_obj_t *baby_widget_obj(void);
 /* Un bebe quieto (dormido) con ese tono y esa ropa, con su propia copia en PSRAM (se libera al
  * borrarlo): para Probar en la tienda sin tocar el de Inicio. `scale` 256 = tamaño real. */

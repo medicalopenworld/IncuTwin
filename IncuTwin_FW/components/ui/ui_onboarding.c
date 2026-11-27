@@ -14,7 +14,9 @@
 #include "net_wifi.h"
 #include "settings.h"
 #include "telemetry.h"
+#include "assets_nowifi.h"
 #include "ui_internal.h"
+#include "ui_nowifi.h"
 
 static const char *TAG = "onboarding";
 
@@ -32,6 +34,10 @@ static bool s_wifi_only;      /* modo "cambiar WiFi" desde la pantalla principal
 static bool s_connect_pending; /* wifi_only: esperando a soltar la red vieja antes de probar la nueva */
 static atomic_bool s_wifi_up = false;
 static atomic_bool s_mqtt_up = false;
+/* Probando la WiFi: el bebe de la antena busca senal y, al conectar, celebra (ui_nowifi.c).
+ * Aun no se sabe el sexo del bebe: el dibujo de siempre (nino). */
+static ui_nowifi_t *s_nw;
+static bool s_celebrating;
 
 static void show_step(ob_step_t step);
 static void cancel_clicked(lv_event_t *e);
@@ -116,6 +122,15 @@ static void progress_screen(const char *txt)
 
 /* ------------------------------------------------------------------- steps */
 
+/* "Conectando a tu WiFi...": el bebe saca la antena y busca senal (texto debajo) */
+static void build_wifi_try(void)
+{
+    lv_obj_t *scr = new_screen();
+    s_celebrating = false;
+    s_nw = ui_nowifi_create(scr, (240 - NOWIFI_W) / 2, 40, 40 + NOWIFI_H + 8);
+    ui_nowifi_search(s_nw, false);
+}
+
 static void build_connect(void)
 {
     if (portal_start() != ESP_OK) {
@@ -195,7 +210,7 @@ static void show_step(ob_step_t step)
     switch (step) {
     case OB_CONNECT: build_connect(); break;
     case OB_WIFI_TRY: {
-        progress_screen(tr(STR_OB_CONNECTING_WIFI));
+        build_wifi_try();
         atomic_store(&s_wifi_up, false);
         if (s_wifi_only) {
             /* soltar la red actual y dejar 1,5 s antes de probar la nueva */
@@ -216,6 +231,8 @@ static void show_step(ob_step_t step)
 
 /* ------------------------------------------------------------- state machine */
 
+static void celebrated(void);
+
 static void ob_timer_cb(lv_timer_t *t)
 {
     (void)t;
@@ -235,20 +252,11 @@ static void ob_timer_cb(lv_timer_t *t)
                 net_wifi_connect(ssid, pass);
             }
         }
+        if (s_celebrating) break; /* al acabar, wifi_connected() sigue */
         if (atomic_load(&s_wifi_up) && !s_connect_pending) {
             portal_stop();
-            if (s_wifi_only) {
-                /* nueva red OK: "¡Listo!" un segundo y reinicio limpio con la red guardada */
-                lv_obj_t *scr = new_screen();
-                title_label(scr, tr(STR_OB_DONE_TITLE));
-                lv_timer_create(restart_timer_cb, 1200, NULL);
-                s_step = OB_DONE;
-                ESP_LOGI(TAG, "WiFi cambiada: reiniciando");
-            } else if (!identity_has_creds()) {
-                show_step(OB_DONE); /* sin credenciales MQTT no hay servidor al que ir */
-            } else {
-                show_step(OB_SERVER);
-            }
+            s_celebrating = true;
+            ui_nowifi_celebrate(s_nw, false, celebrated);
         } else if (elapsed > WIFI_TIMEOUT_MS) {
             s_wifi_failed = true;
             net_wifi_disconnect();
@@ -265,6 +273,29 @@ static void ob_timer_cb(lv_timer_t *t)
         break;
     }
 }
+
+/* Tras la celebracion: lo que antes pasaba nada mas conectar */
+static void wifi_connected(void *arg)
+{
+    (void)arg;
+    s_celebrating = false;
+    s_nw = NULL; /* se borra con su pantalla */
+    if (s_wifi_only) {
+        /* nueva red OK: "¡Listo!" un segundo y reinicio limpio con la red guardada */
+        lv_obj_t *scr = new_screen();
+        title_label(scr, tr(STR_OB_DONE_TITLE));
+        lv_timer_create(restart_timer_cb, 1200, NULL);
+        s_step = OB_DONE;
+        ESP_LOGI(TAG, "WiFi cambiada: reiniciando");
+    } else if (!identity_has_creds()) {
+        show_step(OB_DONE); /* sin credenciales MQTT no hay servidor al que ir */
+    } else {
+        show_step(OB_SERVER);
+    }
+}
+
+/* Fin de la celebracion (desde su animacion): el cambio de pantalla, fuera de ella */
+static void celebrated(void) { lv_async_call(wifi_connected, NULL); }
 
 static void on_wifi(void *arg, esp_event_base_t base, int32_t id, void *data)
 {
