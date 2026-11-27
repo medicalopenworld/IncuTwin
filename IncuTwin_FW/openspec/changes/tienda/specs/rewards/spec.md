@@ -54,7 +54,7 @@ fábrica SHALL borrarlos.
 
 ### Requirement: Demo aparte [test-unity]
 Con la demo activa, saldo, sellos y pasaporte SHALL ser simulados: empiezan cada demo con 50
-corazones (para poder comprar en la tienda), nivel Chispa, los sellos «Primera mano» y «Una semana» y
+corazones (para poder comprar en la tienda), nivel Caricia, los sellos «Primera mano» y «Una semana» y
 el pasaporte con CM. Al salir de la demo NO SHALL quedar nada de ello y lo de verdad NO SHALL haber
 cambiado.
 

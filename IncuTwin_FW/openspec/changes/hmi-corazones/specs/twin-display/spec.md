@@ -2,18 +2,18 @@
 
 ### Requirement: Saldo y nivel en la racha [manual]
 La página de la racha SHALL enseñar, debajo de los siete corazones, el saldo junto a un corazón
-("23"), el nivel ("Calorcito") y los abrazos guardados (0 a 2 corazones pequeños en azul claro).
+("23"), el nivel ("Caricia") y los abrazos guardados (0 a 2 corazones pequeños en azul claro).
 Fuera de Acompañar (sin página de racha) el saldo y el nivel están en la pantalla Corazones.
 
 #### Scenario: Página de la racha
-- **WHEN** el saldo es 23, el nivel Calorcito y hay 1 abrazo guardado
-- **THEN** la página dice "23" junto a un corazón, "Calorcito" y enseña un abrazo guardado
+- **WHEN** el saldo es 23, el nivel Caricia y hay 1 abrazo guardado
+- **THEN** la página dice "23" junto a un corazón, "Caricia" y enseña un abrazo guardado
 
 ### Requirement: Pantalla Corazones [manual]
 La barra de navegación SHALL tener cinco botones: Inicio (casa), Notificaciones (sobre, con el punto
 de no leídas), Corazones (corazón), Historial (pollito) y Ajustes (rueda). La pantalla Corazones
 SHALL enseñar, en una lista con scroll: el saldo grande con el nivel y lo que falta para el
-siguiente ("12 para Calorcito"); la racha (la semana de lunes a domingo, "N días seguidos" y los
+siguiente ("12 para Cosquillitas"); la racha (la semana de lunes a domingo, "N días seguidos" y los
 abrazos guardados); los siete sellos (tocar uno abre "qué es y cómo se consigue"); el pasaporte
 (todas las banderas, con un corazón dorado si alguno de sus bebés se fue a casa; vacío: "Dale la
 mano a un bebé y su país aparecerá aquí"); y la tienda: «Una IncuNest con tu nombre» (Especial),

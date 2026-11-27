@@ -327,6 +327,7 @@ void rw_demo_seed(rw_state_t *s)
     rw_init(s);
     s->balance = 50; /* que en la demo se pueda comprar de todo (la tienda empieza en 10) */
     s->earned = 12;
+    s->level_seen = (uint8_t)rw_level(s->earned); /* la demo no anuncia nada al empezar */
     s->seals = (uint8_t)(BIT(RW_SEAL_FIRST) | BIT(RW_SEAL_WEEK));
     s->n_countries = 1;
     s->passport[0] = (rw_country_t){ { 'C', 'M' }, 0 };

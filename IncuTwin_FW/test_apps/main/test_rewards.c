@@ -96,6 +96,8 @@ TEST_CASE("rewards: quien ya tenia corazones recibe el aviso una vez", "[rewards
     rw_catchup_done(&s);
     TEST_ASSERT_FALSE(rw_catchup_due(&s));
     TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_TICKLES, s.level_seen);
+    s.level_seen = RW_LEVEL_SQUEEZE;                 /* por delante del nivel calculado: nada que anunciar */
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));
 }
 
 TEST_CASE("rewards: subir de nivel jugando no deja aviso pendiente", "[rewards]") {
@@ -186,6 +188,7 @@ TEST_CASE("rewards: demo aparte", "[rewards]") {
     rw_state_t real; rw_init(&real); real.balance = 40;
     rw_state_t demo; rw_demo_seed(&demo);
     TEST_ASSERT_EQUAL_UINT16(50, demo.balance);
+    TEST_ASSERT_FALSE(rw_catchup_due(&demo)); /* la demo no nace con aviso pendiente */
     rw_gesture_t g = G(D0, "CM", 1);
     rw_on_gesture(&demo, &g);
     TEST_ASSERT_EQUAL_UINT16(51, demo.balance);
@@ -342,6 +345,7 @@ TEST_CASE("tienda: migracion desde la version 1", "[rewards]") {
     TEST_ASSERT_EQUAL_UINT8(RW_VERSION, s.version);
     TEST_ASSERT_EQUAL_UINT16(40, s.balance);
     TEST_ASSERT_EQUAL_UINT32(55, s.earned);
+    TEST_ASSERT_EQUAL_UINT8(0, s.level_seen); /* el aviso pendiente saldra una vez */
     TEST_ASSERT_EQUAL_UINT16(9, s.streak);
     TEST_ASSERT_EQUAL_UINT8(1, s.saved);
     TEST_ASSERT_EQUAL_UINT16(12, s.total_days);
