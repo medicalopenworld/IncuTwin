@@ -102,11 +102,10 @@ static int cmd_shop(int argc, char **argv)
 /* ir <pantalla>: revisar el estilo de cada pantalla con tools/screenshot.py */
 static int cmd_goto(int argc, char **argv)
 {
-    if (argc < 2 || !ui_debug_goto(argv[1])) {
-        printf("ir inicio|avisos|corazones|historial|ajustes|bebe|mapa|racha|listo|dedo|soltar|fin\n");
-        return 1;
-    }
-    return 0;
+    int r = argc < 2 ? 1 : ui_debug_goto(argv[1]);
+    if (r == 1) printf("ir inicio|avisos|corazones|historial|ajustes|bebe|mapa|racha|listo|dedo|soltar|fin\n");
+    else if (r == 2) printf("ir: la pantalla esta ocupada, prueba otra vez\n");
+    return r ? 1 : 0;
 }
 
 static int cmd_nowifi(int argc, char **argv)

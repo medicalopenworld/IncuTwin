@@ -195,15 +195,14 @@ static void goto_async(void *arg)
         return;
     }
     ui_go(UI_TAB_HOME);
-    switch (w) {
-    case 10: ui_pages_goto(UI_PAGE_BABY); break;
-    case 11: ui_pages_goto(UI_PAGE_MAP); break;
-    case 12: ui_pages_goto(UI_PAGE_STREAK); break;
-    default: ui_home_debug_hand(w - 20); break;
+    if (w < 20) {
+        ui_home_debug_page(w - 10); /* UI_PAGE_BABY, UI_PAGE_MAP, UI_PAGE_STREAK */
+    } else if (!ui_home_debug_hand(w - 20)) {
+        printf("ir: el boton «Coge mi mano» no esta a la vista (sin bebe, otra pagina o IncuPray)\n");
     }
 }
 
-bool ui_debug_goto(const char *where)
+int ui_debug_goto(const char *where)
 {
     static const char *const W[] = { "inicio", "avisos", "corazones", "historial", "ajustes" };
     static const char *const P[] = { "bebe", "mapa", "racha" };
@@ -218,8 +217,9 @@ bool ui_debug_goto(const char *where)
     for (int i = 0; i < 4; i++) {
         if (strcmp(where, H[i]) == 0) w = 20 + i;
     }
-    if (w < 0 || !lvgl_port_lock(3000)) return false;
+    if (w < 0) return 1;
+    if (!lvgl_port_lock(3000)) return 2;
     lv_async_call(goto_async, (void *)(intptr_t)w);
     lvgl_port_unlock();
-    return true;
+    return 0;
 }

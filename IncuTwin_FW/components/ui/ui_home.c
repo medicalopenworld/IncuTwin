@@ -41,9 +41,6 @@
 #include "usage_stats.h"
 
 
-/* Sin barra de estado el bloque del bebe baja 16 px (BABY_Y era 14, NAME_Y 182; antes de la barra
- * de navegacion, 38 y 206) para que no quede pegado a la barra de arriba. Medido con la
- * silueta opaca del sprite: el bebe ocupa y 27..215 (respirando sube 3 px), el nombre 198..224. */
 /* Estilo «IncuTwin de bolsillo» (como la app): el bebe, su halo, el fondo comprado y el gesto van
  * dentro de una «pantallita» con marco tinta y sombra dura, mas rectangular que la de la app
  * (esquinas de 8, Pablo 27-nov-2026). La pantallita son dos objetos: el fondo (debajo del halo) y el
@@ -430,19 +427,6 @@ static void country_clicked(lv_event_t *e)
     if (ui_pages_goto(ui_pages_current() == 1 ? 0 : 1)) page_changed();
 }
 
-/* Consola (ui_debug, revisar el estilo): los pasos del gesto sin tocar la pantalla */
-void ui_home_debug_hand(int step)
-{
-    uint32_t now = lv_tick_get();
-    switch (step) {
-    case 0: info_hide(); hh_button(&s_hh, now); break;
-    case 1: hh_touch(&s_hh, true, now); break;
-    case 2: hh_touch(&s_hh, false, now); break;
-    default: hh_dismiss(&s_hh, now); break;
-    }
-    hold_refresh(false);
-}
-
 /* La IncuNest del mapa: vuelve al bebe */
 void ui_home_goto_baby(void)
 {
@@ -542,10 +526,15 @@ static void hand_btn_clicked(lv_event_t *e)
 /* ------------------------------------------------------- gesto: objetos */
 
 /* corazon que sube y se desvanece: v 0..1000 */
+static int32_t s_heart_base[N_HEARTS]; /* y de salida del vuelo de cada corazon */
+
 static void heart_anim_cb(void *var, int32_t v)
 {
     lv_obj_t *o = var;
-    int32_t base = (int32_t)(intptr_t)lv_obj_get_user_data(o);
+    int32_t base = 0;
+    for (int i = 0; i < N_HEARTS; i++) {
+        if (s_hearts[i] == o) base = s_heart_base[i];
+    }
     lv_obj_set_y(o, base - 40 * v / 1000);
     int32_t opa = v < 200 ? v * 255 / 200 : (1000 - v) * 255 / 800;
     lv_obj_set_style_image_opa(o, (lv_opa_t)(opa < 0 ? 0 : opa > 255 ? 255 : opa), 0);
@@ -646,7 +635,7 @@ static void hold_create_above_baby(void)
         lv_obj_t *h = toy_heart_img(s_scr, TOY_HEART_FULL, i % 2 ? 2 : 3);
         int32_t hh = i % 2 ? 8 : 12;
         lv_obj_set_pos(h, HX[i] - hh - 1, HY[i] - hh);
-        lv_obj_set_user_data(h, (void *)(intptr_t)(HY[i] - hh)); /* base del vuelo (heart_anim_cb) */
+        s_heart_base[i] = HY[i] - hh; /* salida del vuelo (heart_anim_cb) */
         lv_obj_set_style_image_opa(h, LV_OPA_TRANSP, 0);
         lv_obj_set_hidden(h, true);
         s_hearts[i] = h;
@@ -715,9 +704,9 @@ static void hold_timer_cb(lv_timer_t *t)
     hold_refresh(false);
 }
 
-/* Boton del pais en la barra de arriba (donde estaba la marca): bandera + nombre, fondo blanco y
- * marco azul de la marca para que se vea que se puede tocar. Encima de las paginas: tambien se ve
- * (y se toca) en el mapa. */
+/* Boton del pais en la barra de arriba (donde estaba la marca): bandera + nombre en una etiqueta de
+ * juguete (crema, borde tinta, sombra dura) para que se vea que se puede tocar. Encima de las
+ * paginas: tambien se ve (y se toca) en el mapa. */
 static void country_button_create(void)
 {
     s_country = lv_obj_create(s_scr);
@@ -1391,4 +1380,36 @@ void ui_home_apply(const twin_snapshot_t *s)
         home_bg(COL_BG_THANKS);
     }
     name_maybe_ask();
+}
+
+/* ------------------------------------------------------- consola (ui_debug) */
+
+/* Revisar el estilo: los pasos del gesto sin tocar la pantalla. Empezar el gesto o poner el dedo
+ * solo cuando el boton «Coge mi mano» de verdad estaria a la vista (bebe, pagina del bebe, sin
+ * IncuPray): asi la consola no puede contar un gesto sin bebe. Ojo: con bebe, un gesto completado
+ * desde la consola cuenta como uno de verdad (corazon, racha, telemetria). */
+bool ui_home_debug_hand(int step)
+{
+    bool shown = s_have_last && s_last.show_baby && s_view == VIEW_BABY && ui_pages_current() == UI_PAGE_BABY &&
+                 !s_incupray_btn;
+    if (step <= 1 && !shown) return false;
+    uint32_t now = lv_tick_get();
+    switch (step) {
+    case 0: info_hide(); hh_button(&s_hh, now); break;
+    case 1: hh_touch(&s_hh, true, now); break;
+    case 2: hh_touch(&s_hh, false, now); break;
+    default: { /* cierra el gesto en cualquier paso, como al salir de la pagina del bebe */
+        bool can_send = s_have_last && !s_last.demo && s_last.link.broker_connected && s_last.link.paired;
+        hh_set_available(&s_hh, false, can_send, now);
+        break;
+    }
+    }
+    hold_refresh(false);
+    return true;
+}
+
+/* Cambia de pagina como el dedo o el boton del pais (fuera burbuja y latido, y repintar) */
+void ui_home_debug_page(int page)
+{
+    if (ui_pages_goto(page)) page_changed();
 }

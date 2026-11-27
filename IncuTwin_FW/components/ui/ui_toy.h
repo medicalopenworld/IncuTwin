@@ -40,7 +40,7 @@ void toy_pill(lv_obj_t *o);
 void toy_segment(lv_obj_t *b, lv_obj_t *lbl, bool on);
 
 /* Corazon de pixeles (cuadricula 9 x 8 de la app): imagen ARGB de 9*cell x 8*cell px, hecha una
- * vez por tipo y tamaño (en PSRAM). toy_heart_img() guarda `cell` en el user_data de la imagen. */
+ * vez por tipo y tamaño (en PSRAM; sin PSRAM, en la RAM normal) y que no se libera. */
 typedef enum {
     TOY_HEART_FULL = 0, /* coral */
     TOY_HEART_EMPTY,    /* contorno apagado, dentro crema */
@@ -53,8 +53,6 @@ typedef enum {
 
 const lv_image_dsc_t *toy_heart_dsc(toy_heart_t kind, int32_t cell);
 lv_obj_t *toy_heart_img(lv_obj_t *parent, toy_heart_t kind, int32_t cell);
-/* Cambia el tipo o el tamaño de un corazon creado con toy_heart_img (cell 0 = no cambia). */
-void toy_heart_set(lv_obj_t *img, toy_heart_t kind, int32_t cell);
 
 #ifdef __cplusplus
 }

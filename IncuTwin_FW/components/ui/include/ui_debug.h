@@ -25,8 +25,8 @@ bool ui_debug_nowifi(const char *mode);
 /* Va a una pantalla para revisarla (capturas del estilo): "inicio", "avisos", "corazones",
  * "historial", "ajustes", "bebe", "mapa" o "racha" (paginas de Inicio, si se pueden ver), "listo"
  * (pulsa «Coge mi mano»), "dedo" / "soltar" (el dedo sobre el bebe) o "fin" (cierra el gesto).
- * false si no entiende el destino. */
-bool ui_debug_goto(const char *where);
+ * 0 si va; 1 si no entiende el destino; 2 si la pantalla esta ocupada. */
+int ui_debug_goto(const char *where);
 
 #ifdef __cplusplus
 }

@@ -110,7 +110,7 @@ lv_obj_t *ui_msgbox(const char *title, const char *text, const char *btn_text, l
     lv_obj_t *mb = lv_msgbox_create(NULL);
     lv_obj_set_width(mb, 208);
     /* estilo de la app: tarjeta crema con borde tinta, esquinas 16 y sombra dura de 4, sobre un velo
-     * tinta al 45 % */
+     * tinta al 40 % */
     toy_box(mb, 16, 4);
     lv_obj_t *veil = lv_obj_get_parent(mb);
     if (veil && veil != lv_layer_top()) {

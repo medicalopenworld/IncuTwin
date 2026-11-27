@@ -3,8 +3,12 @@
 
 #include <string.h>
 
+#include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "fonts.h"
 #include "ui_theme.h"
+
+static const char *TAG = "toy";
 
 /* ------------------------------------------------------------- sombra dura */
 
@@ -82,9 +86,10 @@ void toy_button(lv_obj_t *b, bool primary)
 {
     toy_box(b, TOY_R_BTN, TOY_SHADOW_M);
     lv_obj_set_style_bg_color(b, primary ? COL_CORAL : COL_CARD, 0);
-    /* sin el oscurecido del tema al pulsar: responde hundiendose */
+    /* sin el oscurecido del tema al pulsar (recolor negro al 35 %): responde hundiendose */
     lv_obj_set_style_bg_color(b, primary ? COL_CORAL : COL_CARD, LV_STATE_PRESSED);
     lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_STATE_PRESSED);
+    lv_obj_set_style_recolor_opa(b, LV_OPA_TRANSP, LV_STATE_PRESSED);
     lv_obj_set_style_text_font(b, &lv_font_title_14, 0);
     lv_obj_set_style_text_color(b, primary ? lv_color_white() : COL_INK, 0);
     label_font(b, &lv_font_title_14, primary ? lv_color_white() : COL_INK);
@@ -100,6 +105,7 @@ void toy_segment(lv_obj_t *b, lv_obj_t *lbl, bool on)
     toy_box(b, 8, TOY_SHADOW_S);
     lv_obj_set_style_bg_color(b, on ? COL_INK : COL_CARD, 0);
     lv_obj_set_style_bg_color(b, on ? COL_INK : COL_CARD, LV_STATE_PRESSED);
+    lv_obj_set_style_recolor_opa(b, LV_OPA_TRANSP, LV_STATE_PRESSED);
     if (lbl) lv_obj_set_style_text_color(lbl, on ? lv_color_white() : COL_INK, 0);
 }
 
@@ -146,9 +152,15 @@ const lv_image_dsc_t *toy_heart_dsc(toy_heart_t kind, int32_t cell)
     for (int i = 0; i < s_cache_n; i++) {
         if (s_cache[i].kind == kind && s_cache[i].cell == cell) return &s_cache[i].dsc;
     }
-    if (s_cache_n == HEART_CACHE_N) return s_cache_n ? &s_cache[0].dsc : NULL; /* no deberia pasar */
+    if (s_cache_n == HEART_CACHE_N) { /* no deberia pasar: hoy se usan unos 11 */
+        ESP_LOGW(TAG, "cache de corazones llena (%d)", HEART_CACHE_N);
+        return &s_cache[0].dsc;
+    }
     int32_t w = 9 * cell, h = 8 * cell;
-    uint32_t *px = lv_malloc((size_t)w * (size_t)h * 4u);
+    size_t bytes = (size_t)w * (size_t)h * 4u;
+    /* en PSRAM: lo pequeño (< 16 KB) iria a la RAM interna, la que necesitan WiFi y TLS */
+    uint32_t *px = heap_caps_malloc(bytes, MALLOC_CAP_SPIRAM);
+    if (!px) px = lv_malloc(bytes);
     if (!px) return NULL;
     lv_color_t fill, edge;
     heart_cols(kind, &fill, &edge);
@@ -182,15 +194,6 @@ lv_obj_t *toy_heart_img(lv_obj_t *parent, toy_heart_t kind, int32_t cell)
     lv_obj_t *i = lv_image_create(parent);
     lv_image_set_antialias(i, false); /* al latir (escala) que los pixeles sigan duros */
     lv_image_set_src(i, toy_heart_dsc(kind, cell));
-    lv_obj_set_user_data(i, (void *)(intptr_t)cell);
     lv_obj_set_clickable(i, false);
     return i;
-}
-
-void toy_heart_set(lv_obj_t *img, toy_heart_t kind, int32_t cell)
-{
-    if (cell <= 0) cell = (int32_t)(intptr_t)lv_obj_get_user_data(img);
-    lv_obj_set_user_data(img, (void *)(intptr_t)cell);
-    const lv_image_dsc_t *d = toy_heart_dsc(kind, cell);
-    if (lv_image_get_src(img) != d) lv_image_set_src(img, d);
 }

@@ -93,7 +93,7 @@ static lv_obj_t *make_qr(lv_obj_t *parent, const char *data, int32_t size, int32
     lv_obj_set_style_outline_width(qr, TOY_BORDER, 0); /* y el marco de juguete */
     lv_obj_set_style_outline_color(qr, COL_INK, 0);
     lv_obj_set_style_radius(qr, 4, 0);
-    toy_shadow(qr, TOY_SHADOW_M);
+    toy_shadow(qr, TOY_SHADOW_M + TOY_BORDER); /* desde el QR: que asome 3 px por fuera del marco */
     lv_obj_align(qr, LV_ALIGN_TOP_MID, 0, y);
     return qr;
 }
