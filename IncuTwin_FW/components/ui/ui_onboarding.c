@@ -152,7 +152,7 @@ static void build_connect(void)
     lv_obj_t *l = body_label(scr, net, 266, &lv_font_es_12, COL_MUTED);
     (void)l;
     if (s_wifi_failed) {
-        body_label(scr, tr(STR_OB_WIFI_FAIL), 290, &lv_font_es_12, COL_CORAL_INK);
+        body_label(scr, tr(STR_OB_WIFI_FAIL), 290, &lv_font_es_12, COL_INK); /* tinta: que no parezca una alarma */
     }
     if (s_wifi_only) {
         lv_obj_t *b = primary_button(scr, tr(STR_OB_CANCEL), cancel_clicked, NULL);

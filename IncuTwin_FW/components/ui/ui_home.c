@@ -1242,7 +1242,7 @@ static void hold_refresh(bool force)
         lv_obj_set_style_border_width(s_lbl_hold, boxed ? TOY_BORDER : 0, 0);
         toy_shadow(s_lbl_hold, boxed ? TOY_SHADOW_S : 0);
         lv_obj_set_style_text_color(s_lbl_hold,
-                                    (st == HH_READY || st == HH_GRACE) ? COL_CORAL_INK : COL_INK, 0);
+                                    (st == HH_READY || st == HH_GRACE) ? COL_CORAL : COL_INK, 0); /* coral de siempre (Pablo, 27-nov) */
         if (baby_view && (st == HH_DONE || st == HH_THANKS)) {
             home_bg(COL_BG_THANKS);
         } else {
