@@ -3,8 +3,11 @@
 #include "ui_nowifi.h"
 
 #include <stdint.h>
+#include <string.h>
 
 #include "assets_nowifi.h"
+#include "esp_heap_caps.h"
+#include "esp_log.h"
 #include "fonts.h"
 #include "ui_i18n.h"
 #include "ui_theme.h"
@@ -38,6 +41,49 @@ static const lv_image_dsc_t *const SYM[NOWIFI_SYMS] = {
     &img_nowifi_sym5, &img_nowifi_sym6, &img_nowifi_sym7, &img_nowifi_sym8, &img_nowifi_sym9,
 };
 
+static const uint8_t (*const SKIN_PALS[2])[256 * 4] = { nowifi_boy_skin_palettes, nowifi_girl_skin_palettes };
+
+/* Cuerpos en PSRAM (nino y nina, compartidos por todas las instancias) para cambiarles la
+ * paleta al tono de piel del bebe, como baby_widget. Sin PSRAM se quedan en flash (tono 0). */
+static lv_image_dsc_t s_frames[2][NOWIFI_BODIES];
+static bool s_frames_ready;
+static uint8_t s_tone;
+
+static void tone_apply(void);
+
+static void frames_init(void)
+{
+    if (s_frames_ready) return;
+    s_frames_ready = true;
+    for (int g = 0; g < 2; g++) {
+        for (int i = 0; i < NOWIFI_BODIES; i++) {
+            const lv_image_dsc_t *src = (g ? GIRL : BOY)[i];
+            s_frames[g][i] = *src;
+            uint8_t *buf = heap_caps_malloc(src->data_size, MALLOC_CAP_SPIRAM);
+            if (!buf) {
+                ESP_LOGW("nowifi", "sin PSRAM para el cuerpo %d/%d: tono fijo", g, i);
+                continue;
+            }
+            memcpy(buf, src->data, src->data_size);
+            s_frames[g][i].data = buf;
+        }
+    }
+    if (s_tone) tone_apply();
+}
+
+static void tone_apply(void)
+{
+    for (int g = 0; g < 2; g++) {
+        for (int i = 0; i < NOWIFI_BODIES; i++) {
+            if (s_frames[g][i].data == (g ? GIRL : BOY)[i]->data) continue; /* en flash */
+            memcpy((uint8_t *)s_frames[g][i].data, SKIN_PALS[g][s_tone], 256 * 4);
+#if LV_CACHE_DEF_SIZE > 0
+            lv_image_cache_drop(&s_frames[g][i]); /* la cache guardaria la paleta vieja */
+#endif
+        }
+    }
+}
+
 typedef enum { M_OFF = 0, M_LOOP, M_SEARCH, M_CELEB, M_FADE } nw_mode_t;
 
 struct ui_nowifi {
@@ -56,8 +102,9 @@ struct ui_nowifi {
 static void frame_set(ui_nowifi_t *nw, int8_t body, int8_t sym, int32_t dy)
 {
     const pos_t *pos = nw->girl ? GIRL_POS : BOY_POS;
-    const lv_image_dsc_t *src = (nw->girl ? GIRL : BOY)[body];
+    const lv_image_dsc_t *src = &s_frames[nw->girl ? 1 : 0][body];
     if (lv_image_get_src(nw->body) != src) lv_image_set_src(nw->body, src);
+    else lv_obj_invalidate(nw->body); /* el tono puede haber cambiado */
     lv_obj_set_pos(nw->body, pos[body].x, pos[body].y + dy);
     lv_obj_set_hidden(nw->sym, sym < 0);
     if (sym >= 0) {
@@ -286,6 +333,7 @@ static void start(ui_nowifi_t *nw, nw_mode_t mode, bool girl)
 
 ui_nowifi_t *ui_nowifi_create(lv_obj_t *parent, int32_t x, int32_t y, int32_t text_y)
 {
+    frames_init();
     ui_nowifi_t *nw = lv_malloc_zeroed(sizeof(*nw));
     if (!nw) return NULL;
     nw->parent = parent;
@@ -311,6 +359,14 @@ ui_nowifi_t *ui_nowifi_create(lv_obj_t *parent, int32_t x, int32_t y, int32_t te
     lv_obj_set_clickable(nw->text, false);
     lv_obj_set_hidden(nw->text, true);
     return nw;
+}
+
+void ui_nowifi_set_skin(uint8_t tone)
+{
+    if (tone >= NOWIFI_SKIN_TONE_COUNT) tone = 0;
+    if (tone == s_tone) return;
+    s_tone = tone;
+    if (s_frames_ready) tone_apply(); /* si no, frames_init() lo aplica */
 }
 
 void ui_nowifi_retranslate(ui_nowifi_t *nw)

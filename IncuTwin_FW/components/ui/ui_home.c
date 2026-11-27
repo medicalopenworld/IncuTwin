@@ -1295,6 +1295,7 @@ void ui_home_apply(const twin_snapshot_t *s)
     row_apply(s_row_shown); /* el tratamiento puede haber cambiado */
 
     baby_set_skin_tone(inc->skin);
+    ui_nowifi_set_skin(inc->skin); /* el bebe de la antena, con la piel del bebe */
     baby_set_girl(girl);
     if (hh_idle) baby_set_awake(inc->awake); /* durante el gesto los ojos los pone el gesto */
     baby_set_heart_rate(s->show_baby ? inc->bpm : 0);

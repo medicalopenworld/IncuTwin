@@ -11,6 +11,7 @@
 #pragma once
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #include "lvgl.h"
 
@@ -28,3 +29,5 @@ void ui_nowifi_skip(ui_nowifi_t *nw);              /* acaba ya la celebracion (t
 bool ui_nowifi_active(const ui_nowifi_t *nw);      /* bucle, busqueda o celebracion */
 bool ui_nowifi_celebrating(const ui_nowifi_t *nw);
 void ui_nowifi_retranslate(ui_nowifi_t *nw);
+/* Tono de piel del bebe (0..4, como baby_set_skin_tone) para todas las instancias */
+void ui_nowifi_set_skin(uint8_t tone);

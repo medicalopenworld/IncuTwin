@@ -21,8 +21,9 @@ from PIL import Image, ImageDraw
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from gen_assets import ASSETS, IMAGES, PREVIEW, draw_bow, girl_recolor  # noqa: E402
-from lvgl9_c import c_header, emit_argb8888, emit_i8, write_header  # noqa: E402
+from gen_assets import (ASSETS, BLUSH_BASE, IMAGES, PREVIEW, SKIN_BASE, SKIN_TONES,  # noqa: E402
+                        draw_bow, girl_recolor, is_blush, is_skin, tone_color)
+from lvgl9_c import c_header, emit_argb8888, emit_i8, emit_palettes, write_header  # noqa: E402
 
 SRC = os.path.join(IMAGES, "Baby_no_wifi.png")
 BG = (0xF4, 0xF3, 0xF0, 255)          # COL_BG de ui_theme.h
@@ -502,28 +503,132 @@ def main():
         emit(boy, girl, size)
 
 
+N_SKIN, N_BLUSH = 28, 12  # entradas de paleta solo para la cara: el tono de piel no tine nada mas
+
+
+SKIN_MIN_BLOB = 25  # manchas de piel mas pequenas = motas del gorro o de la manta, no piel
+
+
+def face_kinds(b):
+    """Por pixel: "skin", "blush" o None. Piel = las manchas de piel de al menos SKIN_MIN_BLOB
+    px (cara y antebrazo levantado); rubor = lo que toca esa piel. Asi la manta rosa de la nina,
+    el gorro, el pompon o las lunas no cambian con el tono."""
+    w, h = b.size
+    px = b.load()
+    skin = [[px[x, y][3] > 0 and is_skin(px[x, y]) for x in range(w)] for y in range(h)]
+    blush = [[px[x, y][3] > 0 and is_blush(px[x, y]) for x in range(w)] for y in range(h)]
+    seen = [[False] * w for _ in range(h)]
+    kinds = {}
+
+    def flood(x0, y0, mask):
+        comp, dq = [], deque([(x0, y0)])
+        seen[y0][x0] = True
+        while dq:
+            x, y = dq.popleft()
+            comp.append((x, y))
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if 0 <= nx < w and 0 <= ny < h and mask[ny][nx] and not seen[ny][nx]:
+                    seen[ny][nx] = True
+                    dq.append((nx, ny))
+        return comp
+
+    for y0 in range(h):
+        for x0 in range(w):
+            if skin[y0][x0] and not seen[y0][x0]:
+                comp = flood(x0, y0, skin)
+                if len(comp) >= SKIN_MIN_BLOB:
+                    for p in comp:
+                        kinds[p] = "skin"
+    # rubor: manchas de rubor que tocan la piel
+    for (x, y) in list(kinds):
+        for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+            if 0 <= nx < w and 0 <= ny < h and blush[ny][nx] and not seen[ny][nx]:
+                for p in flood(nx, ny, blush):
+                    kinds[p] = "blush"
+    return kinds
+
+
 def quantize_all(images):
-    """Una paleta comun (255 colores + transparente) para todos los cuerpos."""
+    """Una paleta comun para todos los cuerpos de un sexo: 0 transparente, luego el resto de
+    colores, y al final N_SKIN entradas de piel y N_BLUSH de rubor (solo de la cara).
+    Devuelve (paleta, [(indices, tamano)], {indice: "skin"|"blush"})."""
     bins = [binarize(im) for im in images]
+    kinds = [face_kinds(b) for b in bins]
     W = sum(b.width for b in bins)
     H = max(b.height for b in bins)
-    strip = Image.new("RGB", (W, H), BG[:3])
-    x = 0
-    for b in bins:
-        strip.paste(b.convert("RGB"), (x, 0))
-        x += b.width
-    q = strip.quantize(colors=255, method=Image.MEDIANCUT)
-    pal = q.getpalette()[: 255 * 3]
-    palette = [(0, 0, 0, 0)] + [(pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2], 255) for i in range(255)]
-    qpx = q.load()
+
+    def strip_of(select):
+        st = Image.new("RGB", (W, H), BG[:3])
+        sp = st.load()
+        x = 0
+        for b, k in zip(bins, kinds):
+            bp = b.load()
+            for j in range(b.height):
+                for i in range(b.width):
+                    if bp[i, j][3] and select(k.get((i, j))):
+                        sp[x + i, j] = bp[i, j][:3]
+            x += b.width
+        return st
+
+    n_rest = 255 - N_SKIN - N_BLUSH
+    groups = [(lambda k: k is None, n_rest), (lambda k: k == "skin", N_SKIN), (lambda k: k == "blush", N_BLUSH)]
+    palette = [(0, 0, 0, 0)]
+    qs, offs = [], []
+    for select, n in groups:
+        q = strip_of(select).quantize(colors=n, method=Image.MEDIANCUT)
+        pal = q.getpalette()[: n * 3]
+        offs.append(len(palette))
+        palette += [(pal[i * 3], pal[i * 3 + 1], pal[i * 3 + 2], 255) for i in range(n)]
+        qs.append(q.load())
+    roles = {i: "skin" for i in range(offs[1], offs[1] + N_SKIN)}
+    roles.update({i: "blush" for i in range(offs[2], offs[2] + N_BLUSH)})
     out, x = [], 0
-    for b in bins:
-        bpx = b.load()
-        idxs = [0 if bpx[i, j][3] == 0 else qpx[x + i, j] + 1
-                for j in range(b.height) for i in range(b.width)]
+    for b, k in zip(bins, kinds):
+        bp = b.load()
+        idxs = []
+        for j in range(b.height):
+            for i in range(b.width):
+                if bp[i, j][3] == 0:
+                    idxs.append(0)
+                    continue
+                g = {None: 0, "skin": 1, "blush": 2}[k.get((i, j))]
+                idxs.append(offs[g] + qs[g][x + i, j])
         out.append((idxs, b.size))
         x += b.width
-    return palette, out
+    return palette, out, roles
+
+
+def tone_palettes(palette, roles):
+    """Una paleta por tono de piel (SKIN_TONES de gen_assets; el 0 es el dibujo tal cual)."""
+    pals = []
+    for skin_to, blush_to in SKIN_TONES:
+        p = list(palette)
+        for i, role in roles.items():
+            r, g, b, a = palette[i]
+            base, to = (SKIN_BASE, skin_to) if role == "skin" else (BLUSH_BASE, blush_to)
+            p[i] = tone_color((r, g, b), base, to) + (a,)
+        pals.append(p)
+    return pals
+
+
+def save_tones_preview(tag, palette, q, pals):
+    """tools/preview/nowifi_<tag>_tonos.png: los cuerpos 0 y 4 en los 5 tonos."""
+    cells = []
+    for t, pal in enumerate(pals):
+        for n in (0, 4):
+            idxs, (w, h) = q[n]
+            im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+            ip = im.load()
+            for k, v in enumerate(idxs):
+                if v:
+                    ip[k % w, k // w] = tuple(pal[v])
+            cells.append(im)
+    cw = max(c.width for c in cells) + 6
+    ch = max(c.height for c in cells) + 6
+    sheet = Image.new("RGBA", (cw * len(cells), ch), BG)
+    for k, c in enumerate(cells):
+        sheet.alpha_composite(c, (k * cw + 3, ch - c.height - 3))
+    sheet.save(os.path.join(PREVIEW, f"nowifi_{tag}_tonos.png"))
 
 
 def emit(boy, girl, size):
@@ -535,11 +640,14 @@ def emit(boy, girl, size):
         f.write(c_header("Bebe sin WiFi (nino y nina): cuerpos I8, simbolo del WiFi por partes y "
                          "particulas de la celebracion"))
         for tag, (bodies, _) in (("boy", boy), ("girl", girl)):
-            palette, q = quantize_all([im for im, _, _ in bodies])
+            palette, q, roles = quantize_all([im for im, _, _ in bodies])
+            pals = tone_palettes(palette, roles)
+            save_tones_preview(tag, palette, q, pals)
             for i, (idxs, sz) in enumerate(q):
                 n = f"img_nowifi_{tag}_{i}"
                 emit_i8(f, n, palette, idxs, sz)
                 externs.append(n)
+            emit_palettes(f, f"nowifi_{tag}_skin_palettes", pals)
         for i, (im, _, _) in enumerate(boy[1]):
             n = f"img_nowifi_sym{i}"
             emit_argb8888(f, n, binarize(im))
@@ -562,6 +670,10 @@ def emit(boy, girl, size):
     seq = ", ".join(f"{{{b}, {sy}, {ms}}}" for b, sy, ms in SEQ)
     celeb = ", ".join(f"{{{b}, {sy}, {ms}, {dy}}}" for b, sy, ms, dy in CELEB_SEQ)
     extra = "\n".join([
+        "/* tonos de piel (los de gen_assets / baby_skin_palettes): paleta I8 completa por tono */",
+        f"#define NOWIFI_SKIN_TONE_COUNT {len(SKIN_TONES)}",
+        f"extern const uint8_t nowifi_boy_skin_palettes[{len(SKIN_TONES)}][256 * 4];",
+        f"extern const uint8_t nowifi_girl_skin_palettes[{len(SKIN_TONES)}][256 * 4];",
         "/* lienzo (px de pantalla) */",
         f"#define NOWIFI_W {size[0]}",
         f"#define NOWIFI_H {size[1]}",

@@ -30,6 +30,10 @@ extern const lv_image_dsc_t img_nowifi_sym9;
 extern const lv_image_dsc_t img_nowifi_heart;
 extern const lv_image_dsc_t img_nowifi_star;
 
+/* tonos de piel (los de gen_assets / baby_skin_palettes): paleta I8 completa por tono */
+#define NOWIFI_SKIN_TONE_COUNT 5
+extern const uint8_t nowifi_boy_skin_palettes[5][256 * 4];
+extern const uint8_t nowifi_girl_skin_palettes[5][256 * 4];
 /* lienzo (px de pantalla) */
 #define NOWIFI_W 122
 #define NOWIFI_H 229
