@@ -10,6 +10,7 @@
 #include "freertos/semphr.h"
 #include "mbedtls/base64.h"
 #include "assets_nowifi.h"
+#include "baby_widget.h"
 #include "ui_internal.h"
 #include "ui_nowifi.h"
 
@@ -124,6 +125,38 @@ bool ui_debug_shop(const char *tab, bool girl, int try_item, bool buy)
     s_nav.buy = buy;
     s_nav.item = try_item;
     lv_async_call(shop_async, NULL);
+    lvgl_port_unlock();
+    return true;
+}
+
+/* ------------------------------------------------------- reacciones del bebe */
+
+static void baby_hold_cb(lv_timer_t *t) { baby_react((baby_react_t)(intptr_t)lv_timer_get_user_data(t)); }
+
+/* arg: (accion << 8) | segundos; accion 0 caricia, 1 cosquillas, 2 bostezo */
+static void baby_async(void *arg)
+{
+    int what = (int)(intptr_t)arg >> 8, secs = (int)(intptr_t)arg & 0xff;
+    if (what == 2) {
+        baby_yawn();
+        return;
+    }
+    baby_react((baby_react_t)what);
+    if (secs > 0) { /* reiniciarla cada segundo la deja puesta `secs` s mas, para capturarla */
+        lv_timer_t *t = lv_timer_create(baby_hold_cb, 1000, (void *)(intptr_t)what);
+        lv_timer_set_repeat_count(t, secs);
+    }
+}
+
+bool ui_debug_baby(const char *what, int secs)
+{
+    static const char *const WHAT[] = { "caricia", "cosquillas", "bostezo" };
+    int w = -1;
+    for (int i = 0; i < 3; i++) {
+        if (strcmp(what, WHAT[i]) == 0) w = i;
+    }
+    if (w < 0 || secs < 0 || secs > 255 || !lvgl_port_lock(3000)) return false;
+    lv_async_call(baby_async, (void *)(intptr_t)((w << 8) | secs));
     lvgl_port_unlock();
     return true;
 }

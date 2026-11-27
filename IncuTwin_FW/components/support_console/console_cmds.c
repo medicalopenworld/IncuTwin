@@ -108,6 +108,27 @@ static int cmd_nowifi(int argc, char **argv)
     return 0;
 }
 
+/* bebe caricia|cosquillas [s] | bostezo | nina | nino | tono <0-4>; los tres ultimos, en la demo */
+static int cmd_baby(int argc, char **argv)
+{
+    bool girl = argc >= 2 && !strcmp(argv[1], "nina"), boy = argc >= 2 && !strcmp(argv[1], "nino");
+    bool tone = argc >= 3 && !strcmp(argv[1], "tono");
+    if (girl || boy || tone) {
+        if (!twin_model_demo_active()) {
+            printf("solo en la demo (demo on)\n");
+            return 1;
+        }
+        if (tone) twin_model_demo_set_skin((uint8_t)atoi(argv[2]));
+        else twin_model_demo_set_sex(girl ? TWIN_SEX_FEMALE : TWIN_SEX_MALE);
+        return 0;
+    }
+    if (argc < 2 || !ui_debug_baby(argv[1], argc >= 3 ? atoi(argv[2]) : 0)) {
+        printf("bebe caricia|cosquillas [s] | bostezo | nina | nino | tono <0-4>\n");
+        return 1;
+    }
+    return 0;
+}
+
 static int cmd_demo(int argc, char **argv)
 {
     if (argc < 2 || (strcmp(argv[1], "on") && strcmp(argv[1], "off"))) {
@@ -280,6 +301,10 @@ void console_start(void)
         { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` solo en la demo", .func = cmd_rewards },
         { .command = "demo", .help = "demo on|off: como 2 s del boton BOOT", .func = cmd_demo },
         { .command = "pantalla", .help = "captura de la pantalla (para tools/screenshot.py)", .func = cmd_screen },
+        { .command = "bebe", .help = "bebe caricia|cosquillas [s]: prueba la reacción del bebé (no cuenta como uso); "
+                                     "[s] la repite s segundos para capturarla. bebe bostezo. En la demo: bebe "
+                                     "nina|nino|tono <0-4>",
+          .func = cmd_baby },
         { .command = "tienda", .help = "tienda <gorros|mantas|fondos|efectos|corazones|cerrar> [nina] [probar <id>] [comprar]",
           .func = cmd_shop },
         { .command = "incupray", .help = "incupray [demo|stop|join|leave|hold <s>]: estado de la IncuPray", .func = cmd_incupray },

@@ -21,6 +21,10 @@ bool ui_debug_shop(const char *tab, bool girl, int try_item, bool buy);
  * celebra); "asistente" simula la pantalla del asistente probando la WiFi y su celebracion.
  * Devuelve false si no entiende el modo. */
 bool ui_debug_nowifi(const char *mode);
+/* Bebe de Inicio: "caricia" o "cosquillas" lanzan su reaccion (no cuenta como uso) y, con `secs` > 0,
+ * la reinician cada segundo durante `secs` s para poder capturarla; "bostezo" bosteza ya. false si no
+ * entiende la orden. */
+bool ui_debug_baby(const char *what, int secs);
 
 #ifdef __cplusplus
 }

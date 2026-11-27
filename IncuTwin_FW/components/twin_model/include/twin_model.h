@@ -42,6 +42,8 @@ bool twin_model_demo_active(void);
 void twin_model_demo_apply(const twin_incubator_t *inc, bool linked);
 /* Solo en demo: prueba otro tono de piel (no toca el real ni se guarda). */
 void twin_model_demo_set_skin(uint8_t skin);
+/* Solo en demo: cambia el sexo del bebe del escenario (consola `bebe nina|nino`). */
+void twin_model_demo_set_sex(twin_sex_t sex);
 
 /* Modo Acompañar (spec accompany): fase, recordatorio y corazones para la UI. Publica solo si
  * cambia. En la demo el snapshot los lleva apagados. */

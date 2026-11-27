@@ -9,17 +9,27 @@
 
 static const char *TAG = "baby";
 
-typedef enum { FR_SLEEP = 0, FR_YAWN1, FR_YAWN2, FR_AWAKE, FR_COUNT } frame_t;
+typedef enum { FR_SLEEP = 0, FR_YAWN1, FR_YAWN2, FR_AWAKE, FR_SMILE, FR_LAUGH, FR_COUNT } frame_t;
 
 /* Dos dibujos, nino y nina (misma figura y caja: los fotogramas encajan pixel a pixel).
  * Comparten paleta, asi que el tono de piel se aplica igual a los dos. Copias en PSRAM
- * para poder reescribir la paleta en caliente (~180 KB los ocho). */
+ * para poder reescribir la paleta en caliente (~265 KB los doce). */
 enum { DRAW_BOY = 0, DRAW_GIRL, DRAW_COUNT };
 static lv_image_dsc_t s_frames[DRAW_COUNT][FR_COUNT];
 static const lv_image_dsc_t *const S_SRC[DRAW_COUNT][FR_COUNT] = {
-    { &img_baby_sleep, &img_baby_yawn1, &img_baby_yawn2, &img_baby_awake },
-    { &img_baby_girl_sleep, &img_baby_girl_yawn1, &img_baby_girl_yawn2, &img_baby_girl_awake },
+    { &img_baby_sleep, &img_baby_yawn1, &img_baby_yawn2, &img_baby_awake, &img_baby_smile, &img_baby_laugh },
+    { &img_baby_girl_sleep, &img_baby_girl_yawn1, &img_baby_girl_yawn2, &img_baby_girl_awake,
+      &img_baby_girl_smile, &img_baby_girl_laugh },
 };
+
+#define TICKLES_TAIL_MS 1000 /* sonrisa tras la risita */
+#define WIGGLE_PX       3    /* vaiven de las cosquillas */
+#define WIGGLE_TURNS    4
+#define LOVE_SCALE      151  /* corazon de la caricia a 20 px de ancho (img_heart mide 34) */
+#define LOVE_DX         95   /* caja de img_heart respecto al dibujo: junto a la cabeza, a la derecha */
+#define LOVE_DY         30
+#define LOVE_RISE       30
+#define LOVE_MS         1200
 
 static lv_obj_t *s_img;
 static lv_obj_t *s_santa; /* gorro de Papa Noel encima (tienda) */
@@ -36,6 +46,12 @@ static uint16_t s_bpm;
 static bool s_yawning;
 static lv_timer_t *s_seq_timer;
 static int s_seq_step;
+/* Reaccion al dedo: caricia, risita de las cosquillas y la sonrisa que la sigue */
+static enum { RX_NONE = 0, RX_CARESS, RX_LAUGH, RX_TAIL } s_rx;
+static lv_timer_t *s_rx_timer;
+static bool s_yawn_pending; /* el bostezo que toco durante la reaccion: al acabar */
+static lv_obj_t *s_love;    /* corazon de la caricia */
+static int32_t s_x0;        /* x del dibujo sin vaiven */
 
 /* ---------------------------------------------------------------- frames */
 
@@ -111,6 +127,10 @@ static void seq_timer_cb(lv_timer_t *t)
 static void start_yawn(void)
 {
     if (s_yawning || s_seq_timer) return;
+    if (s_rx != RX_NONE) {
+        s_yawn_pending = true;
+        return;
+    }
     s_yawning = true;
     s_seq_step = 0;
     s_seq_timer = lv_timer_create(seq_timer_cb, 10, NULL);
@@ -206,6 +226,86 @@ static void zzz_set_visible(bool vis)
     }
 }
 
+/* -------------------------------------------------------------- reaccion */
+
+static void love_done(lv_anim_t *a) { lv_obj_set_hidden((lv_obj_t *)a->var, true); }
+
+/* Corazon de la caricia: sale junto a la cabeza, sube y se desvanece */
+static void love_start(void)
+{
+    lv_anim_delete(s_love, NULL);
+    int32_t y0 = lv_obj_get_y(s_img) + LOVE_DY;
+    lv_obj_set_pos(s_love, lv_obj_get_x(s_img) + LOVE_DX, y0);
+    lv_obj_set_style_opa(s_love, LV_OPA_COVER, 0);
+    lv_obj_set_hidden(s_love, false);
+
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_love);
+    lv_anim_set_duration(&a, LOVE_MS);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_out);
+    lv_anim_set_exec_cb(&a, anim_y_cb);
+    lv_anim_set_values(&a, y0, y0 - LOVE_RISE);
+    lv_anim_start(&a);
+    lv_anim_set_exec_cb(&a, anim_opa_cb);
+    lv_anim_set_path_cb(&a, lv_anim_path_ease_in); /* se ve casi todo el camino y se apaga al final */
+    lv_anim_set_values(&a, LV_OPA_COVER, LV_OPA_TRANSP);
+    lv_anim_set_completed_cb(&a, love_done);
+    lv_anim_start(&a);
+}
+
+/* Vaiven de las cosquillas: v en grados, WIGGLE_TURNS vueltas de seno; acaba en el sitio */
+static void wiggle_cb(void *var, int32_t v)
+{
+    int32_t s = WIGGLE_PX * lv_trigo_sin((int16_t)(v % 360));
+    int32_t half = 1 << (LV_TRIGO_SHIFT - 1);
+    lv_obj_set_x((lv_obj_t *)var, s_x0 + (s + (s >= 0 ? half : -half)) / (1 << LV_TRIGO_SHIFT));
+}
+
+static void wiggle_start(void)
+{
+    if (!lv_anim_delete(s_img, wiggle_cb)) s_x0 = lv_obj_get_x(s_img);
+    lv_anim_t a;
+    lv_anim_init(&a);
+    lv_anim_set_var(&a, s_img);
+    lv_anim_set_exec_cb(&a, wiggle_cb);
+    lv_anim_set_values(&a, 0, WIGGLE_TURNS * 360);
+    lv_anim_set_duration(&a, BABY_TICKLES_MS);
+    lv_anim_start(&a);
+}
+
+/* Fin de la reaccion (o corte): reposo, "z Z z" si tocan y el bostezo aplazado */
+static void react_stop(void)
+{
+    if (s_rx == RX_NONE) return;
+    s_rx = RX_NONE;
+    if (s_rx_timer) {
+        lv_timer_delete(s_rx_timer);
+        s_rx_timer = NULL;
+    }
+    if (lv_anim_delete(s_img, wiggle_cb)) lv_obj_set_x(s_img, s_x0);
+    lv_anim_delete(s_love, NULL);
+    lv_obj_set_hidden(s_love, true);
+    show_frame(rest_frame());
+    zzz_set_visible(!s_awake && s_shown);
+    if (s_yawn_pending) {
+        s_yawn_pending = false;
+        start_yawn();
+    }
+}
+
+static void react_timer_cb(lv_timer_t *t)
+{
+    if (s_rx == RX_LAUGH) { /* tras la risita, la sonrisa */
+        s_rx = RX_TAIL;
+        show_frame(FR_SMILE);
+        lv_timer_set_period(t, TICKLES_TAIL_MS);
+        lv_timer_reset(t);
+        return;
+    }
+    react_stop();
+}
+
 /* ------------------------------------------------------------------- API */
 
 lv_obj_t *baby_widget_create(lv_obj_t *parent, int32_t x, int32_t y)
@@ -226,6 +326,12 @@ lv_obj_t *baby_widget_create(lv_obj_t *parent, int32_t x, int32_t y)
     lv_image_set_src(s_heart, &img_heart);
     lv_obj_align_to(s_heart, s_img, LV_ALIGN_CENTER, 2, 34);
     lv_obj_set_hidden(s_heart, true);
+
+    s_love = lv_image_create(parent);
+    lv_image_set_src(s_love, &img_heart);
+    lv_image_set_scale(s_love, LOVE_SCALE);
+    lv_obj_set_clickable(s_love, false);
+    lv_obj_set_hidden(s_love, true);
 
     zzz_create(parent, x, y);
     apply_palette(s_tone);
@@ -255,8 +361,8 @@ void baby_set_awake(bool awake)
 {
     if (awake == s_awake) return;
     s_awake = awake;
-    if (!s_yawning) show_frame(rest_frame());
-    zzz_set_visible(!awake && s_shown);
+    if (!s_yawning && s_rx == RX_NONE) show_frame(rest_frame()); /* la reaccion acaba en el reposo nuevo */
+    zzz_set_visible(!awake && s_shown && s_rx == RX_NONE);
 }
 
 void baby_set_shown(bool shown)
@@ -264,8 +370,43 @@ void baby_set_shown(bool shown)
     lv_obj_set_hidden(s_img, !shown);
     if (shown == s_shown) return;
     s_shown = shown;
+    if (!shown) react_stop();
     zzz_set_visible(!s_awake && shown);
 }
+
+void baby_react(baby_react_t r)
+{
+    if (!s_img || !s_shown) return;
+    if (s_rx == RX_LAUGH) r = BABY_REACT_TICKLES; /* nunca la baja a mitad */
+    if (s_seq_timer) { /* corta el bostezo */
+        lv_timer_delete(s_seq_timer);
+        s_seq_timer = NULL;
+        s_yawning = false;
+    }
+    zzz_set_visible(false);
+    uint32_t ms;
+    if (r == BABY_REACT_TICKLES) {
+        s_rx = RX_LAUGH;
+        show_frame(FR_LAUGH);
+        wiggle_start();
+        ms = BABY_TICKLES_MS;
+    } else {
+        s_rx = RX_CARESS;
+        show_frame(FR_SMILE);
+        love_start();
+        ms = BABY_CARESS_MS;
+    }
+    if (s_rx_timer) {
+        lv_timer_set_period(s_rx_timer, ms);
+        lv_timer_reset(s_rx_timer);
+    } else {
+        s_rx_timer = lv_timer_create(react_timer_cb, ms, NULL);
+    }
+}
+
+bool baby_reacting(void) { return s_rx != RX_NONE; }
+
+void baby_yawn(void) { start_yawn(); }
 
 void baby_set_heart_rate(uint16_t bpm)
 {
