@@ -138,10 +138,7 @@ static void card_show(rw_level_t level, bool catchup)
     lv_obj_t *c = lv_obj_create(back);
     lv_obj_set_size(c, 208, LV_SIZE_CONTENT);
     lv_obj_center(c);
-    lv_obj_set_style_bg_color(c, COL_CARD, 0);
-    lv_obj_set_style_radius(c, 14, 0);
-    lv_obj_set_style_border_width(c, 2, 0);
-    lv_obj_set_style_border_color(c, COL_CORAL, 0);
+    toy_box(c, TOY_R_CARD, TOY_SHADOW_M); /* tarjeta de juguete, como las de Corazones */
     lv_obj_set_style_pad_all(c, 12, 0);
     lv_obj_set_style_pad_row(c, 8, 0);
     lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
@@ -160,13 +157,11 @@ static void card_show(rw_level_t level, bool catchup)
                COL_NAVY_DARK);
 
     lv_obj_t *btn = lv_button_create(c);
-    lv_obj_set_style_bg_color(btn, COL_CORAL, 0);
-    lv_obj_set_style_radius(btn, 10, 0);
+    lv_obj_add_flag(btn, UI_FLAG_CLICK_SOUND);
     lv_obj_add_event_cb(btn, card_close_cb, LV_EVENT_CLICKED, back);
     lv_obj_t *bl = lv_label_create(btn);
     lv_label_set_text(bl, tr(STR_AFF_OK));
-    lv_obj_set_style_text_font(bl, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(bl, lv_color_white(), 0);
+    toy_button(btn, true); /* despues de la etiqueta: le pone la letra de los botones */
     ESP_LOGI(TAG, "tarjeta de nivel: \"%s\"", title);
 }
 
