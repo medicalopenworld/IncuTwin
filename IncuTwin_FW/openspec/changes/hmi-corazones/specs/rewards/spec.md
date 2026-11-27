@@ -46,17 +46,17 @@ lo hay, la racha SHALL volver a empezar en el siguiente gesto, sin ningún mensa
 - **THEN** hoy, con gesto, la racha pasa a 5 y no se gasta ningún abrazo guardado
 
 ### Requirement: Niveles [test-unity]
-El nivel SHALL salir de los corazones ganados en total (gastar no lo baja): Chispa (0),
-Calorcito (25), Abrazo (75), Manta (150) y Sol (300). ES/EN: Chispa/Spark, Calorcito/Warmth,
-Abrazo/Hug, Manta/Blanket, Sol/Sun.
+El nivel SHALL salir de los corazones ganados en total (gastar no lo baja): Manita (0),
+Caricia (10), Cosquillitas (30), Abrazo (75) y Achuchón (150). ES/EN: Manita/Little hand,
+Caricia/Caress, Cosquillitas/Tickles, Abrazo/Hug, Achuchón/Bear hug.
 
 #### Scenario: Subir de nivel
-- **WHEN** se llevan 24 corazones ganados en total y se gana 1
-- **THEN** el nivel pasa de Chispa a Calorcito
+- **WHEN** se llevan 9 corazones ganados en total y se gana 1
+- **THEN** el nivel pasa de Manita a Caricia
 
 #### Scenario: Gastar no baja
-- **WHEN** en nivel Calorcito con 30 ganados en total se gastan 20
-- **THEN** el nivel sigue siendo Calorcito
+- **WHEN** en nivel Caricia con 10 ganados en total se gastan 5
+- **THEN** el nivel sigue siendo Caricia
 
 ### Requirement: Sellos [test-unity]
 La IncuTwin SHALL conceder cada sello una sola vez, al cumplirse:
@@ -136,7 +136,7 @@ diciembre al 6 de enero. Lo conseguido un año SHALL seguir para los siguientes.
 
 ### Requirement: Demo aparte [test-unity]
 Con la demo activa, saldo, sellos y pasaporte SHALL ser simulados: empiezan cada demo con 12
-corazones, nivel Chispa, los sellos «Primera mano» y «Una semana» y el pasaporte con CM; los gestos
+corazones, nivel Caricia, los sellos «Primera mano» y «Una semana» y el pasaporte con CM; los gestos
 de la demo suman sobre eso. Al salir de la demo NO SHALL quedar nada de ello y lo de verdad NO SHALL
 haber cambiado.
 

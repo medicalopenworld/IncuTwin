@@ -27,7 +27,8 @@ typedef enum {
     RW_SEAL_COUNT
 } rw_seal_t;
 
-typedef enum { RW_LEVEL_SPARK = 0, RW_LEVEL_WARMTH, RW_LEVEL_HUG, RW_LEVEL_BLANKET, RW_LEVEL_SUN, RW_LEVEL_COUNT } rw_level_t;
+/* Niveles de afecto: cada uno es una forma de tocar (Manita, Caricia, Cosquillitas, Abrazo, Achuchon) */
+typedef enum { RW_LEVEL_HAND = 0, RW_LEVEL_CARESS, RW_LEVEL_TICKLES, RW_LEVEL_HUG, RW_LEVEL_SQUEEZE, RW_LEVEL_COUNT } rw_level_t;
 
 /* El orden es el de los bits de `unlocked`: lo nuevo va siempre detras (los guardados viejos
  * siguen valiendo). Maximo 64. */
@@ -119,7 +120,8 @@ typedef struct {
     uint8_t santa_on;       /* Papa Noel puesto (se ve solo en Navidad) */
     uint8_t snow_on;        /* copos puestos (idem) */
     uint8_t unused0;        /* sin uso (fue el regalo de bienvenida, quitado el 26-nov: todo cuesta) */
-    uint8_t reserved[19];   /* para la fase 2 sin otra migracion */
+    uint8_t level_seen;     /* nivel mas alto ya anunciado (rw_level_t); sale de `reserved`, sin cambiar el tamaño */
+    uint8_t reserved[18];   /* para la fase 2 sin otra migracion */
     rw_country_t passport[RW_PASSPORT_MAX];
 } rw_state_t;
 
@@ -174,6 +176,9 @@ bool rw_migrate_v1(rw_state_t *out, const rw_state_v1_t *in);
 /* Dia civil -> dias desde 1970-01-01 (para contar dias seguidos con la hora local) */
 int32_t rw_day_of(int year, int month, int mday);
 rw_level_t rw_level(uint32_t earned);
+/* Aviso pendiente: quien ya tenia corazones al cambiar los niveles ve su nivel una sola vez. */
+bool rw_catchup_due(const rw_state_t *s);
+void rw_catchup_done(rw_state_t *s);
 uint32_t rw_level_min(rw_level_t level);
 uint16_t rw_price(rw_item_t item);
 

@@ -21,7 +21,7 @@ TEST_CASE("metrics: uso, corazones y pasaporte", "[metrics]") {
     int n = metrics_payload_build(out, sizeof(out), &u, &r, &x);
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NOT_NULL(strstr(out, "\"hearts\":23,"));
-    TEST_ASSERT_NOT_NULL(strstr(out, "\"level\":1,")); /* Calorcito */
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"level\":2,")); /* Cosquillitas */
     TEST_ASSERT_NOT_NULL(strstr(out, "\"seals_n\":2,"));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"countries\":\"TG,CM\",\"countries_n\":2,\"stars\":1,"));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"named_incunest\":0,"));
