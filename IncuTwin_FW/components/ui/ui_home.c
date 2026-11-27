@@ -20,6 +20,7 @@
 #include <time.h>
 
 #include "acc_logic.h"
+#include "affection.h"
 #include "assets.h"
 #include "baby_name.h"
 #include "baby_widget.h"
@@ -310,12 +311,42 @@ static void photo_icon_clicked(lv_event_t *e)
 
 /* ------------------------------------------------------------- handlers */
 
-/* "Coge mi mano": el dedo sobre el bebe sostiene el gesto y cuenta uso */
+/* Caricia y cosquillitas (niveles de afecto): el dedo sobre el bebe, sin el gesto en marcha */
+static aff_stroke_t s_aff;
+static bool s_aff_on;          /* hay un toque en curso que mide aff_* */
+static aff_kind_t s_aff_best;  /* lo ya contado y pintado en este toque */
+static bool s_swipe_guard;     /* el toque en curso empezo sobre el bebe y el nivel abre la caricia */
+
+static rw_level_t aff_level(void) { return rw_level(ui_rewards()->earned); }
+
+/* Primera vez que el toque llega a caricia o a cosquillas: el bebe reacciona y se cuenta (en la demo
+ * no, como el resto del uso) */
+static void aff_reached(aff_kind_t k)
+{
+    if (k <= s_aff_best) return;
+    s_aff_best = k;
+    info_hide();
+    baby_react(k == AFF_TICKLES ? BABY_REACT_TICKLES : BABY_REACT_CARESS);
+    if (!(s_have_last && s_last.demo)) usage_affection(k);
+}
+
+/* "Coge mi mano": el dedo sobre el bebe sostiene el gesto y cuenta uso; con el gesto en reposo, acaricia */
 static void baby_touched(lv_event_t *e)
 {
     lv_event_code_t c = lv_event_get_code(e);
-    if (c == LV_EVENT_PRESSED && hh_state(&s_hh) == HH_IDLE) {
+    bool idle = hh_state(&s_hh) == HH_IDLE;
+    lv_point_t p = { 0, 0 };
+    if (lv_indev_active()) lv_indev_get_point(lv_indev_active(), &p);
+    if (c == LV_EVENT_PRESSED) s_swipe_guard = aff_open(aff_level(), AFF_CARESS);
+    if (c == LV_EVENT_PRESSED && idle) {
+        s_aff_on = true;
+        s_aff_best = AFF_NONE;
+        aff_down(&s_aff, (int16_t)p.x, (int16_t)p.y, lv_tick_get());
         info_show(tr(STR_INFO_PRESS_HAND), COL_CORAL); /* el gesto empieza con el boton */
+        return;
+    }
+    if (c == LV_EVENT_PRESSING) {
+        if (s_aff_on && idle) aff_reached(aff_move(&s_aff, (int16_t)p.x, (int16_t)p.y, lv_tick_get(), aff_level()));
         return;
     }
     if (c == LV_EVENT_PRESSED) {
@@ -324,6 +355,11 @@ static void baby_touched(lv_event_t *e)
         hh_touch(&s_hh, true, lv_tick_get());
         hold_refresh(false);
     } else if (c == LV_EVENT_RELEASED || c == LV_EVENT_PRESS_LOST) {
+        if (s_aff_on) {
+            aff_up(&s_aff);
+            s_aff_on = false;
+        }
+        if (c == LV_EVENT_RELEASED) s_swipe_guard = false; /* tras PRESS_LOST lo limpia el tick */
         usage_hand_set(false);
         hh_touch(&s_hh, false, lv_tick_get());
         hold_refresh(false);
@@ -414,6 +450,7 @@ static void scr_gesture(lv_event_t *e)
     if (dir != LV_DIR_LEFT && dir != LV_DIR_RIGHT) return;
     hh_state_t st = hh_state(&s_hh);
     if (st == HH_DONE || st == HH_THANKS) return;
+    if (s_swipe_guard) return; /* acariciar al bebe no cambia de pagina */
     if (ui_pages_swipe(dir == LV_DIR_LEFT ? -1 : 1)) page_changed();
 }
 
@@ -519,6 +556,7 @@ static void hand_btn_clicked(lv_event_t *e)
         return;
     }
     info_hide();
+    baby_react_cancel(); /* el gesto manda en los ojos */
     hh_button(&s_hh, lv_tick_get());
     hold_refresh(false);
 }
@@ -700,6 +738,14 @@ static void hold_create_above_baby(void)
 static void hold_timer_cb(lv_timer_t *t)
 {
     (void)t;
+    /* un toque que empezo en el bebe y salio de el (PRESS_LOST) no manda release al bebe */
+    if (s_swipe_guard && !s_aff_on) {
+        bool down = false;
+        for (lv_indev_t *in = lv_indev_get_next(NULL); in; in = lv_indev_get_next(in)) {
+            down = down || lv_indev_get_state(in) == LV_INDEV_STATE_PRESSED;
+        }
+        if (!down) s_swipe_guard = false;
+    }
     hh_tick(&s_hh, lv_tick_get());
     hold_refresh(false);
 }

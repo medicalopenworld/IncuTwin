@@ -5,6 +5,8 @@
  *   - recompensas (sello nuevo, subida de nivel, guirnalda; spec rewards): tocarla abre Corazones.
  *     No se guardan en Notificaciones.
  *   - texto de la IncuPray (vispera, una hora antes, inicio, resumen): tocar la del inicio entra.
+ *   - la tarjeta de subida de nivel (Caricia y Cosquillitas abren algo; Abrazo y Achuchon, la franja):
+ *     centrada, se queda hasta tocarla; espera en la misma cola y bajo las mismas condiciones.
  * No sale en el splash, el onboarding, la despedida ni con el aviso o el teclado del nombre
  * abiertos: se encola y sale al cerrarse. Todo en la tarea de LVGL. */
 #include <stdio.h>
@@ -27,13 +29,13 @@ static const char *TAG = "aviso";
 #define QUEUE_LEN  8
 
 typedef enum { N_IDLE, N_IN, N_HOLD, N_OUT } notice_state_t;
-typedef enum { Q_NOTICE = 0, Q_SEAL, Q_LEVEL, Q_GARLAND, Q_TEXT } q_type_t;
+typedef enum { Q_NOTICE = 0, Q_SEAL, Q_LEVEL, Q_GARLAND, Q_TEXT, Q_CARD } q_type_t;
 #define Q_TEXT_LEN 64
 
 typedef struct {
     uint8_t type; /* q_type_t */
     uint8_t arg;  /* bit de twin_notice_t (0..6), rw_seal_t o rw_level_t */
-    uint8_t sex;  /* twin_sex_t del bebe (avisos del bebe) */
+    uint8_t sex;  /* twin_sex_t del bebe (avisos del bebe); Q_CARD: 1 = aviso pendiente (catchup) */
     char txt[Q_TEXT_LEN]; /* Q_TEXT: el texto; arg = 1 si al tocarla se entra en la IncuPray */
 } q_item_t;
 
@@ -100,6 +102,72 @@ static void reward_icon(const q_item_t *q)
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
     lv_obj_center(toy_heart_img(c, TOY_HEART_FULL, 2)); /* corazon de pixeles de 18x16 */
+}
+
+static void enqueue(q_item_t q);
+
+/* ------------------------------------------------------- tarjeta de nivel */
+
+static void card_close_cb(lv_event_t *e)
+{
+    lv_obj_delete_async(lv_event_get_user_data(e)); /* el fondo y la tarjeta; no se borra dentro de su evento */
+}
+
+static lv_obj_t *card_label(lv_obj_t *card, const char *t, const lv_font_t *f, lv_color_t col)
+{
+    lv_obj_t *l = lv_label_create(card);
+    lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_WRAP);
+    lv_obj_set_width(l, LV_PCT(100));
+    lv_label_set_text(l, t);
+    lv_obj_set_style_text_font(l, f, 0);
+    lv_obj_set_style_text_color(l, col, 0);
+    lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
+    return l;
+}
+
+/* Fondo que tapa toda la capa superior (modal: cuenta como capa ocupada) y la tarjeta en medio */
+static void card_show(rw_level_t level, bool catchup)
+{
+    lv_obj_t *back = lv_obj_create(lv_layer_top());
+    lv_obj_remove_style_all(back);
+    lv_obj_set_size(back, LV_PCT(100), LV_PCT(100));
+    lv_obj_set_style_bg_color(back, COL_NAVY_DARK, 0);
+    lv_obj_set_style_bg_opa(back, LV_OPA_40, 0);
+    lv_obj_add_flag(back, LV_OBJ_FLAG_CLICKABLE);
+
+    lv_obj_t *c = lv_obj_create(back);
+    lv_obj_set_size(c, 208, LV_SIZE_CONTENT);
+    lv_obj_center(c);
+    toy_box(c, TOY_R_CARD, TOY_SHADOW_M); /* tarjeta de juguete, como las de Corazones */
+    lv_obj_set_style_pad_all(c, 12, 0);
+    lv_obj_set_style_pad_row(c, 8, 0);
+    lv_obj_set_flex_flow(c, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_flex_align(c, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
+    lv_obj_set_scrollable(c, false);
+    lv_obj_add_flag(c, LV_OBJ_FLAG_CLICKABLE);
+    lv_obj_add_event_cb(c, card_close_cb, LV_EVENT_CLICKED, back);
+
+    char title[48];
+    if (catchup) snprintf(title, sizeof(title), "%s", tr(STR_AFF_CATCHUP));
+    else snprintf(title, sizeof(title), tr(STR_RW_LEVEL_UP), ui_level_name(level));
+    card_label(c, title, &lv_font_es_16, COL_NAVY);
+    /* el aviso pendiente de quien ya esta en Cosquillitas o mas enseña las dos cosas abiertas */
+    if (catchup && level >= RW_LEVEL_TICKLES) card_label(c, tr(STR_AFF_OPEN_CARESS), &lv_font_es_14, COL_NAVY_DARK);
+    card_label(c, tr(level >= RW_LEVEL_TICKLES ? STR_AFF_OPEN_TICKLES : STR_AFF_OPEN_CARESS), &lv_font_es_14,
+               COL_NAVY_DARK);
+
+    lv_obj_t *btn = lv_button_create(c);
+    lv_obj_add_flag(btn, UI_FLAG_CLICK_SOUND);
+    lv_obj_add_event_cb(btn, card_close_cb, LV_EVENT_CLICKED, back);
+    lv_obj_t *bl = lv_label_create(btn);
+    lv_label_set_text(bl, tr(STR_AFF_OK));
+    toy_button(btn, true); /* despues de la etiqueta: le pone la letra de los botones */
+    ESP_LOGI(TAG, "tarjeta de nivel: \"%s\"", title);
+}
+
+void ui_level_card_show(rw_level_t level, bool catchup)
+{
+    enqueue((q_item_t){ .type = Q_CARD, .arg = (uint8_t)level, .sex = catchup ? 1 : 0 });
 }
 
 static void show(const q_item_t *q)
@@ -185,9 +253,19 @@ bool ui_notice_layer_busy(void)
 
 static void enqueue(q_item_t q)
 {
-    if (s_count >= QUEUE_LEN) { /* mas de 8 sin ver: se pierde el mas antiguo (los avisos siguen en
-                                 * Notificaciones; los sellos, en Logros) */
-        for (uint8_t i = 1; i < QUEUE_LEN; i++) s_queue[i - 1] = s_queue[i];
+    if (s_count >= QUEUE_LEN) { /* mas de 8 sin ver: se pierde el mas antiguo que no sea una tarjeta de
+                                 * nivel (los avisos siguen en Notificaciones; los sellos, en Logros; la
+                                 * tarjeta no tiene otro sitio donde verse). Si todo son tarjetas, se
+                                 * pierde la mas antigua si entra otra tarjeta y la nueva si no lo es. */
+        uint8_t drop = QUEUE_LEN;
+        for (uint8_t i = 0; i < QUEUE_LEN; i++) {
+            if (s_queue[i].type != Q_CARD) { drop = i; break; }
+        }
+        if (drop == QUEUE_LEN) {
+            if (q.type != Q_CARD) return;
+            drop = 0;
+        }
+        for (uint8_t i = drop + 1; i < QUEUE_LEN; i++) s_queue[i - 1] = s_queue[i];
         s_count--;
     }
     s_queue[s_count++] = q;
@@ -205,7 +283,10 @@ void ui_notice_push_reward(uint8_t new_seals, bool level_up, uint8_t level, bool
     for (uint8_t i = 0; i < RW_SEAL_COUNT; i++) {
         if (new_seals & (1u << i)) enqueue((q_item_t){ .type = Q_SEAL, .arg = i });
     }
-    if (level_up) enqueue((q_item_t){ .type = Q_LEVEL, .arg = level });
+    if (level_up) {
+        if (level == RW_LEVEL_CARESS || level == RW_LEVEL_TICKLES) ui_level_card_show((rw_level_t)level, false);
+        else enqueue((q_item_t){ .type = Q_LEVEL, .arg = level }); /* Abrazo y Achuchon: aun sin nada que abrir */
+    }
     if (garland) enqueue((q_item_t){ .type = Q_GARLAND });
 }
 
@@ -228,9 +309,13 @@ void ui_notice_poll(bool blocked)
         }
         return;
     }
+    /* la tarjeta es modal: no tapa un «Coge mi mano» en marcha (la franja si puede salir con el dedo
+     * puesto; la tarjeta espera a HH_IDLE, tras el agradecimiento) */
+    if (s_queue[0].type == Q_CARD && !ui_home_gesture_idle()) return;
     s_blocked_logged = false;
     q_item_t q = s_queue[0];
     for (uint8_t i = 1; i < s_count; i++) s_queue[i - 1] = s_queue[i];
     s_count--;
-    show(&q);
+    if (q.type == Q_CARD) card_show((rw_level_t)q.arg, q.sex != 0); /* no usa la franja: s_state sigue en IDLE */
+    else show(&q);
 }

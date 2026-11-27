@@ -90,6 +90,17 @@ static void seal_clicked(lv_event_t *e)
     ui_msgbox(ui_seal_name(seal), ui_seal_desc(seal), tr(STR_OK), COL_NAVY, close_mb, NULL);
 }
 
+/* Tocar la tarjeta del nivel: como se hace lo que ya esta abierto (Manita siempre) */
+static void level_clicked(lv_event_t *e)
+{
+    rw_level_t lv = (rw_level_t)(intptr_t)lv_event_get_user_data(e);
+    char buf[160];
+    int n = snprintf(buf, sizeof(buf), "%s", tr(STR_AFF_HOW_HAND));
+    if (lv >= RW_LEVEL_CARESS) n += snprintf(buf + n, sizeof(buf) - (size_t)n, "\n%s", tr(STR_AFF_HOW_CARESS));
+    if (lv >= RW_LEVEL_TICKLES) snprintf(buf + n, sizeof(buf) - (size_t)n, "\n%s", tr(STR_AFF_HOW_TICKLES));
+    ui_msgbox(ui_level_name(lv), buf, tr(STR_AFF_OK), COL_NAVY, close_mb, NULL);
+}
+
 /* ------------------------------------------------------------- bloques */
 
 /* Saldo grande, nivel y una barra hasta el siguiente nivel */
@@ -99,11 +110,15 @@ static void level_card(const rw_state_t *r)
     lv_obj_set_flex_flow(c, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(c, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(c, 10, 0);
+    lv_obj_set_clickable(c, true); /* tocarla enseña como se hace lo que ya abre el nivel */
+    lv_obj_add_flag(c, UI_FLAG_CLICK_SOUND);
+    lv_obj_add_event_cb(c, level_clicked, LV_EVENT_SHORT_CLICKED, (void *)(intptr_t)rw_level(r->earned));
     heart_img(c, TOY_HEART_FULL, 4); /* 36x32 */
     lv_obj_t *col = box(c, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_size(col, ROW_W - 20 - 36 - 10, LV_SIZE_CONTENT);
     lv_obj_set_style_pad_row(col, 2, 0);
     char buf[48];
+    rw_level_t next_opens = RW_LEVEL_COUNT; /* RW_LEVEL_COUNT = ninguno */
     lv_obj_t *top = box(col, LV_FLEX_FLOW_ROW);
     lv_obj_set_size(top, LV_PCT(100), LV_SIZE_CONTENT);
     lv_obj_set_style_pad_column(top, 8, 0);
@@ -127,12 +142,23 @@ static void level_card(const rw_state_t *r)
         lv_bar_set_value(bar, (int32_t)(r->earned - lo), LV_ANIM_OFF);
         snprintf(buf, sizeof(buf), tr(STR_HEARTS_NEXT), (unsigned)(hi - r->earned),
                  ui_level_name((rw_level_t)(lv + 1)));
+        if (lv + 1 == RW_LEVEL_CARESS || lv + 1 == RW_LEVEL_TICKLES) next_opens = (rw_level_t)(lv + 1);
     } else {
         lv_bar_set_range(bar, 0, 1);
         lv_bar_set_value(bar, 1, LV_ANIM_OFF);
         snprintf(buf, sizeof(buf), "%s", tr(STR_HEARTS_MAX));
     }
-    label(col, buf, &lv_font_es_12, COL_MUTED);
+    lv_obj_t *nl = label(col, buf, &lv_font_es_12, COL_MUTED);
+    lv_obj_set_width(nl, LV_PCT(100));
+    lv_label_set_long_mode(nl, LV_LABEL_LONG_MODE_WRAP);
+    if (next_opens != RW_LEVEL_COUNT) { /* lo que abre el siguiente nivel (Abrazo y Achuchon: nada aun) */
+        char opens[64];
+        snprintf(opens, sizeof(opens), tr(STR_AFF_NEXT_OPENS), ui_level_name(next_opens),
+                 tr(next_opens == RW_LEVEL_CARESS ? STR_AFF_SHORT_CARESS : STR_AFF_SHORT_TICKLES));
+        lv_obj_t *ol = label(col, opens, &lv_font_es_12, COL_NAVY_DARK);
+        lv_obj_set_width(ol, LV_PCT(100));
+        lv_label_set_long_mode(ol, LV_LABEL_LONG_MODE_WRAP);
+    }
 }
 
 /* La semana de lunes a domingo a partir de la racha: los dias seguidos que acaban en el ultimo

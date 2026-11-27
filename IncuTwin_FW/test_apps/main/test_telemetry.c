@@ -98,14 +98,14 @@ static void sink_rec(const char *k, const char *d, void *ctx)
 
 TEST_CASE("tel: diff de gesto con sello y nivel", "[telemetry]") {
     rw_state_t b, a; rw_init(&b); a = b;
-    b.earned = 24; b.balance = 24;
-    a.earned = 25; a.balance = 25;
+    b.earned = 9; b.balance = 9;
+    a.earned = 10; a.balance = 10;
     a.seals |= (1u << RW_SEAL_FIRST);
     rec_t r = { 0 };
     tel_rewards_diff(&b, &a, NULL, "gesture", sink_rec, &r);
     TEST_ASSERT_EQUAL_INT(3, r.n);
     TEST_ASSERT_EQUAL_STRING("heart", r.kind[0]);
-    TEST_ASSERT_EQUAL_STRING("{\"n\":1,\"why\":\"gesture\",\"bal\":25}", r.d[0]);
+    TEST_ASSERT_EQUAL_STRING("{\"n\":1,\"why\":\"gesture\",\"bal\":10}", r.d[0]);
     TEST_ASSERT_EQUAL_STRING("seal", r.kind[1]);
     TEST_ASSERT_EQUAL_STRING("{\"id\":0}", r.d[1]);
     TEST_ASSERT_EQUAL_STRING("level", r.kind[2]);

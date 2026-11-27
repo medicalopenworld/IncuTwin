@@ -40,6 +40,13 @@ menu "IncuTwin"
             Permite probar la OTA desde un tunel (trycloudflare.com, etc.) sin hosting propio.
             El log de arranque avisa en mayusculas. Jamas en una build de release.
 
+    config INCUTWIN_DEBUG_TOUCH
+        bool "SOLO PRUEBAS: comando toque (dedo simulado)"
+        default n
+        help
+            Activa el comando de consola `toque`, un dedo de mentira para probar la caricia sin
+            tocar la pantalla. Solo en el producto dev; jamas en una build de release.
+
     config INCUTWIN_OTA_FLEET_DELAY_MAX_S
         int "Retardo aleatorio maximo para OTA de flota (s)"
         default 3600

@@ -7,6 +7,6 @@ idf_component_register(
     REQUIRES lvgl__lvgl
     PRIV_REQUIRES espressif__esp_lvgl_port assets twin_types twin_model settings identity
                   usage_stats sound app_events board storage captive_portal net_wifi hand_hold world_map accompany
-                  baby_name event_log stay_log rewards ota_update incupray
+                  baby_name affection event_log stay_log rewards ota_update incupray
                   esp_app_format esp_system esp_timer heap telemetry demo_mode mbedtls
 )

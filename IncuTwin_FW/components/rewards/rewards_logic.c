@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-static const uint32_t LEVEL_MIN[RW_LEVEL_COUNT] = { 0, 25, 75, 150, 300 };
+static const uint32_t LEVEL_MIN[RW_LEVEL_COUNT] = { 0, 10, 30, 75, 150 };
 
 /* Precio en corazones; 0 = de serie (o la guirnalda, que no se compra) */
 static const uint16_t PRICE[RW_ITEM_COUNT] = {
@@ -20,6 +20,7 @@ static const uint16_t PRICE[RW_ITEM_COUNT] = {
     [RW_ITEM_SANTA] = 10, [RW_ITEM_SNOW] = 10,
 };
 _Static_assert(RW_ITEM_COUNT <= 64, "unlocked es de 64 bits");
+_Static_assert(sizeof(rw_state_t) == 176, "el guardado v2 no puede cambiar");
 _Static_assert(sizeof(rw_state_v1_t) == RW_STATE_V1_SIZE, "el guardado v1 no puede cambiar");
 
 /* De serie: lo que cualquier IncuTwin tiene sin comprar */
@@ -84,7 +85,7 @@ int32_t rw_day_of(int year, int month, int mday)
 
 rw_level_t rw_level(uint32_t earned)
 {
-    rw_level_t l = RW_LEVEL_SPARK;
+    rw_level_t l = RW_LEVEL_HAND;
     for (int i = 0; i < RW_LEVEL_COUNT; i++) {
         if (earned >= LEVEL_MIN[i]) l = (rw_level_t)i;
     }
@@ -92,6 +93,17 @@ rw_level_t rw_level(uint32_t earned)
 }
 
 uint32_t rw_level_min(rw_level_t level) { return level < RW_LEVEL_COUNT ? LEVEL_MIN[level] : 0; }
+
+/* El nivel que se anuncia: el real, pero sin pasar de lo que abre algo en esta version */
+static uint8_t announced_level(uint32_t earned)
+{
+    rw_level_t l = rw_level(earned);
+    return (uint8_t)(l < RW_LEVEL_LAST_OPEN ? l : RW_LEVEL_LAST_OPEN);
+}
+
+bool rw_catchup_due(const rw_state_t *s) { return announced_level(s->earned) > s->level_seen; }
+
+void rw_catchup_done(rw_state_t *s) { s->level_seen = announced_level(s->earned); }
 
 uint16_t rw_price(rw_item_t item) { return item < RW_ITEM_COUNT ? PRICE[item] : 0; }
 
@@ -131,7 +143,10 @@ static void earn(rw_state_t *s, rw_news_t *n, uint8_t hearts)
     s->balance = (uint16_t)(s->balance + hearts < UINT16_MAX ? s->balance + hearts : UINT16_MAX);
     s->earned += hearts;
     n->hearts += hearts;
-    if (rw_level(s->earned) != before) n->level_up = true;
+    if (rw_level(s->earned) != before) {
+        n->level_up = true;
+        s->level_seen = announced_level(s->earned); /* ya se anuncia con el aviso normal */
+    }
 }
 
 static void seal(rw_state_t *s, rw_news_t *n, rw_seal_t which)
@@ -319,6 +334,7 @@ void rw_demo_seed(rw_state_t *s)
     rw_init(s);
     s->balance = 50; /* que en la demo se pueda comprar de todo (la tienda empieza en 10) */
     s->earned = 12;
+    s->level_seen = announced_level(s->earned); /* la demo no anuncia nada al empezar */
     s->seals = (uint8_t)(BIT(RW_SEAL_FIRST) | BIT(RW_SEAL_WEEK));
     s->n_countries = 1;
     s->passport[0] = (rw_country_t){ { 'C', 'M' }, 0 };

@@ -302,3 +302,33 @@ void rewards_demo_gesture(const char *country)
     UNLOCK();
     post(&n, true);
 }
+
+bool rewards_catchup_take(rw_level_t *level)
+{
+    if (!s_mutex) return false;
+    LOCK();
+    bool due = !s_demo_on && rw_catchup_due(&s_real);
+    if (due) {
+        if (level) *level = rw_level(s_real.earned);
+        rw_catchup_done(&s_real);
+        save_locked();
+        ESP_LOGI(TAG, "aviso de nivel pendiente: nivel %d", (int)rw_level(s_real.earned));
+    }
+    UNLOCK();
+    return due;
+}
+
+void rewards_demo_set_level(rw_level_t level)
+{
+    if (!s_mutex) return;
+    LOCK();
+    bool demo = s_demo_on;
+    rw_news_t n = { 0 };
+    if (demo) {
+        n.level_up = rw_level(s_demo.earned) < level; /* subir en la demo se anuncia como subir de verdad */
+        s_demo.earned = rw_level_min(level);
+        rw_catchup_done(&s_demo); /* sin aviso pendiente */
+    }
+    UNLOCK();
+    if (demo) post(&n, true);
+}

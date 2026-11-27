@@ -4,6 +4,8 @@
 
 #include <stdbool.h>
 
+#include "sdkconfig.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -21,6 +23,16 @@ bool ui_debug_shop(const char *tab, bool girl, int try_item, bool buy);
  * celebra); "asistente" simula la pantalla del asistente probando la WiFi y su celebracion.
  * Devuelve false si no entiende el modo. */
 bool ui_debug_nowifi(const char *mode);
+/* Bebe de Inicio: "caricia" o "cosquillas" lanzan su reaccion (no cuenta como uso) y, con `secs` > 0,
+ * la reinician cada segundo durante `secs` s para poder capturarla; "bostezo" bosteza ya. false si no
+ * entiende la orden. */
+bool ui_debug_baby(const char *what, int secs);
+#if CONFIG_INCUTWIN_DEBUG_TOUCH
+/* SOLO PRUEBAS (producto dev): un dedo de mentira que baja en (x0,y0), va a (x1,y1) en `ms` ms (con
+ * `laps` > 0 hace `laps` idas y vueltas en ese tiempo) y se levanta. Pasa por el mismo camino que el
+ * tactil. false si hay otro trazo en curso o los datos no valen. */
+bool ui_debug_touch(int x0, int y0, int x1, int y1, int ms, int laps);
+#endif
 
 /* Va a una pantalla para revisarla (capturas del estilo): "inicio", "avisos", "corazones",
  * "historial", "ajustes", "bebe", "mapa" o "racha" (paginas de Inicio, si se pueden ver), "listo"

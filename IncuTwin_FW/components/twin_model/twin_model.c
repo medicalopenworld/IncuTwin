@@ -344,6 +344,18 @@ void twin_model_demo_set_skin(uint8_t skin)
     UNLOCK();
 }
 
+void twin_model_demo_set_sex(twin_sex_t sex)
+{
+    LOCK();
+    if (!s_demo || s_demo_inc.sex == sex) {
+        UNLOCK();
+        return;
+    }
+    s_demo_inc.sex = sex;
+    publish_locked();
+    UNLOCK();
+}
+
 void twin_model_set_acc(twin_acc_t acc, bool remind, uint8_t week, uint8_t super, uint8_t rest)
 {
     LOCK();

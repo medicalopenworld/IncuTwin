@@ -389,7 +389,7 @@ espera la telemetría `hand_hold` y la lleva a `IncuTwin_hand_hold`:
 ejemplo, `{"ts":1764100000,"on_s":3600,"conn_s":3500,"hand_s":120,"hand_n":4,"hearts":23,
 "earned":30,"level":1,"streak":9,"saved":1,"days":12,"babies":2,"seals":3,"seals_n":2,
 "countries":"TG,CM","countries_n":2,"stars":1,"unlocked":35,"halo":1,"bg":5,"garland":0,
-"named_incunest":0}` (`level` 0..4 = Chispa..Sol; `seals` y `unlocked` son máscaras de bits):
+"named_incunest":0}` (`level` 0..4 = Manita..Achuchón; `seals` y `unlocked` son máscaras de bits):
 
 ```json
 { "topicFilter": "incutwin/+/metrics",

@@ -12,6 +12,7 @@
 #include "event_log.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/semphr.h"
+#include "rewards.h"
 #include "settings.h"
 #include "sound.h"
 #include "tel_logic.h"
@@ -259,6 +260,8 @@ static bool notice_blocked(void)
     return !ours || ui_home_overlay_active() || ui_name_open() || ui_notice_layer_busy();
 }
 
+static bool s_catchup_checked; /* el aviso pendiente de nivel ya se miro en este arranque */
+
 static void refresh_cb(lv_timer_t *t)
 {
     (void)t;
@@ -331,6 +334,13 @@ static void refresh_cb(lv_timer_t *t)
             ui_notice_push_reward(news.new_seals, news.level_up, (uint8_t)rw_level(ui_rewards()->earned),
                                   news.garland);
         }
+    }
+    /* Aviso pendiente de los niveles de afecto: una vez, con Inicio a la vista y sin demo (con la demo no
+     * se gasta). La tarjeta espera en la cola a que no haya un «Coge mi mano» en marcha. */
+    if (!s_catchup_checked && lv_screen_active() == s_scr_home && !snap.demo) {
+        s_catchup_checked = true;
+        rw_level_t lv;
+        if (rewards_catchup_take(&lv) && lv >= RW_LEVEL_CARESS) ui_level_card_show(lv, true);
     }
     ui_ota_poll(); /* ventana de la actualizacion: cuando toca, y su barra de progreso */
     ui_incupray_poll(); /* IncuPray: avisos, boton de Inicio y su pantalla (nada sin horario) */

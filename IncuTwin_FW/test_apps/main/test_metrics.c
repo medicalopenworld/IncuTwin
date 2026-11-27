@@ -15,13 +15,14 @@ TEST_CASE("metrics: uso, corazones y pasaporte", "[metrics]") {
     r.seals = 0x03; r.n_countries = 2;
     r.passport[0] = (rw_country_t){ { 'T', 'G' }, 1 };
     r.passport[1] = (rw_country_t){ { 'C', 'M' }, 0 };
-    metrics_usage_t u = { .ts = 1764100000, .on_s = 3600, .conn_s = 3500, .hand_s = 120, .hand_n = 4 };
+    metrics_usage_t u = { .ts = 1764100000, .on_s = 3600, .conn_s = 3500, .hand_s = 120, .hand_n = 4,
+                          .caress_n = 3, .tickle_n = 1 };
     metrics_extra_t x = X_BASE;
     char out[METRICS_PAYLOAD_MAX + 1];
     int n = metrics_payload_build(out, sizeof(out), &u, &r, &x);
     TEST_ASSERT_GREATER_THAN(0, n);
-    TEST_ASSERT_NOT_NULL(strstr(out, "\"hearts\":23,"));
-    TEST_ASSERT_NOT_NULL(strstr(out, "\"level\":1,")); /* Calorcito */
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"hand_n\":4,\"car_n\":3,\"tic_n\":1,\"hearts\":23,"));
+    TEST_ASSERT_NOT_NULL(strstr(out, "\"level\":2,")); /* Cosquillitas */
     TEST_ASSERT_NOT_NULL(strstr(out, "\"seals_n\":2,"));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"countries\":\"TG,CM\",\"countries_n\":2,\"stars\":1,"));
     TEST_ASSERT_NOT_NULL(strstr(out, "\"named_incunest\":0,"));
@@ -90,7 +91,8 @@ TEST_CASE("metrics: pasaporte lleno cabe", "[metrics]") {
     r.unlocked = UINT64_MAX; /* 20 cifras */
     r.halo = r.bg = r.garland_on = r.hat_boy = r.hat_girl = r.blanket = r.santa_on = r.snow_on = 255;
     metrics_usage_t u = { .ts = -9223372036854775807LL - 1, .on_s = UINT32_MAX, .conn_s = UINT32_MAX,
-                          .hand_s = UINT32_MAX, .hand_n = UINT32_MAX };
+                          .hand_s = UINT32_MAX, .hand_n = UINT32_MAX,
+                          .caress_n = UINT32_MAX, .tickle_n = UINT32_MAX };
     /* fw e inc al tope de lo que deja pasar safe_str (47 y 23); la fase mas larga */
     metrics_extra_t x = { .gen = UINT32_MAX, .boot_n = UINT32_MAX, .demo_n = UINT32_MAX, .q = UINT32_MAX,
                           .lost = UINT32_MAX, .fw = "12345678901234567890123456789012345678901234567",
@@ -100,7 +102,7 @@ TEST_CASE("metrics: pasaporte lleno cabe", "[metrics]") {
     int n = metrics_payload_build(out, sizeof(out), &u, &r, &x);
     TEST_ASSERT_GREATER_THAN(0, n);
     TEST_ASSERT_NOT_NULL(strstr(out, "\"fw\":\"12345678901234567890123456789012345678901234567\""));
-    TEST_ASSERT_LESS_THAN(METRICS_PAYLOAD_MAX, n); /* medido: 749 */
+    TEST_ASSERT_LESS_THAN(METRICS_PAYLOAD_MAX, n); /* medido: ver METRICS_PAYLOAD_MAX */
 }
 
 TEST_CASE("metrics: canje", "[metrics]") {

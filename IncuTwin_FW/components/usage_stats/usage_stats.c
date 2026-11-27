@@ -20,6 +20,8 @@ static void save(void)
     storage_set_u32(STORAGE_NS_USAGE, "conn", c.conn_s);
     storage_set_u32(STORAGE_NS_USAGE, "hand", c.hand_s);
     storage_set_u32(STORAGE_NS_USAGE, "handn", c.hand_n);
+    storage_set_u32(STORAGE_NS_USAGE, "caren", c.caress_n);
+    storage_set_u32(STORAGE_NS_USAGE, "ticn", c.tickle_n);
 }
 
 void usage_init(void)
@@ -28,6 +30,8 @@ void usage_init(void)
     storage_get_u32(STORAGE_NS_USAGE, "conn", &s.conn_s);
     storage_get_u32(STORAGE_NS_USAGE, "hand", &s.hand_s);
     storage_get_u32(STORAGE_NS_USAGE, "handn", &s.hand_n);
+    storage_get_u32(STORAGE_NS_USAGE, "caren", &s.caress_n);
+    storage_get_u32(STORAGE_NS_USAGE, "ticn", &s.tickle_n);
     s_last_save = s.on_s;
     ESP_LOGI(TAG, "on=%lus conn=%lus hand=%lus x%lu", (unsigned long)s.on_s,
              (unsigned long)s.conn_s, (unsigned long)s.hand_s, (unsigned long)s.hand_n);
@@ -53,6 +57,14 @@ void usage_hand_set(bool holding)
     portENTER_CRITICAL(&s_mux);
     if (holding && !s_hand) s.hand_n++;
     s_hand = holding;
+    portEXIT_CRITICAL(&s_mux);
+}
+
+void usage_affection(aff_kind_t kind)
+{
+    portENTER_CRITICAL(&s_mux);
+    if (kind == AFF_CARESS) s.caress_n++;
+    else if (kind == AFF_TICKLES) s.tickle_n++;
     portEXIT_CRITICAL(&s_mux);
 }
 

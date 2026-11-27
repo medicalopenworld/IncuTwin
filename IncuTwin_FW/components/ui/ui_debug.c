@@ -10,6 +10,7 @@
 #include "freertos/semphr.h"
 #include "mbedtls/base64.h"
 #include "assets_nowifi.h"
+#include "baby_widget.h"
 #include "ui_internal.h"
 #include "ui_nowifi.h"
 #include "ui_pages.h"
@@ -128,6 +129,103 @@ bool ui_debug_shop(const char *tab, bool girl, int try_item, bool buy)
     lvgl_port_unlock();
     return true;
 }
+
+/* ------------------------------------------------------- reacciones del bebe */
+
+static void baby_hold_cb(lv_timer_t *t) { baby_react((baby_react_t)(intptr_t)lv_timer_get_user_data(t)); }
+
+/* arg: (accion << 8) | segundos; accion 0 caricia, 1 cosquillas, 2 bostezo */
+static void baby_async(void *arg)
+{
+    int what = (int)(intptr_t)arg >> 8, secs = (int)(intptr_t)arg & 0xff;
+    if (what == 2) {
+        baby_yawn();
+        return;
+    }
+    baby_react((baby_react_t)what);
+    if (secs > 0) { /* reiniciarla cada segundo la deja puesta `secs` s mas, para capturarla */
+        lv_timer_t *t = lv_timer_create(baby_hold_cb, 1000, (void *)(intptr_t)what);
+        lv_timer_set_repeat_count(t, secs);
+    }
+}
+
+bool ui_debug_baby(const char *what, int secs)
+{
+    static const char *const WHAT[] = { "caricia", "cosquillas", "bostezo" };
+    int w = -1;
+    for (int i = 0; i < 3; i++) {
+        if (strcmp(what, WHAT[i]) == 0) w = i;
+    }
+    if (w < 0 || secs < 0 || secs > 255 || !lvgl_port_lock(3000)) return false;
+    lv_async_call(baby_async, (void *)(intptr_t)((w << 8) | secs));
+    lvgl_port_unlock();
+    return true;
+}
+
+#if CONFIG_INCUTWIN_DEBUG_TOUCH
+/* ------------------------------------------------- toque sintetico (SOLO PRUEBAS) */
+
+/* Un segundo puntero de LVGL que lee su posicion de un trazo programado por la consola. Pasa por
+ * el mismo camino que el dedo (busqueda del objeto, PRESSED/PRESSING/RELEASED, gesto), asi se
+ * prueba la caricia sin tocar la pantalla. Herramienta de pruebas: no hace falta en el producto. */
+static lv_indev_t *s_touch_indev;
+static struct {
+    int16_t x0, y0, x1, y1;
+    uint32_t t0, ms;
+    uint8_t laps;
+    bool active;
+    lv_point_t last;
+} s_tc;
+
+static void touch_read_cb(lv_indev_t *in, lv_indev_data_t *d)
+{
+    (void)in;
+    if (!s_tc.active) {
+        d->point = s_tc.last;
+        d->state = LV_INDEV_STATE_RELEASED;
+        return;
+    }
+    uint32_t el = lv_tick_elaps(s_tc.t0);
+    bool end = el >= s_tc.ms;
+    if (end) el = s_tc.ms;
+    /* t en milesimas del recorrido: ida (laps = 0) o `laps` idas y vueltas con la misma duracion */
+    uint32_t t = el * 1000 / s_tc.ms;
+    if (s_tc.laps) {
+        uint32_t u = t * 2u * s_tc.laps, k = u / 1000, r = u % 1000;
+        t = (k & 1) ? 1000 - r : r;
+    }
+    s_tc.last.x = s_tc.x0 + (int32_t)(s_tc.x1 - s_tc.x0) * (int32_t)t / 1000;
+    s_tc.last.y = s_tc.y0 + (int32_t)(s_tc.y1 - s_tc.y0) * (int32_t)t / 1000;
+    d->point = s_tc.last;
+    d->state = end ? LV_INDEV_STATE_RELEASED : LV_INDEV_STATE_PRESSED;
+    if (end) s_tc.active = false;
+}
+
+static void touch_async(void *arg)
+{
+    (void)arg;
+    if (!s_touch_indev) {
+        s_touch_indev = lv_indev_create();
+        lv_indev_set_type(s_touch_indev, LV_INDEV_TYPE_POINTER);
+        lv_indev_set_read_cb(s_touch_indev, touch_read_cb);
+        lv_indev_set_display(s_touch_indev, lv_display_get_default());
+    }
+    s_tc.t0 = lv_tick_get();
+    s_tc.last = (lv_point_t){ s_tc.x0, s_tc.y0 };
+    s_tc.active = true;
+}
+
+bool ui_debug_touch(int x0, int y0, int x1, int y1, int ms, int laps)
+{
+    if (ms < 50 || ms > 20000 || laps < 0 || laps > 50 || s_tc.active || !lvgl_port_lock(3000)) return false;
+    s_tc.x0 = (int16_t)x0; s_tc.y0 = (int16_t)y0; s_tc.x1 = (int16_t)x1; s_tc.y1 = (int16_t)y1;
+    s_tc.ms = (uint32_t)ms;
+    s_tc.laps = (uint8_t)laps;
+    lv_async_call(touch_async, NULL);
+    lvgl_port_unlock();
+    return true;
+}
+#endif /* CONFIG_INCUTWIN_DEBUG_TOUCH */
 
 /* ------------------------------------------------------------- bebe sin WiFi */
 

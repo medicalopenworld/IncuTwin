@@ -13,8 +13,8 @@ corazones serán además la moneda de la IncuPray (cambio `incupray`, que va des
 - **Corazones como moneda**: un saldo que se gana acompañando. +1 por el primer «Coge mi mano»
   del día, +2 por el súper corazón (una vez al día) y +1 cada 7 días seguidos de racha (los días
   sin bebés no la rompen). Como mucho 4 al día fuera de la IncuPray.
-- **Niveles** por corazones ganados en total (gastar no baja de nivel): Chispa (0), Calorcito
-  (25), Abrazo (75), Manta (150) y Sol (300).
+- **Niveles** por corazones ganados en total (gastar no baja de nivel): Manita (0), Caricia
+  (10), Cosquillitas (30), Abrazo (75) y Achuchón (150).
 - **Sellos**: primer «Coge mi mano», 7 días seguidos, 30 días seguidos, 30 días acompañando,
   primer súper corazón, 3 bebés acompañados y «Se fue a casa» (el bebé que acompañabas vuelve a
   casa; nunca en una salida neutra). No hay sellos de madrugada.

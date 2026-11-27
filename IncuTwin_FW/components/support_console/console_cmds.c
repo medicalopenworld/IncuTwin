@@ -65,8 +65,9 @@ static int cmd_usage(int argc, char **argv)
 {
     (void)argc; (void)argv;
     usage_stats_t u = usage_get();
-    printf("on_s=%lu conn_s=%lu hand_s=%lu hand_n=%lu\n", (unsigned long)u.on_s,
-           (unsigned long)u.conn_s, (unsigned long)u.hand_s, (unsigned long)u.hand_n);
+    printf("on_s=%lu conn_s=%lu hand_s=%lu hand_n=%lu car_n=%lu tic_n=%lu\n", (unsigned long)u.on_s,
+           (unsigned long)u.conn_s, (unsigned long)u.hand_s, (unsigned long)u.hand_n,
+           (unsigned long)u.caress_n, (unsigned long)u.tickle_n);
     return 0;
 }
 
@@ -117,6 +118,44 @@ static int cmd_nowifi(int argc, char **argv)
     return 0;
 }
 
+#if CONFIG_INCUTWIN_DEBUG_TOUCH
+/* toque x0 y0 x1 y1 ms [vueltas]: SOLO PRUEBAS, un dedo de mentira (ui_debug_touch); solo en la demo */
+static int cmd_touch(int argc, char **argv)
+{
+    if (!twin_model_demo_active()) {
+        printf("solo en la demo (demo on)\n");
+        return 1;
+    }
+    if (argc < 6 || !ui_debug_touch(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]),
+                                    argc >= 7 ? atoi(argv[6]) : 0)) {
+        printf("toque <x0> <y0> <x1> <y1> <ms 50-20000> [vueltas 0-50]\n");
+        return 1;
+    }
+    return 0;
+}
+#endif
+
+/* bebe caricia|cosquillas [s] | bostezo | nina | nino | tono <0-4>; los tres ultimos, en la demo */
+static int cmd_baby(int argc, char **argv)
+{
+    bool girl = argc >= 2 && !strcmp(argv[1], "nina"), boy = argc >= 2 && !strcmp(argv[1], "nino");
+    bool tone = argc >= 3 && !strcmp(argv[1], "tono");
+    if (girl || boy || tone) {
+        if (!twin_model_demo_active()) {
+            printf("solo en la demo (demo on)\n");
+            return 1;
+        }
+        if (tone) twin_model_demo_set_skin((uint8_t)atoi(argv[2]));
+        else twin_model_demo_set_sex(girl ? TWIN_SEX_FEMALE : TWIN_SEX_MALE);
+        return 0;
+    }
+    if (argc < 2 || !ui_debug_baby(argv[1], argc >= 3 ? atoi(argv[2]) : 0)) {
+        printf("bebe caricia|cosquillas [s] | bostezo | nina | nino | tono <0-4>\n");
+        return 1;
+    }
+    return 0;
+}
+
 static int cmd_demo(int argc, char **argv)
 {
     if (argc < 2 || (strcmp(argv[1], "on") && strcmp(argv[1], "off"))) {
@@ -141,6 +180,23 @@ static int cmd_rewards(int argc, char **argv)
         rw_unlock_t res = rewards_unlock((rw_item_t)atoi(argv[2]), &missing);
         printf("comprar %s: %d (faltan %u)\n", argv[2], (int)res, missing);
         return res == RW_UNLOCK_OK ? 0 : 1;
+    }
+    if (argc >= 3 && strcmp(argv[1], "nivel") == 0) { /* solo en la demo: 0 Manita .. 4 Achuchon */
+        bool demo = false;
+        rw_state_t tmp;
+        rewards_copy(&tmp, &demo);
+        int lv = atoi(argv[2]);
+        if (!demo) {
+            printf("solo en la demo (demo on)\n");
+            return 1;
+        }
+        if (lv < 0 || lv >= RW_LEVEL_COUNT) {
+            printf("rewards nivel <0-%d>\n", RW_LEVEL_COUNT - 1);
+            return 1;
+        }
+        rewards_demo_set_level((rw_level_t)lv);
+        printf("nivel de la demo: %d (%lu corazones ganados)\n", lv, (unsigned long)rw_level_min((rw_level_t)lv));
+        return 0;
     }
     if (argc >= 3 && strcmp(argv[1], "fecha") == 0) { /* pruebas de Navidad: no se guarda */
         int m = atoi(argv[2]), d = argc >= 4 ? atoi(argv[3]) : 1;
@@ -286,9 +342,18 @@ void console_start(void)
         { .command = "info", .help = "identidad, enlace y estado", .func = cmd_info },
         { .command = "usage", .help = "contadores de uso", .func = cmd_usage },
         { .command = "tel", .help = "telemetria: gen, boot_n, next_seq, pending, lost, lote en vuelo y pila", .func = cmd_tel },
-        { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` solo en la demo", .func = cmd_rewards },
+        { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` y `rewards nivel <0-4>` solo en la demo", .func = cmd_rewards },
         { .command = "demo", .help = "demo on|off: como 2 s del boton BOOT", .func = cmd_demo },
         { .command = "pantalla", .help = "captura de la pantalla (para tools/screenshot.py)", .func = cmd_screen },
+#if CONFIG_INCUTWIN_DEBUG_TOUCH
+        { .command = "toque", .help = "toque <x0> <y0> <x1> <y1> <ms> [vueltas]: SOLO PRUEBAS (demo), un dedo de mentira "
+                                      "(trazo de x0,y0 a x1,y1; con vueltas, idas y vueltas)",
+          .func = cmd_touch },
+#endif
+        { .command = "bebe", .help = "bebe caricia|cosquillas [s]: prueba la reacción del bebé (no cuenta como uso); "
+                                     "[s] la repite s segundos para capturarla. bebe bostezo. En la demo: bebe "
+                                     "nina|nino|tono <0-4>",
+          .func = cmd_baby },
         { .command = "tienda", .help = "tienda <gorros|mantas|fondos|efectos|corazones|cerrar> [nina] [probar <id>] [comprar]",
           .func = cmd_shop },
         { .command = "incupray", .help = "incupray [demo|stop|join|leave|hold <s>]: estado de la IncuPray", .func = cmd_incupray },

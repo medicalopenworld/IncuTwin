@@ -1,4 +1,5 @@
 /* Corazones, racha larga, niveles, sellos, pasaporte y personalizar (rewards_logic, spec rewards). */
+#include <stddef.h>
 #include <string.h>
 
 #include "rewards_logic.h"
@@ -71,17 +72,64 @@ TEST_CASE("rewards: un dia sin bebes no rompe ni gasta", "[rewards]") {
     TEST_ASSERT_EQUAL_UINT8(1, s.saved);
 }
 
-TEST_CASE("rewards: niveles por lo ganado; gastar no baja", "[rewards]") {
-    TEST_ASSERT_EQUAL(RW_LEVEL_SPARK, rw_level(24));
-    TEST_ASSERT_EQUAL(RW_LEVEL_WARMTH, rw_level(25));
-    TEST_ASSERT_EQUAL(RW_LEVEL_SUN, rw_level(300));
+TEST_CASE("rewards: niveles de afecto por lo ganado; gastar no baja", "[rewards]") {
+    TEST_ASSERT_EQUAL(RW_LEVEL_HAND, rw_level(9));
+    TEST_ASSERT_EQUAL(RW_LEVEL_CARESS, rw_level(10));
+    TEST_ASSERT_EQUAL(RW_LEVEL_TICKLES, rw_level(30));
+    TEST_ASSERT_EQUAL(RW_LEVEL_HUG, rw_level(75));
+    TEST_ASSERT_EQUAL(RW_LEVEL_SQUEEZE, rw_level(150));
+    TEST_ASSERT_EQUAL_UINT32(10, rw_level_min(RW_LEVEL_CARESS));
     rw_state_t s; rw_init(&s);
-    s.earned = 24; s.balance = 24; s.last_day = D0 - 1; s.streak = 1;
+    s.earned = 9; s.balance = 9; s.last_day = D0 - 1; s.streak = 1;
     rw_gesture_t g = G(D0, "TG", 7);
     TEST_ASSERT_TRUE(rw_on_gesture(&s, &g).level_up);
     uint16_t missing = 0;
-    TEST_ASSERT_EQUAL(RW_UNLOCK_OK, rw_unlock(&s, RW_ITEM_BG_PINK, NOV, &missing)); /* 20 */
-    TEST_ASSERT_EQUAL(RW_LEVEL_WARMTH, rw_level(s.earned));
+    TEST_ASSERT_EQUAL(RW_UNLOCK_OK, rw_unlock(&s, RW_ITEM_BG_CREAM, NOV, &missing)); /* 10 */
+    TEST_ASSERT_EQUAL(RW_LEVEL_CARESS, rw_level(s.earned));
+}
+
+TEST_CASE("rewards: quien ya tenia corazones recibe el aviso una vez", "[rewards]") {
+    rw_state_t s; rw_init(&s);
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));          /* Manita: nada que anunciar */
+    s.earned = 40;                                   /* guardado antiguo: level_seen = 0 */
+    TEST_ASSERT_TRUE(rw_catchup_due(&s));
+    rw_catchup_done(&s);
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));
+    TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_TICKLES, s.level_seen);
+    s.level_seen = RW_LEVEL_SQUEEZE;                 /* por delante del nivel calculado: nada que anunciar */
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));
+}
+
+TEST_CASE("rewards: subir de nivel jugando no deja aviso pendiente", "[rewards]") {
+    rw_state_t s; rw_init(&s);
+    s.earned = 9; s.last_day = D0 - 1; s.streak = 1;
+    rw_gesture_t g = G(D0, "TG", 7);
+    TEST_ASSERT_TRUE(rw_on_gesture(&s, &g).level_up);
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));          /* ya lo anuncia el aviso normal */
+}
+
+TEST_CASE("rewards: el aviso no tapa los niveles que aun no abren nada", "[rewards]") {
+    rw_state_t s; rw_init(&s);
+    s.earned = 80;                                   /* Abrazo, que en esta version no abre nada */
+    TEST_ASSERT_TRUE(rw_catchup_due(&s));            /* aun asi, Caricia y Cosquillitas estan por anunciar */
+    rw_catchup_done(&s);
+    TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_LAST_OPEN, s.level_seen); /* no se guarda el nivel real */
+    TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_TICKLES, s.level_seen);
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));
+}
+
+TEST_CASE("rewards: subir a Abrazo jugando deja anunciado solo hasta Cosquillitas", "[rewards]") {
+    rw_state_t s; rw_init(&s);
+    s.earned = 74; s.last_day = D0 - 1; s.streak = 1;
+    rw_gesture_t g = G(D0, "TG", 7);
+    TEST_ASSERT_TRUE(rw_on_gesture(&s, &g).level_up);
+    TEST_ASSERT_EQUAL_UINT(RW_LEVEL_HUG, rw_level(s.earned));
+    TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_TICKLES, s.level_seen);
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));
+}
+
+TEST_CASE("rewards: el guardado no cambia de tamaño", "[rewards]") {
+    TEST_ASSERT_EQUAL_UINT(offsetof(rw_state_t, passport) - 19, offsetof(rw_state_t, level_seen));
 }
 
 TEST_CASE("rewards: tres bebes distintos y «a casa» con estrella", "[rewards]") {
@@ -160,6 +208,7 @@ TEST_CASE("rewards: demo aparte", "[rewards]") {
     rw_state_t real; rw_init(&real); real.balance = 40;
     rw_state_t demo; rw_demo_seed(&demo);
     TEST_ASSERT_EQUAL_UINT16(50, demo.balance);
+    TEST_ASSERT_FALSE(rw_catchup_due(&demo)); /* la demo no nace con aviso pendiente */
     rw_gesture_t g = G(D0, "CM", 1);
     rw_on_gesture(&demo, &g);
     TEST_ASSERT_EQUAL_UINT16(51, demo.balance);
@@ -176,7 +225,7 @@ TEST_CASE("rewards: corazones de la IncuPray fuera del tope y apuesta", "[reward
     rw_state_t s; rw_init(&s); s.earned = 20; s.balance = 5;
     rw_news_t n = rw_add(&s, 10);
     TEST_ASSERT_EQUAL_UINT8(10, n.hearts);
-    TEST_ASSERT_TRUE(n.level_up); /* 30 ganados: Calorcito */
+    TEST_ASSERT_TRUE(n.level_up); /* 30 ganados: Cosquillitas */
     TEST_ASSERT_EQUAL_UINT16(15, s.balance);
     TEST_ASSERT_TRUE(rw_spend(&s, 3));
     TEST_ASSERT_EQUAL_UINT16(12, s.balance);
@@ -316,6 +365,7 @@ TEST_CASE("tienda: migracion desde la version 1", "[rewards]") {
     TEST_ASSERT_EQUAL_UINT8(RW_VERSION, s.version);
     TEST_ASSERT_EQUAL_UINT16(40, s.balance);
     TEST_ASSERT_EQUAL_UINT32(55, s.earned);
+    TEST_ASSERT_EQUAL_UINT8(0, s.level_seen); /* el aviso pendiente saldra una vez */
     TEST_ASSERT_EQUAL_UINT16(9, s.streak);
     TEST_ASSERT_EQUAL_UINT8(1, s.saved);
     TEST_ASSERT_EQUAL_UINT16(12, s.total_days);

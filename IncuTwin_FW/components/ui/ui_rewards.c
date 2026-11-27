@@ -60,8 +60,8 @@ lv_color_t ui_theme_halo_calm(void)
 
 const char *ui_level_name(rw_level_t l)
 {
-    static const ui_str_t S[RW_LEVEL_COUNT] = { STR_LEVEL_SPARK, STR_LEVEL_WARMTH, STR_LEVEL_HUG,
-                                                STR_LEVEL_BLANKET, STR_LEVEL_SUN };
+    static const ui_str_t S[RW_LEVEL_COUNT] = { STR_LEVEL_HAND, STR_LEVEL_CARESS, STR_LEVEL_TICKLES,
+                                                STR_LEVEL_HUG, STR_LEVEL_SQUEEZE };
     return l < RW_LEVEL_COUNT ? tr(S[l]) : "";
 }
 

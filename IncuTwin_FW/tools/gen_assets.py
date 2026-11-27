@@ -3,7 +3,8 @@
 Generador de assets del bebe para IncuTwin (LVGL 9).
 
 A partir de Images/Baby.png e Images/IncuTwin_logo.png genera en components/assets/:
-  - img_baby.c  : fotogramas sleep, yawn1, yawn2, awake del bebe nino (Baby.png tal cual) y
+  - img_baby.c  : fotogramas sleep, yawn1, yawn2, awake, smile (caricia) y laugh (cosquillas)
+                  del bebe nino (Baby.png tal cual) y
                   girl_* de la nina (misma figura: gorro y manta rosas, lazo en lugar del
                   pompon y pestanas; ver girlify()), todos I8 con UNA paleta comun, y las 6
                   paletas de tono de piel (solo cambian las entradas de piel, valen para los dos).
@@ -102,17 +103,19 @@ def girlify(im):
 LASHES = ((386, 558, -1), (504, 558, 1))  # punta exterior de cada ojo en Baby.png, y sentido
 
 
-def add_lashes(frame, bbox):
+def add_lashes(frame, bbox, dy=0, rise=None):
     """Pestanas en la punta exterior de cada ojo, dibujadas YA a tamano de sprite: pixeles
     marinos nitidos sin antialias, para que la piel de alrededor siga siendo identica a la
-    del nino y comparta sus indices (un halo mezclado no cambiaria con el tono de piel)."""
+    del nino y comparta sus indices (un halo mezclado no cambiaria con el tono de piel).
+    `dy` baja la pestana y `rise` (px) sube su punta: la risa tiene los ojos en arco hacia
+    arriba y la pestana va al pie del arco, mas tendida."""
     ratio = BABY_H / (bbox[3] - bbox[1])
     k = max(1, round(6 * ratio))
+    rise = k if rise is None else rise
     d = ImageDraw.Draw(frame)
     for x, y, sx in LASHES:
-        px, py = round((x - bbox[0]) * ratio), round((y - bbox[1]) * ratio)
-        for cx, cy in ((0, 0), (sx, -1)):
-            x0, y0 = px + cx * k, py + cy * k
+        px, py = round((x - bbox[0]) * ratio), round((y - bbox[1]) * ratio) + dy
+        for x0, y0 in ((px, py), (px + sx * k, py - rise)):
             d.rectangle((x0, y0, x0 + k - 1, y0 + k - 1), fill=NAVY + (255,))
 
 
@@ -216,7 +219,82 @@ def make_frames(base):
         d.ellipse((ex - er // 3, eye_y - er + 1, ex + er // 4, eye_y - er // 3),
                   fill=(235, 240, 250, 255))
     frames["awake"] = f
+
+    # reacciones al dedo (caricia y cosquillas; referencia gemini_01_captura.png aprobada):
+    # suaves, de bebe prematuro. Misma tecnica: tapar con piel y pintar encima.
+    mouth_box = (cx - int(fw * 0.18), mouth_y - int(fh * 0.14),
+                 cx + int(fw * 0.18), mouth_y + int(fh * 0.16))
+    cheeks = [(cx - fw * 0.24, fy0 + fh * 0.54), (cx + fw * 0.24, fy0 + fh * 0.54)]
+
+    # caricia: ojos cerrados del reposo, sonrisa mas ancha con las comisuras arriba, mofletes
+    f = base.copy()
+    d = ImageDraw.Draw(f)
+    d.rectangle(mouth_box, fill=SKIN_BASE + (255,))
+    paint_cheeks(f, cheeks)
+    stamp(d, SMILE, cx - len(SMILE[0]) // 2 + 1, mouth_y - 1)
+    frames["smile"] = f
+
+    # cosquillas: ojos cerrados en arco hacia arriba y boquita abierta riendo, mismos mofletes
+    f = base.copy()
+    d = ImageDraw.Draw(f)
+    d.rectangle(mouth_box, fill=SKIN_BASE + (255,))
+    for ex in (cx - eye_dx + 3, cx + eye_dx - 2):
+        d.rectangle((ex - 6, eye_y - 6, ex + 6, eye_y + 1), fill=SKIN_BASE + (255,))
+        stamp(d, LAUGH_EYE, ex - len(LAUGH_EYE[0]) // 2, eye_y - 5)
+    paint_cheeks(f, cheeks)
+    stamp(d, LAUGH_MOUTH, cx - len(LAUGH_MOUTH[0]) // 2 + 1, mouth_y - 2)
+    frames["laugh"] = f
     return frames
+
+
+# Reacciones, en pixeles del sprite: N = contorno marino, M = boca por dentro, T = lengua
+SMILE = ["NN..............NN",
+         "NNN............NNN",
+         "NNNN..........NNNN",
+         ".NNNNN......NNNNN.",
+         "..NNNNNNNNNNNNNN..",
+         "....NNNNNNNNNN....",
+         "......NNNNNN......"]
+LAUGH_MOUTH = ["NN..........NN",
+               "NNNNNNNNNNNNNN",
+               "NNMMMMMMMMMMNN",
+               ".NNMMMMMMMMNN.",
+               ".NNMMTTTTMMNN.",
+               "..NNTTTTTTNN..",
+               "...NNNNNNNN...",
+               "....NNNNNN...."]
+LAUGH_EYE = ["....NNN....",
+             "..NNNNNNN..",
+             ".NNNNNNNNN.",
+             "NNNN...NNNN",
+             "NNN.....NNN",
+             "NN.......NN"]
+REACTIONS = ("smile", "laugh")
+CHEEK_GLOW = tuple((s + b) // 2 for s, b in zip(SKIN_BASE, BLUSH_BASE))  # entre piel y rubor
+
+
+def stamp(d, rows, x0, y0):
+    pal = {"N": NAVY, "M": MOUTH_FILL, "T": TONGUE}
+    for dy, row in enumerate(rows):
+        for dx, ch in enumerate(row):
+            if ch in pal:
+                d.point((x0 + dx, y0 + dy), fill=pal[ch] + (255,))
+
+
+def paint_cheeks(f, centers, rx=5.0, ry=4.0, glow=2.0):
+    """Mofletes mas grandes y sonrosados que los del reposo: centro de rubor (el que reconoce
+    is_blush) con un borde entre piel y rubor. Solo sobre piel: ni ojos ni contorno."""
+    px = f.load()
+    for ccx, ccy in centers:
+        for y in range(int(ccy - ry - glow) - 1, int(ccy + ry + glow) + 2):
+            for x in range(int(ccx - rx - glow) - 1, int(ccx + rx + glow) + 2):
+                p = px[x, y]
+                if p[3] < 128 or not (is_skin(p) or is_blush(p)):
+                    continue
+                if ((x - ccx) / rx) ** 2 + ((y - ccy) / ry) ** 2 <= 1:
+                    px[x, y] = BLUSH_BASE + (255,)
+                elif ((x - ccx) / (rx + glow)) ** 2 + ((y - ccy) / (ry + glow)) ** 2 <= 1:
+                    px[x, y] = CHEEK_GLOW + (255,)
 
 
 def make_heart():
@@ -288,6 +366,34 @@ def share_skin(idxmaps, frames, boy_skin):
         for pos, bi in enumerate(boy):
             if bi in skin and bpx[pos % w, pos // w] == gpx[pos % w, pos // w]:
                 girl[pos] = bi
+
+
+def add_reactions(palette, idxmaps, frames, size, face):
+    """Fotogramas de reaccion (REACTIONS) sin tocar los demas ni su paleta: cada uno parte de los
+    indices de su `sleep` (gorro y manta ya separados por la tienda) y solo los pixeles que cambian
+    se llevan al color mas cercano de los de la cara del nino. El rubor de los mofletes no existe
+    en la paleta (el del reposo se cuantiza a un tono de piel): entra como entrada nueva al final,
+    donde no mueve nada. Modifica `palette` e `idxmaps`; devuelve las entradas de piel/rubor."""
+    new = len(palette)
+    palette.append(BLUSH_BASE + (255,))
+    cands = [i for i in sorted(face) if palette[i][3] and not gen_outfit.kind_of(palette[i][:3])]
+    cands.append(new)
+
+    def nearest(p):
+        return min(cands, key=lambda i: sum((a - b) ** 2 for a, b in zip(palette[i][:3], p[:3])))
+
+    w, _ = size
+    for n in [k for k in frames if k.removeprefix("girl_") in REACTIONS]:
+        ref = n.replace("smile", "sleep").replace("laugh", "sleep")
+        idx = list(idxmaps[ref])
+        fpx, rpx = frames[n].load(), frames[ref].load()
+        for pos in range(len(idx)):
+            p = fpx[pos % w, pos // w]
+            if p != rpx[pos % w, pos // w]:
+                idx[pos] = 0 if p[3] < 128 else nearest(p)
+        idxmaps[n] = idx
+    assert len(palette) <= 256, len(palette)
+    return skin_indices(palette, face | {new})
 
 
 def face_index_set(idxmaps, size, box):
@@ -394,13 +500,18 @@ def main():
     frames = make_frames(base)
     girl, _ = load_baby(girl=True, bbox=bbox)
     for n, f in make_frames(girl).items():
-        add_lashes(f, bbox)
+        if n == "laugh":
+            add_lashes(f, bbox, dy=2, rise=1)  # al pie del ojo en arco
+        else:
+            add_lashes(f, bbox)
         frames[f"girl_{n}"] = f
     heart = make_heart()
 
-    # cada sexo con su cuantizacion de 48 colores, en una sola paleta de 95
-    boy = {n: f for n, f in frames.items() if not n.startswith("girl_")}
-    girls = {n: f for n, f in frames.items() if n.startswith("girl_")}
+    # cada sexo con su cuantizacion de 48 colores, en una sola paleta de 95. Las reacciones se
+    # quedan fuera: entrar en la cuantizacion moveria la paleta y los indices de los demas.
+    old = {n: f for n, f in frames.items() if n.removeprefix("girl_") not in REACTIONS}
+    boy = {n: f for n, f in old.items() if not n.startswith("girl_")}
+    girls = {n: f for n, f in old.items() if n.startswith("girl_")}
     palette, idxmaps, size = merge_quantized(quantize_frames(boy), quantize_frames(girls))
     face = face_index_set({n: v for n, v in idxmaps.items() if not n.startswith("girl_")},
                           size, face_regions(base))
@@ -415,6 +526,7 @@ def main():
     hat_tab = gen_outfit.style_table(palette, hat_idx, gen_outfit.HAT_STYLES)
     blk_tab = gen_outfit.style_table(palette, blk_idx, gen_outfit.BLANKET_STYLES)
     santa, santa_x, santa_y = gen_outfit.santa_sprite(src.size, bbox, size)
+    sidx = add_reactions(palette, idxmaps, frames, size, face)
     pals = build_tone_palettes(palette, sidx)
 
     # previsualizaciones
@@ -430,8 +542,9 @@ def main():
         sheet.paste(img, (w * i, 0), img)
     sheet.save(os.path.join(PREVIEW, "frames.png"))
 
-    tones = Image.new("RGBA", (w * len(pals), h * 2), (250, 250, 248, 255))
-    for row, frame in enumerate(("sleep", "girl_sleep")):
+    tone_rows = ("sleep", "girl_sleep", "smile", "girl_laugh")  # el rubor nuevo tambien cambia de tono
+    tones = Image.new("RGBA", (w * len(pals), h * len(tone_rows)), (250, 250, 248, 255))
+    for row, frame in enumerate(tone_rows):
         for t, pal in enumerate(pals):
             img = Image.new("RGBA", (w, h))
             p = img.load()

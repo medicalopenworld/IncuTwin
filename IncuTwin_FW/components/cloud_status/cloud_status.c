@@ -53,7 +53,8 @@ static void publish_metrics_locked(const char *why)
     if (demo) return;
     usage_stats_t us = usage_get();
     metrics_usage_t u = { .ts = net_wifi_time_valid() ? (int64_t)time(NULL) : 0, .on_s = us.on_s,
-                          .conn_s = us.conn_s, .hand_s = us.hand_s, .hand_n = us.hand_n };
+                          .conn_s = us.conn_s, .hand_s = us.hand_s, .hand_n = us.hand_n,
+                          .caress_n = us.caress_n, .tickle_n = us.tickle_n };
     static const char *const PHASES[] = { "off", "searching", "waiting", "with", "ending", "farewell" };
     twin_snapshot_t s = twin_model_get(); /* una sola foto: inc y phase coherentes con status */
     const char *inc = s.link.paired ? s.link.incubator_id : "";
