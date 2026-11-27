@@ -372,9 +372,10 @@ lv_obj_t *baby_preview_create(lv_obj_t *parent, bool girl, uint8_t tone, uint8_t
         lv_obj_t *s = lv_image_create(img);
         lv_image_set_src(s, &img_baby_santa);
         lv_obj_set_clickable(s, false);
-        if (small) { /* ARGB8888: este si lo escala LVGL */
-            lv_image_set_pivot(s, 0, 0);
-            lv_image_set_scale(s, scale);
+        if (small) { /* ARGB8888: lo escala LVGL, estirado a su tamaño (con escala y pivote salia corrido) */
+            lv_image_set_inner_align(s, LV_IMAGE_ALIGN_STRETCH);
+            lv_obj_set_size(s, img_baby_santa.header.w * (int32_t)scale / 256,
+                            img_baby_santa.header.h * (int32_t)scale / 256);
             lv_obj_set_pos(s, BABY_SANTA_X * (int32_t)scale / 256, BABY_SANTA_Y * (int32_t)scale / 256);
         } else {
             lv_obj_set_pos(s, BABY_SANTA_X, BABY_SANTA_Y);

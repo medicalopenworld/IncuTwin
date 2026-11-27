@@ -19,6 +19,7 @@
 #include "twin_model.h"
 #include "ui_internal.h"
 #include "ui_name.h"
+#include "ui_toy.h"
 
 static const char *TAG = "ui";
 
@@ -108,19 +109,39 @@ lv_obj_t *ui_msgbox(const char *title, const char *text, const char *btn_text, l
 {
     lv_obj_t *mb = lv_msgbox_create(NULL);
     lv_obj_set_width(mb, 208);
-    lv_obj_set_style_radius(mb, 14, 0);
+    /* estilo de la app: tarjeta crema con borde tinta, esquinas 16 y sombra dura de 4, sobre un velo
+     * tinta al 40 % */
+    toy_box(mb, 16, 4);
+    lv_obj_t *veil = lv_obj_get_parent(mb);
+    if (veil && veil != lv_layer_top()) {
+        lv_obj_set_style_bg_color(veil, COL_INK, 0);
+        lv_obj_set_style_bg_opa(veil, LV_OPA_40, 0);
+    }
     lv_obj_set_style_text_font(mb, &lv_font_es_14, 0); /* heredada por titulo, texto y botones */
     lv_obj_t *t = lv_msgbox_add_title(mb, title);
-    lv_obj_set_style_text_font(t, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(t, COL_NAVY, 0);
+    lv_obj_set_style_text_font(t, &lv_font_title_16, 0);
+    lv_obj_set_style_text_color(t, COL_INK, 0);
     lv_obj_t *txt = lv_msgbox_add_text(mb, text);
-    lv_obj_set_style_text_color(txt, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_color(txt, COL_INK, 0);
+    lv_obj_t *hdr = lv_msgbox_get_header(mb);
+    if (hdr) lv_obj_set_style_bg_opa(hdr, LV_OPA_TRANSP, 0);
+    lv_obj_t *ftr = lv_msgbox_get_footer(mb);
+    if (ftr) lv_obj_set_style_bg_opa(ftr, LV_OPA_TRANSP, 0);
     /* los botones del msgbox no derivan de lv_button_class: se marcan para el tic tactil */
-    lv_obj_add_flag(lv_msgbox_add_close_button(mb), UI_FLAG_CLICK_SOUND);
+    lv_obj_t *close = lv_msgbox_add_close_button(mb);
+    lv_obj_add_flag(close, UI_FLAG_CLICK_SOUND);
+    toy_box(close, LV_RADIUS_CIRCLE, TOY_SHADOW_S); /* la cruz en un circulo de juguete */
+    lv_obj_set_size(close, 28, 28);
+    lv_obj_set_style_text_color(close, COL_INK, 0);
+    for (uint32_t i = 0; i < lv_obj_get_child_count(close); i++) {
+        lv_obj_set_style_text_color(lv_obj_get_child(close, (int32_t)i), COL_INK, 0);
+        lv_obj_set_style_image_recolor(lv_obj_get_child(close, (int32_t)i), COL_INK, 0);
+        lv_obj_set_style_image_recolor_opa(lv_obj_get_child(close, (int32_t)i), LV_OPA_COVER, 0);
+    }
     lv_obj_t *btn = lv_msgbox_add_footer_button(mb, btn_text);
     lv_obj_add_flag(btn, UI_FLAG_CLICK_SOUND);
-    lv_obj_set_style_bg_color(btn, btn_color, 0);
-    lv_obj_set_style_text_color(btn, lv_color_white(), 0);
+    /* coral = la accion principal (comprar, borrar); el resto (Vale, Cambiar), boton crema */
+    toy_button(btn, lv_color_eq(btn_color, COL_CORAL));
     lv_obj_add_event_cb(btn, btn_cb, LV_EVENT_CLICKED, user_data ? user_data : mb);
     lv_obj_center(mb);
     return mb;

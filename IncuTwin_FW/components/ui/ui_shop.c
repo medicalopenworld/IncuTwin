@@ -13,17 +13,18 @@
 #include "baby_widget.h"
 #include "rewards.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 
 #define TOP_H    40
 #define TABS_Y   42
 #define SUB_Y    70
 #define GRID_Y   96
-#define CARD_W   72
-#define CARD_H   88
-#define WELL_W   68
-#define WELL_H   50
-#define NAME_Y   (WELL_H + 4)
-#define STATUS_Y (NAME_Y + 15)
+#define CARD_W   70  /* tres por fila con hueco para la sombra dura: 9 + 3x70 + 2x6 + 2 */
+#define CARD_H   90
+#define WELL_W   62
+#define WELL_H   48
+#define NAME_Y   (WELL_H + 5)
+#define STATUS_Y (NAME_Y + 16)
 #define TAB_W    53 /* cuatro pestañas de ancho fijo: (240 - 2*6 - 3*5) / 4 */
 #define COL_WELL lv_color_hex(0xEEF4FB)
 #define COL_XMAS lv_color_hex(0x2E7D5B)
@@ -119,14 +120,10 @@ static lv_obj_t *label(lv_obj_t *parent, const char *t, const lv_font_t *f, lv_c
     return l;
 }
 
-static lv_obj_t *heart_img(lv_obj_t *parent, int32_t w, int32_t h)
+/* Corazon de pixeles de la app (9x8 celdas de `cell` px) */
+static lv_obj_t *heart_img(lv_obj_t *parent, toy_heart_t kind, int32_t cell)
 {
-    lv_obj_t *i = lv_image_create(parent);
-    lv_image_set_src(i, &img_heart);
-    lv_image_set_inner_align(i, LV_IMAGE_ALIGN_STRETCH);
-    lv_obj_set_size(i, w, h);
-    lv_obj_set_clickable(i, false);
-    return i;
+    return toy_heart_img(parent, kind, cell);
 }
 
 /* Un bebe con la ropa de `item` puesta (y lo elegido en lo demas) */
@@ -145,14 +142,14 @@ static void well_art(lv_obj_t *well, rw_item_t item)
 {
     if (is_hat(item) || item == RW_ITEM_SANTA) { /* la cabeza, a media escala */
         lv_obj_t *b = dressed_baby(well, item, item == RW_ITEM_SANTA ? s_girl : item >= RW_HAT_GIRL_FIRST, 128);
-        lv_obj_set_pos(b, (WELL_W - 57) / 2, 9);
+        lv_obj_set_pos(b, (WELL_W - 57) / 2 - (item == RW_ITEM_SANTA ? 4 : 0), item == RW_ITEM_SANTA ? 11 : 3);
     } else if (is_blanket(item)) { /* el bebe entero, pequeño */
-        lv_obj_t *b = dressed_baby(well, item, s_girl, 68); /* 30 x 49 */
-        lv_obj_set_pos(b, (WELL_W - 30) / 2, 1);
+        lv_obj_t *b = dressed_baby(well, item, s_girl, 64); /* 28 x 46 */
+        lv_obj_set_pos(b, (WELL_W - 28) / 2, 1);
     } else if (item == RW_ITEM_GARLAND) {
         lv_obj_t *g = lv_image_create(well);
         lv_image_set_src(g, &img_garland);
-        lv_obj_set_pos(g, -60, 14);
+        lv_obj_set_pos(g, -63, 13);
     } else if (item == RW_ITEM_NAMED_INCUNEST) {
         lv_obj_t *n = lv_image_create(well);
         lv_image_set_src(n, &img_incunest_28);
@@ -173,20 +170,28 @@ static void well_art(lv_obj_t *well, rw_item_t item)
         lv_obj_set_style_bg_opa(sw, LV_OPA_COVER, 0);
         if (!halo) {
             lv_obj_set_size(sw, WELL_W - 14, WELL_H - 12);
-            lv_obj_set_style_border_width(sw, 1, 0);
-            lv_obj_set_style_border_color(sw, COL_OFFLINE, 0);
+            lv_obj_set_style_border_width(sw, TOY_BORDER, 0);
+            lv_obj_set_style_border_color(sw, COL_INK, 0);
         }
         lv_obj_center(sw);
     }
 }
 
-/* Estado de la tarjeta, debajo del nombre */
+/* Estado de la tarjeta, debajo del nombre: si no cabe («Desde el 24»), pasa despacio */
+static lv_obj_t *status_label(lv_obj_t *card, const char *t, lv_color_t col)
+{
+    lv_obj_t *l = label(card, t, &lv_font_es_12, col);
+    lv_obj_set_width(l, CARD_W - 2 * TOY_BORDER - 6);
+    lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_SCROLL_CIRCULAR);
+    lv_obj_set_pos(l, 4, STATUS_Y);
+    return l;
+}
+
 static void card_status(lv_obj_t *card, const rw_state_t *r, rw_item_t item)
 {
     char buf[24];
     if (off_season(item)) {
-        lv_obj_t *l = label(card, tr(STR_SHOP_FROM24), &lv_font_es_12, COL_XMAS);
-        lv_obj_set_pos(l, 4, STATUS_Y);
+        status_label(card, tr(STR_SHOP_FROM24), COL_XMAS);
         return;
     }
     if (item == RW_ITEM_NAMED_INCUNEST && owns(r, item)) {
@@ -196,26 +201,26 @@ static void card_status(lv_obj_t *card, const rw_state_t *r, rw_item_t item)
     if (owns(r, item)) {
         bool on = chosen(r, item);
         snprintf(buf, sizeof(buf), on ? LV_SYMBOL_OK " %s" : "%s", tr(on ? STR_CUST_CHOSEN : STR_CUST_USE));
-        lv_obj_set_pos(label(card, buf, &lv_font_es_12, on ? COL_NAVY : COL_OFFLINE), 4, STATUS_Y);
+        lv_obj_set_pos(label(card, buf, &lv_font_es_12, on ? COL_CORAL_INK : COL_MUTED), 4, STATUS_Y);
         return;
     }
     if (item == RW_ITEM_GARLAND) { /* lo que llevas de diciembre */
         int m, d;
         unsigned days = rewards_local_md(&m, &d) && m == 12 ? (unsigned)__builtin_popcount(r->dec_days) : 0;
         snprintf(buf, sizeof(buf), "%u/10", days);
-        lv_obj_set_pos(label(card, buf, &lv_font_es_12, COL_OFFLINE), 4, STATUS_Y);
+        lv_obj_set_pos(label(card, buf, &lv_font_es_12, COL_MUTED), 4, STATUS_Y);
         return;
     }
     uint16_t price = rw_price(item);
     lv_obj_t *row = box(card);
-    lv_obj_set_size(row, LV_SIZE_CONTENT, 16);
+    lv_obj_set_size(row, LV_SIZE_CONTENT, 17);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(row, 3, 0);
     lv_obj_set_pos(row, 4, STATUS_Y);
-    heart_img(row, 12, 11);
+    heart_img(row, TOY_HEART_FULL, 2); /* 18x16 */
     snprintf(buf, sizeof(buf), "%u", (unsigned)price);
-    label(row, buf, &lv_font_es_12, r->balance >= price ? COL_CORAL : COL_OFFLINE);
+    label(row, buf, &lv_font_es_12, r->balance >= price ? COL_CORAL_INK : COL_MUTED);
 }
 
 /* ------------------------------------------------------------- comprar */
@@ -286,23 +291,34 @@ static void try_build(void)
     const rw_state_t *r = ui_rewards();
     bool girl = is_hat(item) ? item >= RW_HAT_GIRL_FIRST : s_girl;
 
-    lv_obj_t *halo = box(s_try);
-    lv_obj_set_size(halo, 170, 170);
+    /* el bebe dentro de su pantallita, con el fondo elegido, como en Inicio */
+    lv_obj_t *stage = box(s_try);
+    lv_obj_set_size(stage, 212, 184);
+    lv_obj_set_pos(stage, 14, 0);
+    lv_obj_set_style_bg_color(stage, ui_theme_bg(), 0);
+    lv_obj_set_style_bg_opa(stage, LV_OPA_COVER, 0);
+    lv_obj_set_style_border_color(stage, COL_INK, 0);
+    lv_obj_set_style_border_width(stage, TOY_BORDER, 0);
+    lv_obj_set_style_border_post(stage, true, 0); /* el marco por encima del bebe */
+    lv_obj_set_style_radius(stage, 8, 0);
+    toy_shadow(stage, TOY_SHADOW_M);
+    lv_obj_t *halo = box(stage);
+    lv_obj_set_size(halo, 166, 166);
     lv_obj_set_style_radius(halo, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(halo, ui_theme_halo_calm(), 0);
     lv_obj_set_style_bg_opa(halo, LV_OPA_40, 0);
-    lv_obj_set_pos(halo, 35, 6);
-    lv_obj_t *b = dressed_baby(s_try, item, girl, LV_SCALE_NONE);
-    lv_obj_set_pos(b, (240 - 114) / 2, 2 + (item == RW_ITEM_SANTA ? 10 : 0));
+    lv_obj_set_pos(halo, (208 - 166) / 2, 7);
+    lv_obj_t *b = dressed_baby(stage, item, girl, LV_SCALE_NONE);
+    lv_obj_set_pos(b, (208 - 114) / 2, item == RW_ITEM_SANTA ? 20 : -4); /* el sprite trae 3 px vacios arriba */
 
     ui_str_t hint = item == RW_ITEM_SANTA ? STR_SHOP_XMAS
                     : is_blanket(item)    ? STR_SHOP_WEARS_ALL
                     : girl                ? STR_SHOP_WEARS_GIRL
                                           : STR_SHOP_WEARS_BOY;
-    lv_obj_t *h = label(s_try, tr(hint), &lv_font_es_12, COL_NAVY_DARK);
+    lv_obj_t *h = label(s_try, tr(hint), &lv_font_es_12, COL_MUTED);
     lv_obj_set_width(h, 224);
     lv_obj_set_style_text_align(h, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_pos(h, 8, 192);
+    lv_obj_set_pos(h, 8, 191);
 
     char txt[48];
     bool enabled = true, filled = true, greyed = false; /* greyed: aun no se puede (gris) */
@@ -325,21 +341,22 @@ static void try_build(void)
         greyed = true;
     }
     lv_obj_t *btn = lv_button_create(s_try);
-    lv_obj_set_size(btn, 190, 34);
-    lv_obj_set_pos(btn, 25, 210);
-    lv_obj_set_style_radius(btn, 17, 0);
-    lv_obj_set_style_shadow_width(btn, 0, 0);
-    lv_obj_set_style_bg_color(btn, greyed ? lv_color_hex(0xE2E6EE) : filled ? COL_NAVY : COL_CARD, 0);
-    lv_obj_set_style_border_width(btn, filled || greyed ? 0 : 2, 0);
-    lv_obj_set_style_border_color(btn, COL_NAVY, 0);
+    lv_obj_set_size(btn, 190, 32);
+    lv_obj_set_pos(btn, 24, 208);
+    /* boton de juguete: coral para comprar, crema para usar; lo que aun no se puede, apagado */
+    toy_button(btn, filled && !greyed);
+    if (greyed) {
+        lv_obj_set_style_border_color(btn, COL_FAINT, 0);
+        toy_shadow(btn, 0);
+    }
     lv_obj_t *row = box(btn);
     lv_obj_set_size(row, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(row, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(row, 6, 0);
     lv_obj_center(row);
-    label(row, txt, &lv_font_es_14, greyed ? COL_OFFLINE : filled ? lv_color_white() : COL_NAVY);
-    if (enabled && filled && price > 0) heart_img(row, 14, 12);
+    label(row, txt, &lv_font_title_16, greyed ? COL_MUTED : filled ? lv_color_white() : COL_INK);
+    if (enabled && filled && price > 0) heart_img(row, TOY_HEART_WHITE, 2);
     if (enabled) {
         lv_obj_add_flag(btn, UI_FLAG_CLICK_SOUND);
         lv_obj_add_event_cb(btn, try_btn_clicked, LV_EVENT_CLICKED, NULL);
@@ -379,11 +396,8 @@ static void grid_build(void)
         bool on = chosen(r, item) && !off_season(item);
         lv_obj_t *c = lv_obj_create(s_grid);
         lv_obj_set_size(c, CARD_W, CARD_H);
-        lv_obj_set_style_radius(c, 8, 0);
-        lv_obj_set_style_bg_color(c, COL_CARD, 0);
-        lv_obj_set_style_bg_color(c, COL_BG_PHOTO, LV_STATE_PRESSED);
-        lv_obj_set_style_border_width(c, on ? 2 : 1, 0);
-        lv_obj_set_style_border_color(c, on ? COL_NAVY : lv_color_hex(0xDEE4EE), 0);
+        toy_box(c, TOY_R_PILL, TOY_SHADOW_S); /* ficha de juguete; la elegida, con borde coral */
+        if (on) lv_obj_set_style_border_color(c, COL_CORAL, 0);
         lv_obj_set_style_pad_all(c, 0, 0);
         lv_obj_set_scrollable(c, false);
         lv_obj_add_flag(c, UI_FLAG_CLICK_SOUND);
@@ -391,15 +405,15 @@ static void grid_build(void)
 
         lv_obj_t *well = box(c);
         lv_obj_set_size(well, WELL_W, WELL_H);
-        lv_obj_set_pos(well, 2, 2);
+        lv_obj_set_pos(well, (CARD_W - 2 * TOY_BORDER - WELL_W) / 2, 2);
         lv_obj_set_style_radius(well, 6, 0);
         lv_obj_set_style_bg_color(well, COL_WELL, 0);
         lv_obj_set_style_bg_opa(well, LV_OPA_COVER, 0);
         lv_obj_set_style_clip_corner(well, true, 0);
         well_art(well, item);
 
-        lv_obj_t *name = label(c, ui_item_name(item), &lv_font_es_12, COL_NAVY_DARK);
-        lv_obj_set_width(name, CARD_W - 6);
+        lv_obj_t *name = label(c, ui_item_name(item), &lv_font_title_12, COL_INK);
+        lv_obj_set_width(name, CARD_W - 2 * TOY_BORDER - 6);
         lv_label_set_long_mode(name, LV_LABEL_LONG_MODE_SCROLL_CIRCULAR); /* «Blanco roto» */
         lv_obj_set_pos(name, 4, NAME_Y);
         card_status(c, r, item);
@@ -416,16 +430,15 @@ static void tabs_apply(void)
     for (int t = 0; t < TAB_N; t++) {
         bool on = t == (int)s_tab;
         lv_label_set_text(s_tab_lbl[t], tr(NAMES[t]));
-        lv_obj_set_style_bg_color(s_tab_btn[t], on ? COL_NAVY : COL_CARD, 0);
-        lv_obj_set_style_text_color(s_tab_lbl[t], on ? lv_color_white() : COL_NAVY, 0);
+        toy_segment(s_tab_btn[t], s_tab_lbl[t], on);
     }
     bool hats = s_tab == TAB_HATS;
     lv_obj_set_hidden(s_seg, !hats);
     lv_obj_set_hidden(s_sub, hats);
     for (int k = 0; k < 2; k++) {
         bool on = (k == 1) == s_girl;
-        lv_obj_set_style_bg_color(s_seg_btn[k], on ? COL_BG_PHOTO : COL_CARD, 0);
         lv_obj_t *l = lv_obj_get_child(s_seg_btn[k], 0);
+        toy_segment(s_seg_btn[k], l, on);
         lv_label_set_text(l, tr(k ? STR_SHOP_GIRL : STR_SHOP_BOY));
     }
     lv_label_set_text(s_sub, s_tab == TAB_BLANKETS ? tr(STR_SHOP_WEARS_ALL) : "");
@@ -461,15 +474,12 @@ static lv_obj_t *chip(lv_obj_t *parent, lv_event_cb_t cb, intptr_t arg, lv_obj_t
 {
     lv_obj_t *b = lv_button_create(parent);
     lv_obj_set_size(b, LV_SIZE_CONTENT, 22);
-    lv_obj_set_style_radius(b, 11, 0);
-    lv_obj_set_style_shadow_width(b, 0, 0);
-    lv_obj_set_style_border_width(b, 1, 0);
-    lv_obj_set_style_border_color(b, lv_color_hex(0xDEE4EE), 0);
+    toy_segment(b, NULL, false);
     lv_obj_set_style_pad_hor(b, 9, 0);
     lv_obj_set_style_pad_ver(b, 0, 0);
     lv_obj_add_flag(b, UI_FLAG_CLICK_SOUND);
     lv_obj_add_event_cb(b, cb, LV_EVENT_CLICKED, (void *)arg);
-    *lbl = label(b, "", &lv_font_es_12, COL_NAVY);
+    *lbl = label(b, "", &lv_font_es_12, COL_INK);
     lv_obj_center(*lbl);
     return b;
 }
@@ -489,24 +499,20 @@ lv_obj_t *ui_shop_create(void)
     lv_obj_set_scrollable(s_root, false);
 
     lv_obj_t *back = lv_button_create(s_root);
-    lv_obj_set_size(back, 36, 30);
-    lv_obj_set_pos(back, 4, 5);
-    lv_obj_set_style_bg_color(back, COL_CARD, 0);
-    lv_obj_set_style_bg_color(back, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_border_color(back, COL_NAVY, 0);
-    lv_obj_set_style_border_width(back, 2, 0);
-    lv_obj_set_style_radius(back, 8, 0);
-    lv_obj_set_style_shadow_width(back, 0, 0);
+    lv_obj_set_size(back, 30, 30); /* atras: chevron en un circulo de juguete, como la app */
+    lv_obj_set_pos(back, 7, 5);
+    toy_box(back, LV_RADIUS_CIRCLE, TOY_SHADOW_S);
     lv_obj_set_style_pad_all(back, 0, 0);
-    lv_obj_set_ext_click_area(back, 6);
+    lv_obj_set_ext_click_area(back, 8);
     lv_obj_add_flag(back, UI_FLAG_CLICK_SOUND);
     lv_obj_add_event_cb(back, back_clicked, LV_EVENT_CLICKED, NULL);
-    lv_obj_center(label(back, LV_SYMBOL_LEFT, &lv_font_es_16, COL_NAVY));
+    lv_obj_center(label(back, LV_SYMBOL_LEFT, &lv_font_es_14, COL_INK));
 
-    s_title = label(s_root, "", &lv_font_es_20, COL_NAVY);
-    lv_obj_set_style_max_width(s_title, 128, 0);
+    s_title = label(s_root, "", &lv_font_title_20, COL_INK); /* centrado, como la app */
+    lv_obj_set_width(s_title, 128);
+    lv_obj_set_style_text_align(s_title, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(s_title, LV_LABEL_LONG_MODE_DOTS);
-    lv_obj_set_pos(s_title, 48, 9);
+    lv_obj_set_pos(s_title, 56, 9);
 
     lv_obj_t *bal = box(s_root);
     lv_obj_set_size(bal, LV_SIZE_CONTENT, 24);
@@ -514,8 +520,8 @@ lv_obj_t *ui_shop_create(void)
     lv_obj_set_style_pad_column(bal, 4, 0);
     lv_obj_set_flex_align(bal, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_align(bal, LV_ALIGN_TOP_RIGHT, -8, 8);
-    heart_img(bal, 18, 16);
-    s_bal = label(bal, "", &lv_font_es_16, COL_CORAL);
+    heart_img(bal, TOY_HEART_FULL, 2);
+    s_bal = label(bal, "", &lv_font_title_16, COL_INK);
 
     lv_obj_t *tabs = box(s_root); /* se desliza de lado si no caben */
     lv_obj_set_size(tabs, 240, 24);
@@ -530,16 +536,17 @@ lv_obj_t *ui_shop_create(void)
     }
 
     s_seg = box(s_root);
-    lv_obj_set_size(s_seg, 140, 22);
-    lv_obj_set_pos(s_seg, 50, SUB_Y);
+    lv_obj_set_size(s_seg, 150, 25);
+    lv_obj_set_pos(s_seg, 45, SUB_Y);
     lv_obj_set_flex_flow(s_seg, LV_FLEX_FLOW_ROW);
-    lv_obj_set_style_pad_column(s_seg, 0, 0);
+    lv_obj_set_style_pad_column(s_seg, 6, 0);
     for (int k = 0; k < 2; k++) {
         lv_obj_t *l;
         s_seg_btn[k] = chip(s_seg, seg_clicked, k, &l);
         lv_obj_set_size(s_seg_btn[k], 70, 22);
+        lv_obj_set_style_pad_hor(s_seg_btn[k], 0, 0);
     }
-    s_sub = label(s_root, "", &lv_font_es_12, COL_NAVY_DARK);
+    s_sub = label(s_root, "", &lv_font_es_12, COL_MUTED);
     lv_obj_set_width(s_sub, 224);
     lv_obj_set_style_text_align(s_sub, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_pos(s_sub, 8, SUB_Y + 3);
@@ -550,10 +557,12 @@ lv_obj_t *ui_shop_create(void)
     lv_obj_set_style_bg_opa(s_grid, LV_OPA_TRANSP, 0);
     lv_obj_set_style_border_width(s_grid, 0, 0);
     lv_obj_set_style_radius(s_grid, 0, 0);
-    lv_obj_set_style_pad_hor(s_grid, 8, 0);
-    lv_obj_set_style_pad_ver(s_grid, 2, 0);
-    lv_obj_set_style_pad_row(s_grid, 6, 0);
-    lv_obj_set_style_pad_column(s_grid, 4, 0);
+    lv_obj_set_style_pad_left(s_grid, 9, 0);
+    lv_obj_set_style_pad_right(s_grid, 7, 0);
+    lv_obj_set_style_pad_top(s_grid, 2, 0);
+    lv_obj_set_style_pad_bottom(s_grid, 6, 0); /* la sombra de la ultima fila */
+    lv_obj_set_style_pad_row(s_grid, 8, 0);
+    lv_obj_set_style_pad_column(s_grid, 6, 0);
     lv_obj_set_flex_flow(s_grid, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_scroll_dir(s_grid, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_grid, LV_SCROLLBAR_MODE_ACTIVE);

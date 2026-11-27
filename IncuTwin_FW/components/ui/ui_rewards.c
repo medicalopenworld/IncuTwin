@@ -5,6 +5,7 @@
 #include "baby_widget.h"
 #include "rewards.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 
 static rw_state_t s_rw;
 static bool s_demo;
@@ -18,9 +19,9 @@ static const uint32_t HALO_COLS[RW_HALO_LAST - RW_HALO_FIRST + 1] = {
     0xF8D2BC, /* Melocoton */
     0xE6C3EA, /* Lila */
 };
-/* fondo de Inicio: Blanco roto es el de siempre (COL_BG) */
+/* fondo de la pantallita de Inicio: Azul bebe es el de serie (COL_STAGE, el de la app) */
 static const uint32_t BG_COLS[RW_BG_LAST - RW_BG_FIRST + 1] = {
-    0xF4F3F0, /* Blanco roto */
+    0xEAF2FB, /* Azul bebe */
     0xF8F1E2, /* Crema */
     0xFBEDEE, /* Rosa */
     0xE7F4F1, /* Verde agua */
@@ -48,7 +49,7 @@ lv_color_t ui_item_color(rw_item_t item)
 lv_color_t ui_theme_bg(void)
 {
     const rw_state_t *s = ui_rewards();
-    return s->bg >= RW_BG_FIRST && s->bg <= RW_BG_LAST ? ui_item_color((rw_item_t)s->bg) : COL_BG;
+    return s->bg >= RW_BG_FIRST && s->bg <= RW_BG_LAST ? ui_item_color((rw_item_t)s->bg) : COL_STAGE;
 }
 
 lv_color_t ui_theme_halo_calm(void)
@@ -135,7 +136,7 @@ static lv_obj_t *seal_text(lv_obj_t *c, const char *t, lv_color_t col, int32_t d
 {
     lv_obj_t *l = lv_label_create(c);
     lv_label_set_text(l, t);
-    lv_obj_set_style_text_font(l, d >= 40 ? &lv_font_es_16 : &lv_font_es_14, 0);
+    lv_obj_set_style_text_font(l, d >= 40 ? &lv_font_title_16 : &lv_font_title_14, 0);
     lv_obj_set_style_text_color(l, col, 0);
     lv_obj_center(l);
     return l;
@@ -170,16 +171,17 @@ lv_obj_t *ui_seal_icon(lv_obj_t *parent, rw_seal_t seal, bool earned, int32_t d)
     lv_obj_set_style_bg_color(c, earned ? fill : COL_CARD, 0);
     lv_obj_set_style_bg_opa(c, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(c, 3, 0);
-    lv_obj_set_style_border_color(c, earned ? ring : COL_OFFLINE, 0);
+    lv_obj_set_style_border_color(c, earned ? ring : COL_FAINT, 0);
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
 
     lv_obj_t *art = NULL;
-    uint16_t heart_scale = (uint16_t)(256 * (d - 14) / 34); /* corazon de 34 px dentro del circulo */
+    int32_t cell = d >= 40 ? 3 : 2; /* corazon de pixeles: 27x24 o 18x16 dentro del circulo */
     switch (seal) {
     case RW_SEAL_FIRST:
-        art = seal_image(c, &img_heart, heart_scale);
+        art = toy_heart_img(c, TOY_HEART_FULL, cell);
+        lv_obj_center(art);
         break;
     case RW_SEAL_WEEK:
         art = seal_text(c, "7", earned ? lv_color_white() : COL_NAVY, d);
@@ -191,9 +193,8 @@ lv_obj_t *ui_seal_icon(lv_obj_t *parent, rw_seal_t seal, bool earned, int32_t d)
         art = seal_text(c, "30", COL_NAVY, d);
         break;
     case RW_SEAL_SUPER:
-        art = seal_image(c, &img_heart, heart_scale);
-        lv_obj_set_style_image_recolor(art, COL_SUPER, 0);
-        lv_obj_set_style_image_recolor_opa(art, LV_OPA_COVER, 0);
+        art = toy_heart_img(c, TOY_HEART_SUPER, cell);
+        lv_obj_center(art);
         break;
     case RW_SEAL_3_BABIES:
         art = seal_image(c, &img_baby_head_boy, d >= 40 ? LV_SCALE_NONE : 220);

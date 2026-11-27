@@ -1,9 +1,10 @@
 /* Pantalla principal (spec twin-display, hmi-navegacion-avisos). Layout vertical 240x320:
  *   barra superior : marca a media escala a la izquierda | boton del pais a la derecha (lleva al
  *                    mapa y, desde el mapa, vuelve al bebe). El WiFi se cambia en Ajustes.
- *   centro         : bebe + halo | incubadora vacia | con sus papas (dos tonos de piel)
+ *   centro         : bebe + halo dentro de la pantallita (6..232 x 36..228, estilo de la app) |
+ *                    incubadora vacia | con sus papas (dos tonos de piel), estas a pantalla completa
  *   cuerpo del bebe: nombre
- *   fila (232..270): simbolos del tratamiento en curso (solo los activos, juntos a la
+ *   fila (234..270): simbolos del tratamiento en curso (solo los activos, juntos a la
  *                    izquierda) + boton "Coge mi mano" (o el texto del gesto). Si hoy aun no le
  *                    has dado la mano, el boton late con un anillo coral suave.
  *   273..279       : puntos de pagina (ui_pages.c)
@@ -36,32 +37,42 @@
 #include "ui_nowifi.h"
 #include "assets_nowifi.h"
 #include "ui_pages.h"
+#include "ui_toy.h"
 #include "usage_stats.h"
 
 
-/* Sin barra de estado el bloque del bebe baja 16 px (BABY_Y era 14, NAME_Y 182; antes de la barra
- * de navegacion, 38 y 206) para que no quede pegado a la barra de arriba. Medido con la
- * silueta opaca del sprite: el bebe ocupa y 27..215 (respirando sube 3 px), el nombre 198..224. */
+/* Estilo «IncuTwin de bolsillo» (como la app): el bebe, su halo, el fondo comprado y el gesto van
+ * dentro de una «pantallita» con marco tinta y sombra dura, mas rectangular que la de la app
+ * (esquinas de 8, Pablo 27-nov-2026). La pantallita son dos objetos: el fondo (debajo del halo) y el
+ * marco (encima del bebe y del gesto), para no cambiar de padre ni de coordenadas lo de dentro. El
+ * bebe baja 10 px para caber entero (con la respiracion, y 37..225) dentro del marco (36..228). */
+#define STAGE_X 6
+#define STAGE_Y 36
+#define STAGE_W 226
+#define STAGE_H 193
+#define STAGE_R 8
 #define BABY_X 63   /* sprite de 114x185 */
-#define BABY_Y 30
+#define BABY_Y 40
 #define BABY_CX (BABY_X + 57)
 #define BABY_CY (BABY_Y + 92)
-#define ICON_D 38   /* antes 44 */
-#define ICON_Y 232  /* antes 211, con la barra de estado debajo (257..278) */
+#define ICON_D 36   /* antes 38; la fila va bajo la pantallita (y su sombra) */
+#define ICON_Y 234
+#define HAND_X 136  /* «Coge mi mano» ocupa el resto de la fila, como en la app */
+#define HAND_W 94
 /* imagenes "con sus papas": su dibujo (medido) acaba en y 283 / 301; se suben para que acabe
  * en la barra de navegacion sin cortar el corazon de arriba */
 #define PARENTS_Y       (-3)
 #define PARENTS_BLACK_Y (-18)
 
 /* gesto "Coge mi mano" */
-#define RING_D        196
+#define RING_D        186 /* cabe en la pantallita */
 #define NAME_Y        198
 #define COUNTRY_LBL_W 64  /* nombre del pais en la barra de arriba: que no tape el gorro */
 #define N_HEARTS      4
 #define HH_TICK_MS    100
 #define COL_RING_BG   lv_color_hex(0xF5C4B3)
 #define COL_RING_DIM  lv_color_hex(0xEBA8A0)
-#define COL_BG_THANKS lv_color_hex(0xFBEDEA)
+#define COL_BG_THANKS COL_CORAL_SOFT
 #define HOLD_H        ICON_D /* texto del gesto: en el sitio de la fila */
 /* Vueltas del anillo: cada minuto extra pinta otra vuelta encima, en el color siguiente.
  * Colores muy distintos entre vueltas seguidas para que se vea el cambio:
@@ -81,6 +92,9 @@ static int8_t s_nowifi_force;   /* consola `sinwifi`: 0 = de verdad, 1 = nino, 2
 static ui_nowifi_t *s_nw;
 
 static lv_obj_t *s_scr;
+static lv_obj_t *s_stage_bg, *s_stage_frame; /* la pantallita: fondo y marco */
+static lv_color_t s_bg_col;                  /* fondo de lo del bebe (pantallita o pantalla) */
+static home_view_t s_view = VIEW_EMPTY;
 static lv_obj_t *s_halo, *s_empty_img, *s_parents_img, *s_demo_badge;
 static lv_obj_t *s_info;          /* burbuja con la explicacion del simbolo tocado */
 static lv_timer_t *s_info_timer;
@@ -127,6 +141,57 @@ static void name_clicked_cb(lv_event_t *e);
 static void name_done(void);
 static void name_maybe_ask(void);
 
+/* ------------------------------------------------------------ pantallita */
+
+/* Se ve con el bebe a la vista, salvo en el agradecimiento (su dibujo es a pantalla completa) */
+static bool stage_visible(void)
+{
+    return s_view == VIEW_BABY && hh_state(&s_hh) != HH_THANKS;
+}
+
+/* Fondo de lo del bebe (el comprado, la fototerapia, el del gesto): dentro de la pantallita si se
+ * ve; si no (IncuNest vacia, con sus papas, agradecimiento, sin WiFi), en toda la pantalla, como
+ * antes. Fuera de la pantallita, el rosa lavanda de la app. */
+static void home_bg_apply(void)
+{
+    if (!s_stage_bg || !s_stage_frame) return;
+    bool st = stage_visible();
+    if (lv_obj_is_hidden(s_stage_bg) == st) {
+        lv_obj_set_hidden(s_stage_bg, !st);
+        lv_obj_set_hidden(s_stage_frame, !st);
+    }
+    lv_obj_set_style_bg_color(s_stage_bg, s_bg_col, 0);
+    lv_obj_set_style_bg_color(s_scr, st ? COL_BG : s_bg_col, 0);
+}
+
+static void home_bg(lv_color_t c)
+{
+    s_bg_col = c;
+    home_bg_apply();
+}
+
+static lv_obj_t *stage_part(bool frame)
+{
+    lv_obj_t *o = lv_obj_create(s_scr);
+    lv_obj_set_size(o, STAGE_W, STAGE_H);
+    lv_obj_set_pos(o, STAGE_X, STAGE_Y);
+    lv_obj_set_style_radius(o, STAGE_R, 0);
+    lv_obj_set_style_pad_all(o, 0, 0);
+    lv_obj_set_scrollable(o, false);
+    lv_obj_set_clickable(o, false); /* los toques llegan al bebe */
+    if (frame) {
+        lv_obj_set_style_bg_opa(o, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_color(o, COL_INK, 0);
+        lv_obj_set_style_border_width(o, TOY_BORDER, 0);
+    } else {
+        lv_obj_set_style_bg_opa(o, LV_OPA_COVER, 0);
+        lv_obj_set_style_border_width(o, 0, 0);
+        toy_shadow(o, TOY_SHADOW_M);
+    }
+    lv_obj_set_hidden(o, true);
+    return o;
+}
+
 /* ------------------------------------------------------------------ halo */
 
 static void halo_opa_cb(void *var, int32_t v) { lv_obj_set_style_bg_opa((lv_obj_t *)var, (lv_opa_t)v, 0); }
@@ -155,7 +220,7 @@ static void halo_set_mode(halo_mode_t m)
     switch (m) {
     case HALO_OFF:
         lv_obj_set_hidden(s_halo, true);
-        lv_obj_set_style_bg_color(s_scr, ui_theme_bg(), 0);
+        home_bg(ui_theme_bg());
         return;
     case HALO_WARM:  col = COL_HALO_WARM; break;
     case HALO_PHOTO: col = COL_HALO_PHOTO; period = 2000; break;
@@ -164,7 +229,7 @@ static void halo_set_mode(halo_mode_t m)
     }
     lv_obj_set_hidden(s_halo, false);
     lv_obj_set_style_bg_color(s_halo, col, 0);
-    lv_obj_set_style_bg_color(s_scr, m == HALO_PHOTO ? COL_BG_PHOTO : ui_theme_bg(), 0);
+    home_bg(m == HALO_PHOTO ? COL_BG_PHOTO : ui_theme_bg());
     halo_start_anim(period);
 }
 
@@ -175,26 +240,20 @@ static lv_obj_t *state_icon_create(lv_obj_t *parent, int32_t x, const void *src)
     lv_obj_t *c = lv_obj_create(parent);
     lv_obj_set_size(c, ICON_D, ICON_D);
     lv_obj_set_pos(c, x, ICON_Y);
-    lv_obj_set_style_radius(c, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(c, COL_CARD, 0);
-    lv_obj_set_style_border_width(c, 3, 0);
-    lv_obj_set_style_border_color(c, COL_OFFLINE, 0);
+    toy_box(c, LV_RADIUS_CIRCLE, TOY_SHADOW_S); /* circulo con borde tinta y sombra dura, como la app */
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
-    lv_obj_t *icon = lv_image_create(c);
-    lv_image_set_src(icon, src);
+    lv_obj_t *icon = src ? lv_image_create(c) : toy_heart_img(c, TOY_HEART_FULL, 3); /* NULL: latido */
+    if (src) lv_image_set_src(icon, src);
     lv_obj_center(icon);
     return c;
 }
-
-static void state_icon_set(lv_obj_t *c, lv_color_t col) { lv_obj_set_style_border_color(c, col, 0); }
 
 /* Tratamiento: activo = circulo relleno de su color con el icono en blanco; inactivo = atenuado */
 static void treat_icon_set(lv_obj_t *c, bool on, lv_color_t col)
 {
     lv_obj_t *icon = lv_obj_get_child(c, 0);
-    lv_obj_set_style_border_color(c, on ? col : COL_OFFLINE, 0);
     lv_obj_set_style_bg_color(c, on ? col : COL_CARD, 0);
     lv_obj_set_style_image_recolor(icon, lv_color_white(), 0);
     lv_obj_set_style_image_recolor_opa(icon, on ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
@@ -386,7 +445,7 @@ static void snow_y_cb(void *var, int32_t v) { lv_obj_set_y((lv_obj_t *)var, v); 
 /* Copos que caen despacio a los lados del bebe (cambio tienda): sin parpadeos */
 static void snow_create(void)
 {
-    static const int8_t X[SNOW_N] = { 10, 34, 22, 46, 6, 40, 190, 214, 202, 226, 186, 218 };
+    static const uint8_t X[SNOW_N] = { 16, 36, 24, 46, 12, 40, 186, 208, 196, 214, 180, 204 }; /* en la pantallita */
     for (int i = 0; i < SNOW_N; i++) {
         s_snow[i] = lv_label_create(s_scr);
         lv_label_set_text(s_snow[i], "*");
@@ -467,10 +526,15 @@ static void hand_btn_clicked(lv_event_t *e)
 /* ------------------------------------------------------- gesto: objetos */
 
 /* corazon que sube y se desvanece: v 0..1000 */
+static int32_t s_heart_base[N_HEARTS]; /* y de salida del vuelo de cada corazon */
+
 static void heart_anim_cb(void *var, int32_t v)
 {
     lv_obj_t *o = var;
-    int32_t base = (int32_t)(intptr_t)lv_obj_get_user_data(o);
+    int32_t base = 0;
+    for (int i = 0; i < N_HEARTS; i++) {
+        if (s_hearts[i] == o) base = s_heart_base[i];
+    }
     lv_obj_set_y(o, base - 40 * v / 1000);
     int32_t opa = v < 200 ? v * 255 / 200 : (1000 - v) * 255 / 800;
     lv_obj_set_style_image_opa(o, (lv_opa_t)(opa < 0 ? 0 : opa > 255 ? 255 : opa), 0);
@@ -565,17 +629,21 @@ static void hold_create_above_baby(void)
     lv_obj_set_hidden(s_target, true);
 
     static const int16_t HX[N_HEARTS] = { 50, 172, 160, 58 };
-    static const int16_t HY[N_HEARTS] = { 102, 88, 160, 168 }; /* siguen al bebe (BABY_Y) */
+    static const int16_t HY[N_HEARTS] = { 112, 98, 170, 178 }; /* siguen al bebe (BABY_Y) */
     for (int i = 0; i < N_HEARTS; i++) {
-        lv_obj_t *h = lv_image_create(s_scr);
-        lv_image_set_src(h, &img_heart);
-        lv_image_set_scale(h, i % 2 ? 150 : 190); /* 256 = 100 % */
-        lv_obj_set_pos(h, HX[i] - 17, HY[i] - 15);
-        lv_obj_set_user_data(h, (void *)(intptr_t)(HY[i] - 15));
+        /* corazones de pixeles de 18x16 y 27x24 (antes la imagen al 60 y 75 %) */
+        lv_obj_t *h = toy_heart_img(s_scr, TOY_HEART_FULL, i % 2 ? 2 : 3);
+        int32_t hh = i % 2 ? 8 : 12;
+        lv_obj_set_pos(h, HX[i] - hh - 1, HY[i] - hh);
+        s_heart_base[i] = HY[i] - hh; /* salida del vuelo (heart_anim_cb) */
         lv_obj_set_style_image_opa(h, LV_OPA_TRANSP, 0);
         lv_obj_set_hidden(h, true);
         s_hearts[i] = h;
     }
+
+    /* marco de la pantallita: encima del bebe, del anillo y de los corazones; debajo del nombre,
+     * del texto del gesto y del agradecimiento */
+    s_stage_frame = stage_part(true);
 
     /* al terminar el gesto: los papas con la IncuNest y el corazon, a pantalla completa. El gesto
      * ha terminado: el dedo ya no lo reanuda (pulsable solo para tapar al bebe de debajo); otro
@@ -587,29 +655,24 @@ static void hold_create_above_baby(void)
     lv_obj_set_hidden(s_thanks_img, true);
 
     s_btn_back = lv_button_create(s_scr);
-    lv_obj_set_size(s_btn_back, 132, ICON_D);
+    lv_obj_set_size(s_btn_back, 150, ICON_D);
     lv_obj_align(s_btn_back, LV_ALIGN_TOP_MID, 0, ICON_Y);
-    lv_obj_set_style_bg_color(s_btn_back, COL_CORAL, 0);
-    lv_obj_set_style_radius(s_btn_back, 14, 0);
-    lv_obj_set_style_shadow_width(s_btn_back, 0, 0);
     lv_obj_add_event_cb(s_btn_back, back_btn_clicked, LV_EVENT_CLICKED, NULL);
     lv_obj_t *lbl_back = lv_label_create(s_btn_back);
-    lv_obj_set_style_text_font(lbl_back, &lv_font_es_14, 0);
     lv_label_set_text(lbl_back, tr(STR_HH_BACK));
+    toy_button(s_btn_back, true);
+    lv_obj_set_style_text_font(lbl_back, &lv_font_title_16, 0);
     lv_obj_center(lbl_back);
     lv_obj_set_hidden(s_btn_back, true);
 
     s_name = lv_label_create(s_scr);
     lv_label_set_text(s_name, "");
-    lv_obj_set_style_text_font(s_name, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(s_name, COL_NAVY_DARK, 0);
-    lv_obj_set_style_bg_color(s_name, COL_CARD, 0);
-    lv_obj_set_style_bg_opa(s_name, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_name, COL_CORAL, 0);
-    lv_obj_set_style_border_width(s_name, 2, 0);
-    lv_obj_set_style_radius(s_name, 13, 0);
+    lv_obj_set_style_text_font(s_name, &lv_font_title_16, 0);
+    lv_obj_set_style_text_color(s_name, COL_INK, 0);
+    toy_pill(s_name); /* etiqueta de juguete sobre la manta, como la app */
     lv_obj_set_style_pad_hor(s_name, 12, 0);
-    lv_obj_set_style_pad_ver(s_name, 2, 0);
+    lv_obj_set_style_pad_top(s_name, 2, 0);
+    lv_obj_set_style_pad_bottom(s_name, 1, 0);
     lv_obj_set_style_max_width(s_name, 200, 0);
     lv_label_set_long_mode(s_name, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_align(s_name, LV_ALIGN_TOP_MID, 0, NAME_Y);
@@ -622,12 +685,13 @@ static void hold_create_above_baby(void)
     lv_label_set_text(s_lbl_hold, "");
     lv_obj_set_size(s_lbl_hold, 224, HOLD_H);
     lv_obj_set_pos(s_lbl_hold, 8, ICON_Y);
-    lv_obj_set_style_text_font(s_lbl_hold, &lv_font_es_14, 0);
+    lv_obj_set_style_text_font(s_lbl_hold, &lv_font_title_14, 0);
     lv_obj_set_style_text_align(s_lbl_hold, LV_TEXT_ALIGN_CENTER, 0);
+    lv_obj_set_style_text_line_space(s_lbl_hold, -2, 0); /* dos lineas en la fila de 36 */
     lv_obj_set_style_pad_hor(s_lbl_hold, 6, 0);
     lv_obj_set_style_pad_top(s_lbl_hold, 11, 0);
-    lv_obj_set_style_radius(s_lbl_hold, 14, 0);
-    lv_obj_set_style_border_color(s_lbl_hold, COL_CORAL, 0);
+    lv_obj_set_style_radius(s_lbl_hold, TOY_R_CARD, 0);
+    lv_obj_set_style_border_color(s_lbl_hold, COL_INK, 0);
     lv_obj_set_style_bg_color(s_lbl_hold, COL_CARD, 0);
     lv_label_set_long_mode(s_lbl_hold, LV_LABEL_LONG_MODE_WRAP); /* hasta dos lineas */
     lv_obj_set_hidden(s_lbl_hold, true);
@@ -640,19 +704,14 @@ static void hold_timer_cb(lv_timer_t *t)
     hold_refresh(false);
 }
 
-/* Boton del pais en la barra de arriba (donde estaba la marca): bandera + nombre, fondo blanco y
- * marco azul de la marca para que se vea que se puede tocar. Encima de las paginas: tambien se ve
- * (y se toca) en el mapa. */
+/* Boton del pais en la barra de arriba (donde estaba la marca): bandera + nombre en una etiqueta de
+ * juguete (crema, borde tinta, sombra dura) para que se vea que se puede tocar. Encima de las
+ * paginas: tambien se ve (y se toca) en el mapa. */
 static void country_button_create(void)
 {
     s_country = lv_obj_create(s_scr);
     lv_obj_set_size(s_country, LV_SIZE_CONTENT, 26);
-    lv_obj_set_style_bg_color(s_country, COL_CARD, 0);
-    lv_obj_set_style_bg_color(s_country, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_bg_opa(s_country, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_country, COL_NAVY, 0);
-    lv_obj_set_style_border_width(s_country, 2, 0);
-    lv_obj_set_style_radius(s_country, 8, 0);
+    toy_pill(s_country); /* se hunde al pulsarlo */
     lv_obj_set_style_pad_left(s_country, 4, 0);
     lv_obj_set_style_pad_right(s_country, 6, 0);
     lv_obj_set_style_pad_ver(s_country, 0, 0);
@@ -664,14 +723,14 @@ static void country_button_create(void)
     lv_obj_set_ext_click_area(s_country, 6);
     lv_obj_set_gesture_bubble(s_country, false);
     lv_obj_add_event_cb(s_country, country_clicked, LV_EVENT_CLICKED, NULL);
-    lv_obj_align(s_country, LV_ALIGN_TOP_RIGHT, -4, 6);
+    lv_obj_align(s_country, LV_ALIGN_TOP_RIGHT, -6, 5);
     s_country_flag = lv_image_create(s_country);
     lv_image_set_inner_align(s_country_flag, LV_IMAGE_ALIGN_STRETCH); /* bandera de 26 px a 16 */
     lv_obj_set_clickable(s_country_flag, false);
     s_country_lbl = lv_label_create(s_country);
     lv_label_set_text(s_country_lbl, "");
     lv_obj_set_style_text_font(s_country_lbl, &lv_font_es_12, 0);
-    lv_obj_set_style_text_color(s_country_lbl, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_color(s_country_lbl, COL_INK, 0);
     lv_obj_set_style_max_width(s_country_lbl, COUNTRY_LBL_W, 0);
     lv_label_set_long_mode(s_country_lbl, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_hidden(s_country, true);
@@ -732,8 +791,9 @@ static void info_create(void)
     lv_obj_set_style_text_align(s_info, LV_TEXT_ALIGN_CENTER, 0);
     lv_obj_set_style_bg_color(s_info, COL_CARD, 0);
     lv_obj_set_style_bg_opa(s_info, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_width(s_info, 2, 0);
-    lv_obj_set_style_radius(s_info, 12, 0);
+    lv_obj_set_style_border_width(s_info, TOY_BORDER, 0); /* borde del color del simbolo */
+    lv_obj_set_style_radius(s_info, TOY_R_CARD, 0);
+    toy_shadow(s_info, TOY_SHADOW_S);
     lv_obj_set_style_pad_hor(s_info, 10, 0);
     lv_obj_set_style_pad_ver(s_info, 7, 0);
     lv_label_set_long_mode(s_info, LV_LABEL_LONG_MODE_WRAP);
@@ -797,8 +857,9 @@ static void nowifi_timer_cb(lv_timer_t *t)
 lv_obj_t *ui_home_create(void)
 {
     s_scr = lv_obj_create(NULL);
-    lv_obj_set_style_bg_color(s_scr, ui_theme_bg(), 0);
+    lv_obj_set_style_bg_color(s_scr, COL_BG, 0);
     lv_obj_set_scrollable(s_scr, false);
+    s_bg_col = ui_theme_bg();
 
     /* imagenes a pantalla completa (debajo de todo) */
     s_empty_img = lv_image_create(s_scr);
@@ -810,6 +871,8 @@ lv_obj_t *ui_home_create(void)
     lv_image_set_src(s_parents_img, &img_baby_parents);
     lv_obj_set_pos(s_parents_img, 0, PARENTS_Y);
     lv_obj_set_hidden(s_parents_img, true);
+
+    s_stage_bg = stage_part(false); /* debajo del halo; el marco va encima del gesto */
 
     /* halo que respira */
     s_halo = lv_obj_create(s_scr);
@@ -834,7 +897,7 @@ lv_obj_t *ui_home_create(void)
     lv_obj_add_event_cb(baby, baby_touched, LV_EVENT_ALL, NULL);
 
     s_icon_thermo = state_icon_create(s_scr, 8, &img_icon_thermo);
-    s_icon_photo = state_icon_create(s_scr, 58, &img_icon_lamp);
+    s_icon_photo = state_icon_create(s_scr, 8 + ICON_D + 6, &img_icon_lamp);
     lv_obj_t *tap[] = { s_icon_thermo, s_icon_photo };
     lv_event_cb_t tap_cb[] = { thermo_icon_clicked, photo_icon_clicked };
     for (int i = 0; i < 2; i++) { /* tocar: que es este tratamiento */
@@ -843,27 +906,26 @@ lv_obj_t *ui_home_create(void)
         lv_obj_set_ext_click_area(tap[i], 4);
         lv_obj_add_event_cb(tap[i], tap_cb[i], LV_EVENT_CLICKED, NULL);
     }
-    s_icon_heart = state_icon_create(s_scr, 108, &img_heart);
+    s_icon_heart = state_icon_create(s_scr, 8 + 2 * (ICON_D + 6), NULL); /* corazon de pixeles */
     lv_obj_set_clickable(s_icon_heart, true); /* tocar: oir su latido */
     lv_obj_add_flag(s_icon_heart, UI_FLAG_CLICK_SOUND);
     lv_obj_set_ext_click_area(s_icon_heart, 4);
     lv_obj_add_event_cb(s_icon_heart, heart_icon_clicked, LV_EVENT_CLICKED, NULL);
 
     s_btn_hand = lv_button_create(s_scr);
-    lv_obj_set_size(s_btn_hand, 74, ICON_D);
-    lv_obj_set_pos(s_btn_hand, 158, ICON_Y);
-    lv_obj_set_style_bg_color(s_btn_hand, COL_CORAL, 0);
-    lv_obj_set_style_radius(s_btn_hand, 14, 0);
-    lv_obj_set_style_shadow_width(s_btn_hand, 0, 0);
+    lv_obj_set_size(s_btn_hand, HAND_W, ICON_D);
+    lv_obj_set_pos(s_btn_hand, HAND_X, ICON_Y);
+    lv_obj_set_style_pad_all(s_btn_hand, 0, 0);
     lv_obj_set_style_outline_color(s_btn_hand, COL_CORAL, 0); /* el latido de nudge_set */
     lv_obj_set_style_outline_pad(s_btn_hand, 1, 0);
     lv_obj_set_style_outline_opa(s_btn_hand, LV_OPA_TRANSP, 0);
     lv_obj_add_event_cb(s_btn_hand, hand_btn_clicked, LV_EVENT_CLICKED, NULL);
     s_lbl_hand = lv_label_create(s_btn_hand);
     lv_label_set_text(s_lbl_hand, tr(STR_HAND));
-    lv_obj_set_style_text_font(s_lbl_hand, &lv_font_es_12, 0);
+    toy_button(s_btn_hand, true); /* coral, borde tinta, sombra dura, letra Fredoka */
     lv_obj_set_style_text_align(s_lbl_hand, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_width(s_lbl_hand, 66);
+    lv_obj_set_style_text_line_space(s_lbl_hand, -3, 0);
+    lv_obj_set_width(s_lbl_hand, HAND_W - 10);
     lv_label_set_long_mode(s_lbl_hand, LV_LABEL_LONG_MODE_WRAP);
     lv_obj_center(s_lbl_hand);
 
@@ -965,6 +1027,8 @@ static void row_apply(bool shown)
 
 static void home_set_view(home_view_t view)
 {
+    s_view = view;
+    home_bg_apply();
     baby_set_shown(view == VIEW_BABY); /* VIEW_NOWIFI: lo pinta ui_nowifi */
     /* durante el gesto la fila la ocupa su texto */
     row_apply(view == VIEW_BABY && hh_state(&s_hh) == HH_IDLE);
@@ -999,7 +1063,7 @@ static void hold_text(const char *t)
     if (strcmp(lv_label_get_text(s_lbl_hold), t) == 0) return;
     lv_label_set_text(s_lbl_hold, t);
     lv_point_t sz;
-    lv_text_get_size(&sz, t, &lv_font_es_14, 0, 0, 224 - 12, LV_TEXT_FLAG_NONE);
+    lv_text_get_size(&sz, t, &lv_font_title_14, 0, -2, 224 - 12, LV_TEXT_FLAG_NONE);
     int32_t pad = (HOLD_H - sz.y) / 2 - 2;
     lv_obj_set_style_pad_top(s_lbl_hold, pad < 0 ? 0 : pad, 0);
 }
@@ -1097,7 +1161,7 @@ static void overlay_refresh(void)
 
 static void scr_bg_restore(void)
 {
-    lv_obj_set_style_bg_color(s_scr, s_halo_mode == HALO_PHOTO ? COL_BG_PHOTO : ui_theme_bg(), 0);
+    home_bg(s_halo_mode == HALO_PHOTO ? COL_BG_PHOTO : ui_theme_bg());
 }
 
 /* Pinta el estado del gesto (spec twin-display, "Coge mi mano en pantalla"). Los cambios de
@@ -1163,6 +1227,7 @@ static void hold_refresh(bool force)
         target_run(baby_view && st == HH_READY);
         hearts_run(baby_view && (st == HH_HOLDING || st == HH_DONE));
         thanks_show(baby_view && st == HH_THANKS);
+        home_bg_apply(); /* sin pantallita en el agradecimiento */
         overlay_refresh();
         nav_apply();
         if (idle || !baby_view) ui_streak_fx_hide();
@@ -1174,11 +1239,12 @@ static void hold_refresh(bool force)
 
         bool boxed = st == HH_READY || st == HH_THANKS;
         lv_obj_set_style_bg_opa(s_lbl_hold, boxed ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(s_lbl_hold, boxed ? 2 : 0, 0);
+        lv_obj_set_style_border_width(s_lbl_hold, boxed ? TOY_BORDER : 0, 0);
+        toy_shadow(s_lbl_hold, boxed ? TOY_SHADOW_S : 0);
         lv_obj_set_style_text_color(s_lbl_hold,
-                                    (st == HH_READY || st == HH_GRACE) ? COL_CORAL : COL_NAVY_DARK, 0);
+                                    (st == HH_READY || st == HH_GRACE) ? COL_CORAL : COL_INK, 0); /* coral de siempre (Pablo, 27-nov) */
         if (baby_view && (st == HH_DONE || st == HH_THANKS)) {
-            lv_obj_set_style_bg_color(s_scr, COL_BG_THANKS, 0);
+            home_bg(COL_BG_THANKS);
         } else {
             scr_bg_restore();
         }
@@ -1291,7 +1357,6 @@ void ui_home_apply(const twin_snapshot_t *s)
     lv_color_t tcol = inc->thermo == TWIN_THERMO_HEATING ? COL_WARM : COL_OK;
     treat_icon_set(s_icon_thermo, s->show_baby && inc->thermo != TWIN_THERMO_OFF, tcol);
     treat_icon_set(s_icon_photo, s->show_baby && inc->photo, COL_PHOTO);
-    state_icon_set(s_icon_heart, COL_CORAL);
     row_apply(s_row_shown); /* el tratamiento puede haber cambiado */
 
     baby_set_skin_tone(inc->skin);
@@ -1312,7 +1377,39 @@ void ui_home_apply(const twin_snapshot_t *s)
     /* el modo del halo puede haber repintado el fondo: el gesto manda sobre el */
     hold_refresh(false);
     if (!hh_idle && s->show_baby && (hh_state(&s_hh) == HH_DONE || hh_state(&s_hh) == HH_THANKS)) {
-        lv_obj_set_style_bg_color(s_scr, COL_BG_THANKS, 0);
+        home_bg(COL_BG_THANKS);
     }
     name_maybe_ask();
+}
+
+/* ------------------------------------------------------- consola (ui_debug) */
+
+/* Revisar el estilo: los pasos del gesto sin tocar la pantalla. Empezar el gesto o poner el dedo
+ * solo cuando el boton «Coge mi mano» de verdad estaria a la vista (bebe, pagina del bebe, sin
+ * IncuPray): asi la consola no puede contar un gesto sin bebe. Ojo: con bebe, un gesto completado
+ * desde la consola cuenta como uno de verdad (corazon, racha, telemetria). */
+bool ui_home_debug_hand(int step)
+{
+    bool shown = s_have_last && s_last.show_baby && s_view == VIEW_BABY && ui_pages_current() == UI_PAGE_BABY &&
+                 !s_incupray_btn;
+    if (step <= 1 && !shown) return false;
+    uint32_t now = lv_tick_get();
+    switch (step) {
+    case 0: info_hide(); hh_button(&s_hh, now); break;
+    case 1: hh_touch(&s_hh, true, now); break;
+    case 2: hh_touch(&s_hh, false, now); break;
+    default: { /* cierra el gesto en cualquier paso, como al salir de la pagina del bebe */
+        bool can_send = s_have_last && !s_last.demo && s_last.link.broker_connected && s_last.link.paired;
+        hh_set_available(&s_hh, false, can_send, now);
+        break;
+    }
+    }
+    hold_refresh(false);
+    return true;
+}
+
+/* Cambia de pagina como el dedo o el boton del pais (fuera burbuja y latido, y repintar) */
+void ui_home_debug_page(int page)
+{
+    if (ui_pages_goto(page)) page_changed();
 }

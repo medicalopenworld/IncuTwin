@@ -15,6 +15,7 @@
 #include "twin_geo.h"
 #include "world_map.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 
 static const char *TAG = "pages";
 
@@ -105,9 +106,7 @@ static lv_obj_t *card(lv_obj_t *parent, int32_t y, int32_t h)
     lv_obj_t *c = lv_obj_create(parent);
     lv_obj_set_size(c, 216, h);
     lv_obj_set_pos(c, 12, y);
-    lv_obj_set_style_bg_color(c, COL_CARD, 0);
-    lv_obj_set_style_radius(c, 12, 0);
-    lv_obj_set_style_border_width(c, 0, 0);
+    toy_box(c, TOY_R_CARD, TOY_SHADOW_M); /* tarjeta de juguete, como la app */
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
@@ -164,7 +163,7 @@ static void dots_refresh(void)
     for (int i = 0; i < UI_PAGES_COUNT; i++) {
         int32_t w = i == s_pos ? 14 : 6;
         lv_obj_set_hidden(s_dots[i], i >= s_avail || s_avail < 2);
-        lv_obj_set_style_bg_color(s_dots[i], i == s_pos ? COL_CORAL : COL_OFFLINE, 0);
+        lv_obj_set_style_bg_color(s_dots[i], i == s_pos ? COL_CORAL : COL_FAINT, 0);
         lv_obj_set_size(s_dots[i], w, 6);
         lv_obj_set_pos(s_dots[i], x, DOTS_Y);
         x += w + 6;
@@ -304,7 +303,7 @@ static void streak_draw(void)
         ui_week_heart_style(s_week[i], on, super, rest, valid && off < 0);
         char s[2] = { valid && strlen(ini) == 7 ? ini[(i + 1) % 7] : '\0', '\0' };
         lv_label_set_text(s_week_day[i], s);
-        lv_obj_set_style_text_color(s_week_day[i], valid && off == 0 ? COL_CORAL : COL_OFFLINE, 0);
+        lv_obj_set_style_text_color(s_week_day[i], valid && off == 0 ? COL_CORAL_INK : COL_MUTED, 0);
     }
 
     int n = 0;
@@ -341,12 +340,7 @@ static void streak_days_refresh(void)
 static lv_obj_t *overlay(lv_obj_t *parent)
 {
     lv_obj_t *c = lv_obj_create(parent);
-    lv_obj_set_style_bg_color(c, COL_CARD, 0);
-    lv_obj_set_style_bg_opa(c, LV_OPA_90, 0);
-    lv_obj_set_style_radius(c, 12, 0);
-    lv_obj_set_style_border_width(c, 0, 0);
-    lv_obj_set_style_shadow_width(c, 8, 0);
-    lv_obj_set_style_shadow_opa(c, LV_OPA_20, 0);
+    toy_box(c, TOY_R_CARD, TOY_SHADOW_S); /* etiqueta de juguete sobre el mapa */
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
@@ -415,7 +409,7 @@ static void rewards_refresh(void)
     const rw_state_t *r = ui_rewards();
     balance_set(s_lbl_bal, s_lbl_level, r);
     for (int i = 0; i < RW_SAVED_MAX; i++) lv_obj_set_hidden(s_saved[i], i >= r->saved);
-    lv_obj_set_style_bg_color(s_pg[UI_PAGE_STREAK], ui_theme_bg(), 0);
+    lv_obj_set_style_bg_color(s_pg[UI_PAGE_STREAK], COL_BG, 0); /* la racha va en tarjetas */
 }
 
 void ui_pages_rewards_apply(void) { rewards_refresh(); }
@@ -485,31 +479,28 @@ void ui_pages_create(lv_obj_t *scr)
     lv_obj_set_clickable(row, false);
     s_flag = lv_image_create(row);
     s_lbl_country = lv_label_create(row);
-    lv_obj_set_style_text_font(s_lbl_country, &lv_font_es_20, 0);
-    lv_obj_set_style_text_color(s_lbl_country, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_font(s_lbl_country, &lv_font_title_20, 0);
+    lv_obj_set_style_text_color(s_lbl_country, COL_INK, 0);
     lv_obj_set_style_max_width(s_lbl_country, 150, 0);
     lv_label_set_long_mode(s_lbl_country, LV_LABEL_LONG_MODE_DOTS);
     s_lbl_time = lv_label_create(s_chip);
     lv_obj_set_style_text_font(s_lbl_time, &lv_font_es_12, 0);
-    lv_obj_set_style_text_color(s_lbl_time, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_color(s_lbl_time, COL_MUTED, 0);
     lv_label_set_text(s_lbl_time, "");
     s_lbl_hosp = lv_label_create(s_chip);
     lv_obj_set_style_text_font(s_lbl_hosp, &lv_font_es_12, 0);
-    lv_obj_set_style_text_color(s_lbl_hosp, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_color(s_lbl_hosp, COL_MUTED, 0);
     lv_label_set_text(s_lbl_hosp, DEMO_HOSPITAL);
 
     /* los km, en una pastilla sobre la linea (se centra en country_page_refresh) */
     s_km = overlay(p);
     lv_obj_set_size(s_km, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
-    lv_obj_set_style_radius(s_km, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_opa(s_km, LV_OPA_COVER, 0);
-    lv_obj_set_style_border_color(s_km, COL_CORAL, 0);
-    lv_obj_set_style_border_width(s_km, 2, 0);
+    lv_obj_set_style_radius(s_km, TOY_R_PILL, 0);
     lv_obj_set_style_pad_hor(s_km, 8, 0);
     lv_obj_set_style_pad_ver(s_km, 2, 0);
     s_lbl_km = lv_label_create(s_km);
-    lv_obj_set_style_text_font(s_lbl_km, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(s_lbl_km, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_font(s_lbl_km, &lv_font_title_14, 0);
+    lv_obj_set_style_text_color(s_lbl_km, COL_INK, 0);
     lv_label_set_text(s_lbl_km, "");
 
     /* pagina 2: logros acumulados (demo) o la racha (modo acompañar) */
@@ -534,19 +525,17 @@ void ui_pages_create(lv_obj_t *scr)
     lv_obj_set_hidden(s_streak_box, true);
 
     /* la racha: titulo, 7 corazones con la inicial del dia y una frase */
-    s_lbl_streak_t = text(s_streak_box, &lv_font_es_20, COL_NAVY_DARK, 0, 0);
+    s_lbl_streak_t = text(s_streak_box, &lv_font_title_20, COL_INK, 0, 0);
     lv_obj_align(s_lbl_streak_t, LV_ALIGN_TOP_MID, 0, 4);
     lv_obj_t *c = card(s_streak_box, 36, 76);
     for (int i = 0; i < WEEK_N; i++) {
         int32_t x = 6 + i * 29; /* 7 x 29 = 203 dentro de 216 */
         lv_obj_t *h = s_week[i] = lv_image_create(c);
-        lv_image_set_src(h, &img_heart);
-        lv_image_set_inner_align(h, LV_IMAGE_ALIGN_STRETCH);
-        lv_obj_set_size(h, 26, 23);
-        lv_obj_set_pos(h, x + 1, 14);
-        lv_obj_set_style_image_recolor(h, COL_OFFLINE, 0);
+        ui_week_heart_style(h, false, false, false, false); /* corazon de pixeles de la app */
+        lv_obj_set_size(h, 27, 24);
+        lv_obj_set_pos(h, x, 14);
         lv_obj_set_clickable(h, false);
-        s_week_day[i] = text(c, &lv_font_es_12, COL_OFFLINE, 0, 46);
+        s_week_day[i] = text(c, &lv_font_es_12, COL_MUTED, 0, 46);
         lv_obj_set_width(s_week_day[i], 28);
         lv_obj_set_x(s_week_day[i], x);
         lv_obj_set_style_text_align(s_week_day[i], LV_TEXT_ALIGN_CENTER, 0);
@@ -563,39 +552,31 @@ void ui_pages_create(lv_obj_t *scr)
     lv_obj_set_scrollable(bal, false);
     lv_obj_set_clickable(bal, false);
     lv_obj_align(bal, LV_ALIGN_TOP_MID, 0, 120);
-    lv_obj_t *bh = lv_image_create(bal);
-    lv_image_set_src(bh, &img_heart);
-    lv_image_set_inner_align(bh, LV_IMAGE_ALIGN_STRETCH);
-    lv_obj_set_size(bh, 22, 19);
-    s_lbl_bal = text(bal, &lv_font_es_20, COL_CORAL, 0, 0);
-    s_lbl_level = text(bal, &lv_font_es_14, COL_NAVY_DARK, 0, 0);
+    toy_heart_img(bal, TOY_HEART_FULL, 2);
+    s_lbl_bal = text(bal, &lv_font_title_20, COL_INK, 0, 0);
+    s_lbl_level = text(bal, &lv_font_title_14, COL_INK, 0, 0);
     for (int i = 0; i < RW_SAVED_MAX; i++) { /* abrazos guardados: corazones azul claro */
-        lv_obj_t *h = s_saved[i] = lv_image_create(bal);
-        lv_image_set_src(h, &img_heart);
-        lv_image_set_inner_align(h, LV_IMAGE_ALIGN_STRETCH);
-        lv_obj_set_size(h, 15, 13);
-        lv_obj_set_style_image_recolor(h, COL_REST, 0);
-        lv_obj_set_style_image_recolor_opa(h, LV_OPA_COVER, 0);
+        lv_obj_t *h = s_saved[i] = toy_heart_img(bal, TOY_HEART_REST, 2);
         lv_obj_set_hidden(h, true);
     }
-    s_lbl_streak = text(s_streak_box, &lv_font_es_16, COL_NAVY_DARK, 20, 156);
+    s_lbl_streak = text(s_streak_box, &lv_font_es_16, COL_INK, 20, 156);
     lv_obj_set_width(s_lbl_streak, 200);
     lv_obj_set_style_text_align(s_lbl_streak, LV_TEXT_ALIGN_CENTER, 0);
     lv_label_set_long_mode(s_lbl_streak, LV_LABEL_LONG_MODE_WRAP);
 
     p = s_ach_box;
-    s_lbl_ach_t = text(p, &lv_font_es_20, COL_NAVY_DARK, 0, 0);
+    s_lbl_ach_t = text(p, &lv_font_title_20, COL_INK, 0, 0);
     lv_obj_align(s_lbl_ach_t, LV_ALIGN_TOP_MID, 0, ACH_T_Y);
-    s_lbl_ach_sub = text(p, &lv_font_es_12, COL_OFFLINE, 0, 0);
+    s_lbl_ach_sub = text(p, &lv_font_es_12, COL_MUTED, 0, 0);
     lv_obj_align(s_lbl_ach_sub, LV_ALIGN_TOP_MID, 0, ACH_SUB_Y);
     for (int i = 0; i < 4; i++) {
         /* hasta 3 lineas de texto (30 + 3 x 16 = 78); antes y 58 / 150, alto 88 */
         c = card(p, 48 + (i / 2) * 82, 78);
         lv_obj_set_size(c, 104, 78);
         lv_obj_set_x(c, 12 + (i % 2) * 112);
-        s_tile_num[i] = text(c, &lv_font_es_20, COL_CORAL, 0, 0);
+        s_tile_num[i] = text(c, &lv_font_title_24, COL_INK, 0, 0);
         lv_obj_align(s_tile_num[i], LV_ALIGN_TOP_MID, 0, 6);
-        s_tile_cap[i] = text(c, &lv_font_es_12, COL_NAVY_DARK, 0, 0);
+        s_tile_cap[i] = text(c, &lv_font_es_12, COL_MUTED, 0, 0);
         lv_obj_set_width(s_tile_cap[i], 96);
         lv_obj_set_style_text_align(s_tile_cap[i], LV_TEXT_ALIGN_CENTER, 0);
         lv_label_set_long_mode(s_tile_cap[i], LV_LABEL_LONG_MODE_WRAP);

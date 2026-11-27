@@ -12,6 +12,7 @@
 #include "esp_timer.h"
 #include "ota_update.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 
 static const char *TAG = "ui_ota";
 
@@ -50,9 +51,7 @@ static void open_window(void)
     lv_obj_t *card = lv_obj_create(s_back);
     lv_obj_set_size(card, 208, LV_SIZE_CONTENT);
     lv_obj_center(card);
-    lv_obj_set_style_bg_color(card, COL_CARD, 0);
-    lv_obj_set_style_radius(card, 14, 0);
-    lv_obj_set_style_border_width(card, 0, 0);
+    toy_box(card, 16, 4); /* como los dialogos */
     lv_obj_set_style_pad_all(card, 14, 0);
     lv_obj_set_style_pad_row(card, 10, 0);
     lv_obj_set_flex_flow(card, LV_FLEX_FLOW_COLUMN);
@@ -64,8 +63,8 @@ static void open_window(void)
     lv_obj_set_width(t, LV_PCT(100));
     lv_label_set_long_mode(t, LV_LABEL_LONG_MODE_WRAP);
     lv_obj_set_style_text_align(t, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_text_font(t, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(t, COL_NAVY, 0);
+    lv_obj_set_style_text_font(t, &lv_font_title_16, 0);
+    lv_obj_set_style_text_color(t, COL_INK, 0);
 
     s_text = lv_label_create(card);
     lv_label_set_text(s_text, tr(STR_OTA_DONT_UNPLUG));
@@ -79,13 +78,17 @@ static void open_window(void)
     lv_obj_set_size(s_bar, LV_PCT(100), 12);
     lv_bar_set_range(s_bar, 0, 100);
     lv_bar_set_value(s_bar, 0, LV_ANIM_OFF);
-    lv_obj_set_style_bg_color(s_bar, COL_BG, LV_PART_MAIN);
+    lv_obj_set_style_bg_color(s_bar, COL_CORAL_SOFT, LV_PART_MAIN);
+    lv_obj_set_style_border_color(s_bar, COL_INK, LV_PART_MAIN);
+    lv_obj_set_style_border_width(s_bar, TOY_BORDER, LV_PART_MAIN);
+    lv_obj_set_style_radius(s_bar, 6, LV_PART_MAIN);
     lv_obj_set_style_bg_color(s_bar, COL_CORAL, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(s_bar, 0, LV_PART_INDICATOR);
 
     s_pct = lv_label_create(card);
     lv_label_set_text(s_pct, "0 %");
     lv_obj_set_style_text_font(s_pct, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(s_pct, COL_OFFLINE, 0);
+    lv_obj_set_style_text_color(s_pct, COL_MUTED, 0);
 }
 
 static void show(const char *why)
