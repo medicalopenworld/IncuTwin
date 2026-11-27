@@ -98,6 +98,9 @@ void ui_notice_init(void);
 void ui_notice_push(uint32_t mask, uint8_t sex); /* encola un aviso por bit, en orden de bit; cola de 8 */
 /* encola los sellos nuevos, la subida de nivel (`level` = el nuevo) y la guirnalda (spec rewards) */
 void ui_notice_push_reward(uint8_t new_seals, bool level_up, uint8_t level, bool garland);
+/* Tarjeta de subida de nivel (Caricia, Cosquillitas): entra en la misma cola que los avisos y espera
+ * a que no haya nada que la tape (un "Coge mi mano" en marcha). `catchup`: el aviso pendiente de arranque. */
+void ui_level_card_show(rw_level_t level, bool catchup);
 /* Aviso de texto (IncuPray): tocarlo abre la IncuPray si opens_incupray, si no Inicio */
 void ui_notice_push_text(const char *txt, bool opens_incupray);
 bool ui_notice_layer_busy(void);   /* hay un dialogo u otro objeto visible en la capa superior */

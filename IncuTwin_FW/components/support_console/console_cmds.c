@@ -166,6 +166,23 @@ static int cmd_rewards(int argc, char **argv)
         printf("comprar %s: %d (faltan %u)\n", argv[2], (int)res, missing);
         return res == RW_UNLOCK_OK ? 0 : 1;
     }
+    if (argc >= 3 && strcmp(argv[1], "nivel") == 0) { /* solo en la demo: 0 Manita .. 4 Achuchon */
+        bool demo = false;
+        rw_state_t tmp;
+        rewards_copy(&tmp, &demo);
+        int lv = atoi(argv[2]);
+        if (!demo) {
+            printf("solo en la demo (demo on)\n");
+            return 1;
+        }
+        if (lv < 0 || lv >= RW_LEVEL_COUNT) {
+            printf("rewards nivel <0-%d>\n", RW_LEVEL_COUNT - 1);
+            return 1;
+        }
+        rewards_demo_set_level((rw_level_t)lv);
+        printf("nivel de la demo: %d (%lu corazones ganados)\n", lv, (unsigned long)rw_level_min((rw_level_t)lv));
+        return 0;
+    }
     if (argc >= 3 && strcmp(argv[1], "fecha") == 0) { /* pruebas de Navidad: no se guarda */
         int m = atoi(argv[2]), d = argc >= 4 ? atoi(argv[3]) : 1;
         rewards_force_date(m, d);
@@ -310,7 +327,7 @@ void console_start(void)
         { .command = "info", .help = "identidad, enlace y estado", .func = cmd_info },
         { .command = "usage", .help = "contadores de uso", .func = cmd_usage },
         { .command = "tel", .help = "telemetria: gen, boot_n, next_seq, pending, lost, lote en vuelo y pila", .func = cmd_tel },
-        { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` solo en la demo", .func = cmd_rewards },
+        { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` y `rewards nivel <0-4>` solo en la demo", .func = cmd_rewards },
         { .command = "demo", .help = "demo on|off: como 2 s del boton BOOT", .func = cmd_demo },
         { .command = "pantalla", .help = "captura de la pantalla (para tools/screenshot.py)", .func = cmd_screen },
         { .command = "toque", .help = "toque <x0> <y0> <x1> <y1> <ms> [vueltas]: SOLO PRUEBAS, un dedo de mentira "

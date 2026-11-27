@@ -34,6 +34,13 @@ bool rewards_spend(uint16_t n);
 void rewards_add(uint8_t hearts);
 /* Un «Coge mi mano» completado en la demo (suma al estado simulado). */
 void rewards_demo_gesture(const char *country);
+/* Niveles de afecto: si quien ya tenia corazones al estrenar los niveles aun no ha visto el suyo,
+ * devuelve true y su nivel, lo marca como visto y guarda. Solo con el estado de verdad: con la demo
+ * activa devuelve false y no gasta el aviso. */
+bool rewards_catchup_take(rw_level_t *level);
+/* Pruebas (consola): con la demo activa, deja los corazones ganados de la demo en el minimo del nivel;
+ * si sube de nivel se anuncia (franja o tarjeta) como si lo hubiera ganado un gesto. */
+void rewards_demo_set_level(rw_level_t level);
 
 #ifdef __cplusplus
 }
