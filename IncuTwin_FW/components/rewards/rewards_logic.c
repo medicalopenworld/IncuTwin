@@ -94,9 +94,16 @@ rw_level_t rw_level(uint32_t earned)
 
 uint32_t rw_level_min(rw_level_t level) { return level < RW_LEVEL_COUNT ? LEVEL_MIN[level] : 0; }
 
-bool rw_catchup_due(const rw_state_t *s) { return (unsigned)rw_level(s->earned) > s->level_seen; }
+/* El nivel que se anuncia: el real, pero sin pasar de lo que abre algo en esta version */
+static uint8_t announced_level(uint32_t earned)
+{
+    rw_level_t l = rw_level(earned);
+    return (uint8_t)(l < RW_LEVEL_LAST_OPEN ? l : RW_LEVEL_LAST_OPEN);
+}
 
-void rw_catchup_done(rw_state_t *s) { s->level_seen = (uint8_t)rw_level(s->earned); }
+bool rw_catchup_due(const rw_state_t *s) { return announced_level(s->earned) > s->level_seen; }
+
+void rw_catchup_done(rw_state_t *s) { s->level_seen = announced_level(s->earned); }
 
 uint16_t rw_price(rw_item_t item) { return item < RW_ITEM_COUNT ? PRICE[item] : 0; }
 
@@ -138,7 +145,7 @@ static void earn(rw_state_t *s, rw_news_t *n, uint8_t hearts)
     n->hearts += hearts;
     if (rw_level(s->earned) != before) {
         n->level_up = true;
-        s->level_seen = (uint8_t)rw_level(s->earned); /* ya se anuncia con el aviso normal */
+        s->level_seen = announced_level(s->earned); /* ya se anuncia con el aviso normal */
     }
 }
 
@@ -327,7 +334,7 @@ void rw_demo_seed(rw_state_t *s)
     rw_init(s);
     s->balance = 50; /* que en la demo se pueda comprar de todo (la tienda empieza en 10) */
     s->earned = 12;
-    s->level_seen = (uint8_t)rw_level(s->earned); /* la demo no anuncia nada al empezar */
+    s->level_seen = announced_level(s->earned); /* la demo no anuncia nada al empezar */
     s->seals = (uint8_t)(BIT(RW_SEAL_FIRST) | BIT(RW_SEAL_WEEK));
     s->n_countries = 1;
     s->passport[0] = (rw_country_t){ { 'C', 'M' }, 0 };

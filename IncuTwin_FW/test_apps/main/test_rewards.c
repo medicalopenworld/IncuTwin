@@ -108,6 +108,26 @@ TEST_CASE("rewards: subir de nivel jugando no deja aviso pendiente", "[rewards]"
     TEST_ASSERT_FALSE(rw_catchup_due(&s));          /* ya lo anuncia el aviso normal */
 }
 
+TEST_CASE("rewards: el aviso no tapa los niveles que aun no abren nada", "[rewards]") {
+    rw_state_t s; rw_init(&s);
+    s.earned = 80;                                   /* Abrazo, que en esta version no abre nada */
+    TEST_ASSERT_TRUE(rw_catchup_due(&s));            /* aun asi, Caricia y Cosquillitas estan por anunciar */
+    rw_catchup_done(&s);
+    TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_LAST_OPEN, s.level_seen); /* no se guarda el nivel real */
+    TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_TICKLES, s.level_seen);
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));
+}
+
+TEST_CASE("rewards: subir a Abrazo jugando deja anunciado solo hasta Cosquillitas", "[rewards]") {
+    rw_state_t s; rw_init(&s);
+    s.earned = 74; s.last_day = D0 - 1; s.streak = 1;
+    rw_gesture_t g = G(D0, "TG", 7);
+    TEST_ASSERT_TRUE(rw_on_gesture(&s, &g).level_up);
+    TEST_ASSERT_EQUAL_UINT(RW_LEVEL_HUG, rw_level(s.earned));
+    TEST_ASSERT_EQUAL_UINT8(RW_LEVEL_TICKLES, s.level_seen);
+    TEST_ASSERT_FALSE(rw_catchup_due(&s));
+}
+
 TEST_CASE("rewards: el guardado no cambia de tamaño", "[rewards]") {
     TEST_ASSERT_EQUAL_UINT(offsetof(rw_state_t, passport) - 19, offsetof(rw_state_t, level_seen));
 }

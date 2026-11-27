@@ -327,7 +327,7 @@ void rewards_demo_set_level(rw_level_t level)
     if (demo) {
         n.level_up = rw_level(s_demo.earned) < level; /* subir en la demo se anuncia como subir de verdad */
         s_demo.earned = rw_level_min(level);
-        s_demo.level_seen = (uint8_t)rw_level(s_demo.earned); /* sin aviso pendiente */
+        rw_catchup_done(&s_demo); /* sin aviso pendiente */
     }
     UNLOCK();
     if (demo) post(&n, true);

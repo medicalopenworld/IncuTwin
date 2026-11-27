@@ -29,6 +29,9 @@ typedef enum {
 
 /* Niveles de afecto: cada uno es una forma de tocar (Manita, Caricia, Cosquillitas, Abrazo, Achuchon) */
 typedef enum { RW_LEVEL_HAND = 0, RW_LEVEL_CARESS, RW_LEVEL_TICKLES, RW_LEVEL_HUG, RW_LEVEL_SQUEEZE, RW_LEVEL_COUNT } rw_level_t;
+/* El nivel mas alto que abre algo en esta version. `level_seen` nunca pasa de aqui: cuando la fase 2
+ * suba este tope, quien ya esta por encima recibe solo el aviso de lo nuevo. */
+#define RW_LEVEL_LAST_OPEN RW_LEVEL_TICKLES
 
 /* El orden es el de los bits de `unlocked`: lo nuevo va siempre detras (los guardados viejos
  * siguen valiendo). Maximo 64. */
