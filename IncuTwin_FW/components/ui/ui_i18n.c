@@ -178,7 +178,7 @@ static const char *const STRINGS[STR_COUNT][2] = {
     /* STR_ITEM_HALO_MINT */ { "Menta", "Mint" },
     /* STR_ITEM_HALO_PEACH */ { "Melocotón", "Peach" },
     /* STR_ITEM_HALO_LILAC */ { "Lila", "Lilac" },
-    /* STR_ITEM_BG_DEFAULT */ { "Blanco roto", "Off-white" },
+    /* STR_ITEM_BG_DEFAULT */ { "Azul bebé", "Baby blue" },
     /* STR_ITEM_BG_CREAM  */ { "Crema", "Cream" },
     /* STR_ITEM_BG_PINK   */ { "Rosa", "Pink" },
     /* STR_ITEM_BG_AQUA   */ { "Verde agua", "Aqua" },

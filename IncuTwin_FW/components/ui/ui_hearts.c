@@ -15,6 +15,7 @@
 #include "net_wifi.h"
 #include "rewards.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 
 #define TITLE_H      40
 #define HEARTS_LIST_H (UI_NAV_Y - TITLE_H)
@@ -43,9 +44,7 @@ static lv_obj_t *card(void)
 {
     lv_obj_t *c = box(s_list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_size(c, ROW_W, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(c, COL_CARD, 0);
-    lv_obj_set_style_bg_opa(c, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(c, 12, 0);
+    toy_box(c, TOY_R_CARD, TOY_SHADOW_M); /* tarjeta de juguete, como la app */
     lv_obj_set_style_pad_all(c, 8, 0);
     lv_obj_set_style_pad_row(c, 6, 0);
     return c;
@@ -62,18 +61,14 @@ static lv_obj_t *label(lv_obj_t *parent, const char *t, const lv_font_t *f, lv_c
 
 static void section(ui_str_t id)
 {
-    lv_obj_t *l = label(s_list, tr(id), &lv_font_es_16, COL_NAVY);
+    lv_obj_t *l = label(s_list, tr(id), &lv_font_title_16, COL_INK);
     lv_obj_set_style_pad_top(l, 6, 0);
 }
 
-static lv_obj_t *heart_img(lv_obj_t *parent, int32_t w, int32_t h)
+/* Corazon de pixeles de la app: 9x8 celdas de `cell` px */
+static lv_obj_t *heart_img(lv_obj_t *parent, toy_heart_t kind, int32_t cell)
 {
-    lv_obj_t *i = lv_image_create(parent);
-    lv_image_set_src(i, &img_heart);
-    lv_image_set_inner_align(i, LV_IMAGE_ALIGN_STRETCH);
-    lv_obj_set_size(i, w, h);
-    lv_obj_set_clickable(i, false);
-    return i;
+    return toy_heart_img(parent, kind, cell);
 }
 
 static bool now_local(struct tm *tm, int32_t *day)
@@ -104,9 +99,9 @@ static void level_card(const rw_state_t *r)
     lv_obj_set_flex_flow(c, LV_FLEX_FLOW_ROW);
     lv_obj_set_flex_align(c, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_set_style_pad_column(c, 10, 0);
-    heart_img(c, 40, 35);
+    heart_img(c, TOY_HEART_FULL, 4); /* 36x32 */
     lv_obj_t *col = box(c, LV_FLEX_FLOW_COLUMN);
-    lv_obj_set_size(col, ROW_W - 16 - 40 - 10, LV_SIZE_CONTENT);
+    lv_obj_set_size(col, ROW_W - 20 - 36 - 10, LV_SIZE_CONTENT);
     lv_obj_set_style_pad_row(col, 2, 0);
     char buf[48];
     lv_obj_t *top = box(col, LV_FLEX_FLOW_ROW);
@@ -114,13 +109,18 @@ static void level_card(const rw_state_t *r)
     lv_obj_set_style_pad_column(top, 8, 0);
     lv_obj_set_flex_align(top, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
     snprintf(buf, sizeof(buf), "%u", (unsigned)r->balance);
-    label(top, buf, &lv_font_es_20, COL_CORAL);
+    label(top, buf, &lv_font_title_24, COL_INK);
     rw_level_t lv = rw_level(r->earned);
-    label(top, ui_level_name(lv), &lv_font_es_16, COL_NAVY_DARK);
+    label(top, ui_level_name(lv), &lv_font_title_16, COL_INK);
+    /* barra de juguete: pista coral suave con borde tinta, relleno coral */
     lv_obj_t *bar = lv_bar_create(col);
-    lv_obj_set_size(bar, LV_PCT(100), 8);
-    lv_obj_set_style_bg_color(bar, COL_BG, LV_PART_MAIN);
+    lv_obj_set_size(bar, LV_PCT(100), 12);
+    lv_obj_set_style_bg_color(bar, COL_CORAL_SOFT, LV_PART_MAIN);
+    lv_obj_set_style_border_color(bar, COL_INK, LV_PART_MAIN);
+    lv_obj_set_style_border_width(bar, TOY_BORDER, LV_PART_MAIN);
+    lv_obj_set_style_radius(bar, 6, LV_PART_MAIN);
     lv_obj_set_style_bg_color(bar, COL_CORAL, LV_PART_INDICATOR);
+    lv_obj_set_style_radius(bar, 0, LV_PART_INDICATOR);
     if (lv + 1 < RW_LEVEL_COUNT) {
         uint32_t lo = rw_level_min(lv), hi = rw_level_min((rw_level_t)(lv + 1));
         lv_bar_set_range(bar, 0, (int32_t)(hi - lo));
@@ -132,7 +132,7 @@ static void level_card(const rw_state_t *r)
         lv_bar_set_value(bar, 1, LV_ANIM_OFF);
         snprintf(buf, sizeof(buf), "%s", tr(STR_HEARTS_MAX));
     }
-    label(col, buf, &lv_font_es_12, COL_OFFLINE);
+    label(col, buf, &lv_font_es_12, COL_MUTED);
 }
 
 /* La semana de lunes a domingo a partir de la racha: los dias seguidos que acaban en el ultimo
@@ -155,12 +155,14 @@ static void streak_card(const rw_state_t *r)
         bool on = valid && off >= 0 && (gap == 0 || gap == 1) && off >= gap && off < gap + r->streak;
         bool super = on && off == 0 && r->super_day == today;
         lv_obj_t *d = box(week, LV_FLEX_FLOW_COLUMN);
-        lv_obj_set_size(d, 26, LV_SIZE_CONTENT);
+        lv_obj_set_size(d, 28, LV_SIZE_CONTENT);
         lv_obj_set_flex_align(d, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
         lv_obj_set_style_pad_row(d, 2, 0);
-        ui_week_heart_style(heart_img(d, 24, 21), on, super, false, valid && off < 0);
+        lv_obj_t *h = lv_image_create(d);
+        ui_week_heart_style(h, on, super, false, valid && off < 0);
+        lv_obj_set_size(h, 27, 24); /* celdas de 3 px */
         char s[2] = { valid && ini_ok ? ini[(i + 1) % 7] : '\0', '\0' };
-        lv_obj_t *l = label(d, s, &lv_font_es_12, valid && off == 0 ? COL_CORAL : COL_OFFLINE);
+        lv_obj_t *l = label(d, s, &lv_font_es_12, valid && off == 0 ? COL_CORAL_INK : COL_MUTED);
         (void)l;
     }
     lv_obj_t *line = box(c, LV_FLEX_FLOW_ROW);
@@ -170,12 +172,8 @@ static void streak_card(const rw_state_t *r)
     char buf[40];
     unsigned run = (gap == 0 || gap == 1) ? r->streak : 0;
     snprintf(buf, sizeof(buf), tr(STR_HEARTS_STREAK), run);
-    label(line, buf, &lv_font_es_14, COL_NAVY_DARK);
-    for (int i = 0; i < r->saved; i++) { /* abrazos guardados */
-        lv_obj_t *h = heart_img(line, 15, 13);
-        lv_obj_set_style_image_recolor(h, COL_REST, 0);
-        lv_obj_set_style_image_recolor_opa(h, LV_OPA_COVER, 0);
-    }
+    label(line, buf, &lv_font_es_14, COL_INK);
+    for (int i = 0; i < r->saved; i++) heart_img(line, TOY_HEART_REST, 2); /* abrazos guardados */
 }
 
 static void seals_card(const rw_state_t *r)
@@ -200,7 +198,7 @@ static void passport_card(const rw_state_t *r)
 {
     lv_obj_t *c = card();
     if (!r->n_countries) {
-        lv_obj_t *l = label(c, tr(STR_PASSPORT_EMPTY), &lv_font_es_12, COL_OFFLINE);
+        lv_obj_t *l = label(c, tr(STR_PASSPORT_EMPTY), &lv_font_es_12, COL_MUTED);
         lv_obj_set_width(l, LV_PCT(100));
         lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_WRAP);
         return;
@@ -224,10 +222,8 @@ static void passport_card(const rw_state_t *r)
             lv_obj_set_pos(label(b, iso, &lv_font_es_12, COL_NAVY_DARK), 2, 8);
         }
         if (p->star) {
-            lv_obj_t *st = heart_img(b, 13, 11);
-            lv_obj_set_pos(st, 21, 0);
-            lv_obj_set_style_image_recolor(st, COL_SUPER, 0);
-            lv_obj_set_style_image_recolor_opa(st, LV_OPA_COVER, 0);
+            lv_obj_t *st = heart_img(b, TOY_HEART_SUPER, 2);
+            lv_obj_set_pos(st, 18, 0);
         }
     }
 }
@@ -243,12 +239,8 @@ static void shop_card(void)
 {
     lv_obj_t *row = lv_obj_create(s_list);
     lv_obj_set_size(row, ROW_W, LV_SIZE_CONTENT);
+    toy_box(row, TOY_R_CARD, TOY_SHADOW_M); /* se hunde al pulsarla */
     lv_obj_set_style_pad_ver(row, 8, 0);
-    lv_obj_set_style_bg_color(row, COL_CARD, 0);
-    lv_obj_set_style_bg_color(row, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_radius(row, 12, 0);
-    lv_obj_set_style_border_width(row, 2, 0);
-    lv_obj_set_style_border_color(row, COL_CORAL, 0);
     lv_obj_set_style_pad_hor(row, 10, 0);
     lv_obj_set_style_pad_column(row, 8, 0);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
@@ -259,10 +251,10 @@ static void shop_card(void)
     lv_obj_t *col = box(row, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_flex_grow(col, 1);
     lv_obj_set_height(col, LV_SIZE_CONTENT);
-    label(col, tr(STR_SHOP), &lv_font_es_16, COL_NAVY);
-    lv_obj_set_style_pad_row(col, 2, 0);
-    label(col, tr(STR_SHOP_ENTRY), &lv_font_es_12, COL_NAVY_DARK);
-    label(row, LV_SYMBOL_RIGHT, &lv_font_es_16, COL_CORAL);
+    label(col, tr(STR_SHOP), &lv_font_title_16, COL_INK);
+    lv_obj_set_style_pad_row(col, 1, 0);
+    label(col, tr(STR_SHOP_ENTRY), &lv_font_es_12, COL_MUTED);
+    label(row, LV_SYMBOL_RIGHT, &lv_font_es_16, COL_INK);
 }
 
 /* «Una IncuNest con tu nombre» (el canje especial), debajo de la tienda */
@@ -277,12 +269,8 @@ static void special_card(const rw_state_t *r)
     bool own = r->unlocked & RW_BIT(RW_ITEM_NAMED_INCUNEST);
     lv_obj_t *row = lv_obj_create(s_list);
     lv_obj_set_size(row, ROW_W, LV_SIZE_CONTENT);
+    toy_box(row, TOY_R_CARD, TOY_SHADOW_M);
     lv_obj_set_style_pad_ver(row, 6, 0);
-    lv_obj_set_style_bg_color(row, COL_CARD, 0);
-    lv_obj_set_style_bg_color(row, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_radius(row, 12, 0);
-    lv_obj_set_style_border_width(row, 2, 0);
-    lv_obj_set_style_border_color(row, COL_SUPER, 0);
     lv_obj_set_style_pad_hor(row, 8, 0);
     lv_obj_set_style_pad_column(row, 8, 0);
     lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
@@ -293,16 +281,16 @@ static void special_card(const rw_state_t *r)
     lv_obj_t *n = lv_image_create(row);
     lv_image_set_src(n, &img_incunest_28);
     lv_obj_set_clickable(n, false);
-    lv_obj_t *name = label(row, ui_item_name(RW_ITEM_NAMED_INCUNEST), &lv_font_es_14, COL_NAVY_DARK);
+    lv_obj_t *name = label(row, ui_item_name(RW_ITEM_NAMED_INCUNEST), &lv_font_title_14, COL_INK);
     lv_label_set_long_mode(name, LV_LABEL_LONG_MODE_WRAP);
     lv_obj_set_flex_grow(name, 1);
     if (own) {
         label(row, tr(STR_REDEEMED), &lv_font_es_14, COL_OK);
     } else {
-        heart_img(row, 16, 14);
+        heart_img(row, TOY_HEART_FULL, 2);
         char buf[8];
         snprintf(buf, sizeof(buf), "%u", (unsigned)rw_price(RW_ITEM_NAMED_INCUNEST));
-        label(row, buf, &lv_font_es_16, r->balance >= rw_price(RW_ITEM_NAMED_INCUNEST) ? COL_CORAL : COL_OFFLINE);
+        label(row, buf, &lv_font_es_14, r->balance >= rw_price(RW_ITEM_NAMED_INCUNEST) ? COL_CORAL_INK : COL_MUTED);
     }
 }
 
@@ -315,8 +303,8 @@ lv_obj_t *ui_hearts_create(void)
     lv_obj_set_scrollable(s_scr, false);
 
     s_title = lv_label_create(s_scr);
-    lv_obj_set_style_text_font(s_title, &lv_font_es_20, 0);
-    lv_obj_set_style_text_color(s_title, COL_NAVY, 0);
+    lv_obj_set_style_text_font(s_title, &lv_font_title_20, 0);
+    lv_obj_set_style_text_color(s_title, COL_INK, 0);
     lv_obj_align(s_title, LV_ALIGN_TOP_MID, 0, 9);
 
     /* saldo arriba a la derecha (se ve aunque se baje a la tienda) */
@@ -325,8 +313,8 @@ lv_obj_t *ui_hearts_create(void)
     lv_obj_set_style_pad_column(bal, 4, 0);
     lv_obj_set_flex_align(bal, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
     lv_obj_align(bal, LV_ALIGN_TOP_RIGHT, -8, 8);
-    heart_img(bal, 18, 16);
-    s_bal = label(bal, "", &lv_font_es_16, COL_CORAL);
+    heart_img(bal, TOY_HEART_FULL, 2);
+    s_bal = label(bal, "", &lv_font_title_16, COL_INK);
 
     s_list = lv_obj_create(s_scr);
     lv_obj_set_size(s_list, 240, HEARTS_LIST_H);
@@ -335,8 +323,9 @@ lv_obj_t *ui_hearts_create(void)
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_radius(s_list, 0, 0);
     lv_obj_set_style_pad_hor(s_list, 8, 0);
-    lv_obj_set_style_pad_ver(s_list, 4, 0);
-    lv_obj_set_style_pad_row(s_list, 6, 0);
+    lv_obj_set_style_pad_top(s_list, 4, 0);
+    lv_obj_set_style_pad_bottom(s_list, 8, 0); /* la sombra de la ultima tarjeta */
+    lv_obj_set_style_pad_row(s_list, 9, 0);
     lv_obj_set_flex_flow(s_list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_scroll_dir(s_list, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_ACTIVE);

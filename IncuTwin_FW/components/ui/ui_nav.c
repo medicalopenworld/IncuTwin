@@ -2,7 +2,8 @@
  * Notificaciones, Corazones, Historial y Ajustes. Cinco botones de 48x40: casa, sobre (con un punto
  * coral si hay avisos sin ver), corazon, pollito (los bebes que han pasado) y rueda dentada. El de la
  * pantalla en
- * la que se esta, opaco; los otros, al 50 %. Pulsacion larga (1 s, la del indev) en Ajustes: borrado
+ * la que se esta, opaco y sobre una pastilla rosa; los otros, al 50 % (estilo de la app: fondo
+ * crema y raya tinta arriba). Pulsacion larga (1 s, la del indev) en Ajustes: borrado
  * de fabrica.
  * Una sola barra en la capa superior de LVGL: al cambiar de pantalla las pantallas se deslizan por
  * debajo y la barra se queda quieta. Se esconde fuera de nuestras pantallas (splash, cambio de WiFi)
@@ -14,6 +15,7 @@
 #include "esp_log.h"
 #include "demo_mode.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 
 static const char *TAG = "nav";
 
@@ -23,6 +25,9 @@ static const char *TAG = "nav";
 
 static lv_obj_t *s_bar, *s_dot;
 static lv_obj_t *s_icon[UI_TAB_COUNT]; /* el icono de cada boton (lo que se atenua) */
+static lv_obj_t *s_btn[UI_TAB_COUNT];  /* el boton: la pestaña activa lleva su pastilla */
+#define PILL_W 42
+#define PILL_H 32
 
 /* ------------------------------------------------------------- handlers */
 
@@ -41,24 +46,28 @@ static void reset_confirmed(lv_event_t *e)
 static void settings_long_pressed(lv_event_t *e)
 {
     (void)e;
-    ui_msgbox("IncuTwin", tr(STR_RESET_Q), tr(STR_RESET), COL_RED, reset_confirmed, NULL);
+    ui_msgbox("IncuTwin", tr(STR_RESET_Q), tr(STR_RESET), COL_CORAL, reset_confirmed, NULL);
 }
 
 /* ----------------------------------------------------------------- build */
 
 static lv_obj_t *tab_button(ui_tab_t tab)
 {
+    /* pastilla de 42x32 centrada en su hueco de 48 bajo la raya de 2 px; la zona de toque, el hueco */
     lv_obj_t *b = lv_button_create(s_bar);
-    lv_obj_set_size(b, NAV_BTN_W, NAV_H - 1); /* debajo del filete de 1 px de arriba */
-    lv_obj_set_pos(b, (int32_t)tab * NAV_BTN_W, 0);
+    lv_obj_set_size(b, PILL_W, PILL_H);
+    lv_obj_set_pos(b, (int32_t)tab * NAV_BTN_W + (NAV_BTN_W - PILL_W) / 2, 2 + (NAV_H - 2 - PILL_H) / 2 - 1);
+    lv_obj_set_ext_click_area(b, 4);
+    lv_obj_set_style_bg_color(b, COL_TAB_ON, 0);
     lv_obj_set_style_bg_opa(b, LV_OPA_TRANSP, 0);
     lv_obj_set_style_bg_opa(b, LV_OPA_COVER, LV_STATE_PRESSED);
-    lv_obj_set_style_bg_color(b, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_radius(b, 0, 0);
+    lv_obj_set_style_bg_color(b, COL_TAB_ON, LV_STATE_PRESSED);
+    lv_obj_set_style_radius(b, TOY_R_PILL, 0);
     lv_obj_set_style_shadow_width(b, 0, 0);
     lv_obj_set_style_pad_all(b, 0, 0);
     /* SHORT_CLICKED: una pulsacion larga no navega (en Ajustes abre el borrado de fabrica) */
     lv_obj_add_event_cb(b, tab_clicked, LV_EVENT_SHORT_CLICKED, (void *)(intptr_t)tab);
+    s_btn[tab] = b;
     return b;
 }
 
@@ -89,9 +98,9 @@ void ui_nav_create(void)
     lv_obj_set_style_bg_color(s_bar, COL_CARD, 0);
     lv_obj_set_style_bg_opa(s_bar, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(s_bar, 0, 0);
-    lv_obj_set_style_border_width(s_bar, 1, 0);
+    lv_obj_set_style_border_width(s_bar, TOY_BORDER, 0); /* raya tinta arriba, como la app */
     lv_obj_set_style_border_side(s_bar, LV_BORDER_SIDE_TOP, 0);
-    lv_obj_set_style_border_color(s_bar, COL_OFFLINE, 0);
+    lv_obj_set_style_border_color(s_bar, COL_INK, 0);
     lv_obj_set_style_pad_all(s_bar, 0, 0);
     lv_obj_set_scrollable(s_bar, false);
     lv_obj_set_gesture_bubble(s_bar, false); /* deslizar aqui no cambia de pagina */
@@ -100,10 +109,10 @@ void ui_nav_create(void)
 
     lv_obj_t *notices = tab_button(UI_TAB_NOTICES);
     s_icon[UI_TAB_NOTICES] = symbol_label(notices, LV_SYMBOL_ENVELOPE);
-    /* punto en la esquina superior derecha del sobre (20 px centrado: x 14..34, y 10..30) */
+    /* punto en la esquina superior derecha del sobre (20 px centrado en la pastilla de 42) */
     s_dot = lv_obj_create(notices);
     lv_obj_set_size(s_dot, DOT_D, DOT_D);
-    lv_obj_set_pos(s_dot, 33, 5);
+    lv_obj_set_pos(s_dot, 30, 2);
     lv_obj_set_style_radius(s_dot, LV_RADIUS_CIRCLE, 0);
     lv_obj_set_style_bg_color(s_dot, COL_CORAL, 0);
     lv_obj_set_style_bg_opa(s_dot, LV_OPA_COVER, 0);
@@ -111,8 +120,9 @@ void ui_nav_create(void)
     lv_obj_set_clickable(s_dot, false);
     lv_obj_set_hidden(s_dot, true);
 
-    s_icon[UI_TAB_HEARTS] = image_icon(tab_button(UI_TAB_HEARTS), &img_heart);
-    lv_image_set_scale(s_icon[UI_TAB_HEARTS], 190); /* 34x30 a ~25x22 */
+    /* corazon de pixeles de la app: 9x8 celdas de 3 px = 27x24 */
+    s_icon[UI_TAB_HEARTS] = toy_heart_img(tab_button(UI_TAB_HEARTS), TOY_HEART_FULL, 3);
+    lv_obj_center(s_icon[UI_TAB_HEARTS]);
     s_icon[UI_TAB_HISTORY] = image_icon(tab_button(UI_TAB_HISTORY), &img_chick_28);
 
     lv_obj_t *set = tab_button(UI_TAB_SETTINGS);
@@ -128,6 +138,7 @@ void ui_nav_set_active(ui_tab_t active)
 {
     for (int t = 0; t < UI_TAB_COUNT; t++) {
         lv_opa_t opa = t == (int)active ? LV_OPA_COVER : LV_OPA_50;
+        lv_obj_set_style_bg_opa(s_btn[t], t == (int)active ? LV_OPA_COVER : LV_OPA_TRANSP, 0);
         if (t == UI_TAB_HEARTS || t == UI_TAB_HISTORY) lv_obj_set_style_image_opa(s_icon[t], opa, 0);
         else lv_obj_set_style_text_opa(s_icon[t], opa, 0);
     }

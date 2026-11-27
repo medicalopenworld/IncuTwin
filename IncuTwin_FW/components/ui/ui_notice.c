@@ -12,6 +12,7 @@
 #include "assets.h"
 #include "esp_log.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 #include "ui_name.h"
 
 static const char *TAG = "aviso";
@@ -93,17 +94,12 @@ static void reward_icon(const q_item_t *q)
     }
     lv_obj_t *c = lv_obj_create(s_bar);
     lv_obj_set_size(c, 34, 34);
-    lv_obj_set_style_radius(c, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_bg_color(c, COL_CARD, 0);
-    lv_obj_set_style_border_width(c, 2, 0);
-    lv_obj_set_style_border_color(c, q->type == Q_GARLAND ? COL_OK : q->type == Q_TEXT ? COL_NAVY : COL_CORAL, 0);
+    toy_box(c, LV_RADIUS_CIRCLE, 0);
+    lv_obj_set_style_bg_color(c, q->type == Q_GARLAND ? COL_CARD : COL_CORAL_SOFT, 0);
     lv_obj_set_style_pad_all(c, 0, 0);
     lv_obj_set_scrollable(c, false);
     lv_obj_set_clickable(c, false);
-    lv_obj_t *i = lv_image_create(c);
-    lv_image_set_src(i, &img_heart);
-    lv_image_set_scale(i, 180);
-    lv_obj_center(i);
+    lv_obj_center(toy_heart_img(c, TOY_HEART_FULL, 2)); /* corazon de pixeles de 18x16 */
 }
 
 static void show(const q_item_t *q)
@@ -117,7 +113,7 @@ static void show(const q_item_t *q)
     lv_obj_set_size(s_lbl, BANNER_W - 34 - 8 - 16, 34);
     lv_label_set_long_mode(s_lbl, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_set_style_text_font(s_lbl, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(s_lbl, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_color(s_lbl, COL_INK, 0);
     switch (q->type) {
     case Q_SEAL:    lv_label_set_text_fmt(s_lbl, tr(STR_RW_NEW_SEAL), ui_seal_name((rw_seal_t)q->arg)); break;
     case Q_LEVEL:   lv_label_set_text_fmt(s_lbl, tr(STR_RW_LEVEL_UP), ui_level_name((rw_level_t)q->arg)); break;
@@ -164,10 +160,7 @@ void ui_notice_init(void)
     s_bar = lv_obj_create(lv_layer_top());
     lv_obj_set_size(s_bar, BANNER_W, BANNER_H);
     lv_obj_set_pos(s_bar, BANNER_X, Y_HIDDEN);
-    lv_obj_set_style_bg_color(s_bar, COL_CARD, 0);
-    lv_obj_set_style_radius(s_bar, 12, 0);
-    lv_obj_set_style_border_width(s_bar, 1, 0);
-    lv_obj_set_style_border_color(s_bar, COL_OFFLINE, 0);
+    toy_box(s_bar, TOY_R_CARD, TOY_SHADOW_M); /* franja de juguete, como las tarjetas de la app */
     lv_obj_set_style_pad_all(s_bar, 5, 0);
     lv_obj_set_style_pad_column(s_bar, 8, 0);
     lv_obj_set_flex_flow(s_bar, LV_FLEX_FLOW_ROW);

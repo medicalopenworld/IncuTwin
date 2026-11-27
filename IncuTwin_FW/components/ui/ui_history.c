@@ -14,6 +14,7 @@
 #include "settings.h"
 #include "stays.h"
 #include "ui_internal.h"
+#include "ui_toy.h"
 #include "ui_rel_time.h"
 
 #define TITLE_H  40
@@ -59,9 +60,7 @@ static lv_obj_t *card(lv_obj_t **col_out)
 {
     lv_obj_t *c = box(s_list, LV_FLEX_FLOW_ROW);
     lv_obj_set_size(c, ROW_W, LV_SIZE_CONTENT);
-    lv_obj_set_style_bg_color(c, COL_CARD, 0);
-    lv_obj_set_style_bg_opa(c, LV_OPA_COVER, 0);
-    lv_obj_set_style_radius(c, 12, 0);
+    toy_box(c, TOY_R_CARD, TOY_SHADOW_M); /* tarjeta de juguete, como la app */
     lv_obj_set_style_pad_all(c, 6, 0);
     lv_obj_set_style_pad_column(c, 8, 0);
     lv_obj_set_flex_align(c, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
@@ -107,7 +106,6 @@ static void incubator_row(const stay_inc_t *inc)
     lv_obj_t *c = card(&col);
     lv_obj_set_clickable(c, true);
     lv_obj_add_flag(c, UI_FLAG_CLICK_SOUND);
-    lv_obj_set_style_bg_color(c, COL_BG_PHOTO, LV_STATE_PRESSED);
     lv_obj_add_event_cb(c, inc_clicked, LV_EVENT_SHORT_CLICKED, (void *)inc->inc); /* vive en s_log */
 
     lv_obj_t *slot = card_slot(c);
@@ -119,10 +117,10 @@ static void incubator_row(const stay_inc_t *inc)
     lv_obj_set_style_text_font(num, &lv_font_es_12, 0);
     lv_obj_set_style_text_color(num, lv_color_white(), 0);
     lv_obj_set_style_text_align(num, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_set_style_bg_color(num, COL_NAVY, 0);
+    lv_obj_set_style_bg_color(num, COL_CORAL, 0); /* numero de bebes: insignia coral, como la app */
     lv_obj_set_style_bg_opa(num, LV_OPA_COVER, 0);
     lv_obj_set_style_radius(num, LV_RADIUS_CIRCLE, 0);
-    lv_obj_set_style_border_color(num, COL_CARD, 0);
+    lv_obj_set_style_border_color(num, COL_INK, 0);
     lv_obj_set_style_border_width(num, 2, 0);
     lv_obj_set_style_pad_hor(num, 4, 0);
     lv_obj_set_style_pad_ver(num, 1, 0);
@@ -131,7 +129,7 @@ static void incubator_row(const stay_inc_t *inc)
 
     char title[8 + TWIN_INCUBATOR_ID_LEN + 2];
     snprintf(title, sizeof(title), "%s %s", tr(STR_INCUNEST), inc->inc);
-    text(col, title, &lv_font_es_16, COL_NAVY);
+    text(col, title, &lv_font_title_16, COL_INK);
     if (inc->country[0]) {
         lv_obj_t *line = box(col, LV_FLEX_FLOW_ROW);
         lv_obj_set_size(line, LV_SIZE_CONTENT, LV_SIZE_CONTENT);
@@ -144,12 +142,12 @@ static void incubator_row(const stay_inc_t *inc)
             lv_image_set_inner_align(f, LV_IMAGE_ALIGN_STRETCH);
             lv_obj_set_size(f, (int32_t)flag->header.w * 12 / flag->header.h, 12);
         }
-        text(line, tr_country(inc->country), &lv_font_es_12, COL_NAVY_DARK);
+        text(line, tr_country(inc->country), &lv_font_es_12, COL_MUTED);
     }
     lv_obj_t *chev = lv_label_create(c);
     lv_label_set_text(chev, LV_SYMBOL_RIGHT);
     lv_obj_set_style_text_font(chev, &lv_font_es_14, 0);
-    lv_obj_set_style_text_color(chev, COL_OFFLINE, 0);
+    lv_obj_set_style_text_color(chev, COL_INK, 0);
 }
 
 /* Nivel 2: un bebe de la IncuNest abierta */
@@ -165,19 +163,19 @@ static void baby_row(const stay_t *b, uint32_t now, uint8_t lang)
 
     /* el nombre que le has puesto, solo para el bebe que esta ahora (es el de la estancia actual) */
     const char *name = here ? baby_name_local() : "";
-    text(col, name[0] ? name : tr(STR_HIST_BABY), &lv_font_es_16, COL_NAVY_DARK);
+    text(col, name[0] ? name : tr(STR_HIST_BABY), &lv_font_title_16, COL_INK);
     char when[24], line[48];
     if (b->arrived_at) {
         ui_rel_time(now ? b->arrived_at : 0, now, when, sizeof(when), lang);
         snprintf(line, sizeof(line), tr(STR_HIST_ARRIVED), when);
-        text(col, line, &lv_font_es_12, COL_NAVY_DARK);
+        text(col, line, &lv_font_es_12, COL_MUTED);
     }
     if (here) {
-        text(col, tr(STR_HIST_NOW), &lv_font_es_12, COL_CORAL);
+        text(col, tr(STR_HIST_NOW), &lv_font_es_12, COL_CORAL_INK);
     } else if (!b->open && b->left_at) {
         ui_rel_time(now ? b->left_at : 0, now, when, sizeof(when), lang);
         snprintf(line, sizeof(line), tr(STR_HIST_LEFT), when);
-        text(col, line, &lv_font_es_12, COL_OFFLINE);
+        text(col, line, &lv_font_es_12, COL_MUTED);
     }
 }
 
@@ -214,7 +212,7 @@ static void show_list(void)
             lv_obj_set_width(l, ROW_W);
             lv_obj_set_style_text_align(l, LV_TEXT_ALIGN_CENTER, 0);
             lv_obj_set_style_text_font(l, &lv_font_es_12, 0);
-            lv_obj_set_style_text_color(l, COL_OFFLINE, 0);
+            lv_obj_set_style_text_color(l, COL_MUTED, 0);
             lv_label_set_text(l, more);
         }
     } else {
@@ -235,28 +233,23 @@ lv_obj_t *ui_history_create(void)
     lv_obj_set_scrollable(s_scr, false);
 
     s_title = lv_label_create(s_scr);
-    lv_obj_set_style_text_font(s_title, &lv_font_es_20, 0);
-    lv_obj_set_style_text_color(s_title, COL_NAVY, 0);
+    lv_obj_set_style_text_font(s_title, &lv_font_title_20, 0);
+    lv_obj_set_style_text_color(s_title, COL_INK, 0);
     lv_obj_set_style_max_width(s_title, 168, 0);
     lv_label_set_long_mode(s_title, LV_LABEL_LONG_MODE_DOTS);
     lv_obj_align(s_title, LV_ALIGN_TOP_MID, 0, 9);
 
     s_back = lv_button_create(s_scr);
-    lv_obj_set_size(s_back, 36, 30);
-    lv_obj_set_pos(s_back, 4, 5);
-    lv_obj_set_style_bg_color(s_back, COL_CARD, 0);
-    lv_obj_set_style_bg_color(s_back, COL_BG_PHOTO, LV_STATE_PRESSED);
-    lv_obj_set_style_border_color(s_back, COL_NAVY, 0);
-    lv_obj_set_style_border_width(s_back, 2, 0);
-    lv_obj_set_style_radius(s_back, 8, 0);
-    lv_obj_set_style_shadow_width(s_back, 0, 0);
+    lv_obj_set_size(s_back, 30, 30); /* atras: chevron en un circulo de juguete, como la app */
+    lv_obj_set_pos(s_back, 7, 5);
+    toy_box(s_back, LV_RADIUS_CIRCLE, TOY_SHADOW_S);
     lv_obj_set_style_pad_all(s_back, 0, 0);
-    lv_obj_set_ext_click_area(s_back, 6);
+    lv_obj_set_ext_click_area(s_back, 8);
     lv_obj_add_event_cb(s_back, back_clicked, LV_EVENT_CLICKED, NULL);
     lv_obj_t *arrow = lv_label_create(s_back);
     lv_label_set_text(arrow, LV_SYMBOL_LEFT);
-    lv_obj_set_style_text_font(arrow, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(arrow, COL_NAVY, 0);
+    lv_obj_set_style_text_font(arrow, &lv_font_es_14, 0);
+    lv_obj_set_style_text_color(arrow, COL_INK, 0);
     lv_obj_center(arrow);
     lv_obj_set_hidden(s_back, true);
 
@@ -267,8 +260,9 @@ lv_obj_t *ui_history_create(void)
     lv_obj_set_style_border_width(s_list, 0, 0);
     lv_obj_set_style_radius(s_list, 0, 0);
     lv_obj_set_style_pad_hor(s_list, 8, 0);
-    lv_obj_set_style_pad_ver(s_list, 4, 0);
-    lv_obj_set_style_pad_row(s_list, 6, 0);
+    lv_obj_set_style_pad_top(s_list, 4, 0);
+    lv_obj_set_style_pad_bottom(s_list, 8, 0); /* la sombra de la ultima tarjeta */
+    lv_obj_set_style_pad_row(s_list, 9, 0);
     lv_obj_set_flex_flow(s_list, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_scroll_dir(s_list, LV_DIR_VER);
     lv_obj_set_scrollbar_mode(s_list, LV_SCROLLBAR_MODE_ACTIVE);
@@ -282,16 +276,25 @@ lv_obj_t *ui_history_create(void)
     lv_obj_set_style_pad_all(s_empty, 0, 0);
     lv_obj_set_scrollable(s_empty, false);
     lv_obj_set_clickable(s_empty, false);
-    lv_obj_t *nest = lv_image_create(s_empty);
+    /* la IncuNest dentro de una pantallita pequeña, como la app */
+    lv_obj_t *st = lv_obj_create(s_empty);
+    lv_obj_set_size(st, 112, 92);
+    lv_obj_align(st, LV_ALIGN_CENTER, 0, -36);
+    toy_box(st, 8, TOY_SHADOW_M);
+    lv_obj_set_style_bg_color(st, COL_STAGE, 0);
+    lv_obj_set_style_pad_all(st, 0, 0);
+    lv_obj_set_scrollable(st, false);
+    lv_obj_set_clickable(st, false);
+    lv_obj_t *nest = lv_image_create(st);
     lv_image_set_src(nest, &img_incunest_map);
-    lv_obj_align(nest, LV_ALIGN_CENTER, 0, -36);
+    lv_obj_center(nest);
     s_empty_lbl = lv_label_create(s_empty);
     lv_obj_set_width(s_empty_lbl, 200);
     lv_label_set_long_mode(s_empty_lbl, LV_LABEL_LONG_MODE_WRAP);
-    lv_obj_set_style_text_font(s_empty_lbl, &lv_font_es_16, 0);
-    lv_obj_set_style_text_color(s_empty_lbl, COL_NAVY_DARK, 0);
+    lv_obj_set_style_text_font(s_empty_lbl, &lv_font_title_16, 0);
+    lv_obj_set_style_text_color(s_empty_lbl, COL_INK, 0);
     lv_obj_set_style_text_align(s_empty_lbl, LV_TEXT_ALIGN_CENTER, 0);
-    lv_obj_align(s_empty_lbl, LV_ALIGN_CENTER, 0, 30);
+    lv_obj_align(s_empty_lbl, LV_ALIGN_CENTER, 0, 36);
 
     ui_history_retranslate(); /* incluye ui_history_refresh() */
     return s_scr;

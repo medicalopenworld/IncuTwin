@@ -23,6 +23,8 @@ void ui_ota_poll(void);        /* desde el refresco de ui.c */
 void ui_ota_note_touch(void);  /* cualquier toque en la pantalla */
 void ui_home_screen_pressed(void);
 void ui_home_goto_baby(void); /* desde la IncuNest del mapa */
+/* consola (ui_debug): 0 pulsa «Coge mi mano», 1 pone el dedo, 2 lo quita, 3 cierra el gesto */
+void ui_home_debug_hand(int step);
 bool ui_home_overlay_active(void); /* despedida o agradecimiento de «Coge mi mano»: sin barra ni franja */
 bool ui_home_gesture_idle(void);
 void ui_home_nowifi_force(int8_t mode); /* consola `sinwifi`: 0 = de verdad, 1 = nino, 2 = nina */

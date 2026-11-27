@@ -12,6 +12,7 @@
 #include "assets_nowifi.h"
 #include "ui_internal.h"
 #include "ui_nowifi.h"
+#include "ui_pages.h"
 
 /* ------------------------------------------------------------- base64 por lineas */
 
@@ -179,6 +180,46 @@ bool ui_debug_nowifi(const char *mode)
     int m = strcmp(mode, "on") == 0 ? 1 : strcmp(mode, "nina") == 0 ? 2 : strcmp(mode, "off") == 0 ? 0 : -1;
     if (m < 0 || !lvgl_port_lock(3000)) return false;
     lv_async_call(nowifi_async, (void *)(intptr_t)m);
+    lvgl_port_unlock();
+    return true;
+}
+
+/* ------------------------------------------------------------- ir a una pantalla */
+
+static void goto_async(void *arg)
+{
+    int w = (int)(intptr_t)arg;
+    if (w < UI_TAB_COUNT) {
+        ui_shop_debug(-1, false, -1, false); /* la tienda tapa Corazones */
+        ui_go((ui_tab_t)w);
+        return;
+    }
+    ui_go(UI_TAB_HOME);
+    switch (w) {
+    case 10: ui_pages_goto(UI_PAGE_BABY); break;
+    case 11: ui_pages_goto(UI_PAGE_MAP); break;
+    case 12: ui_pages_goto(UI_PAGE_STREAK); break;
+    default: ui_home_debug_hand(w - 20); break;
+    }
+}
+
+bool ui_debug_goto(const char *where)
+{
+    static const char *const W[] = { "inicio", "avisos", "corazones", "historial", "ajustes" };
+    static const char *const P[] = { "bebe", "mapa", "racha" };
+    static const char *const H[] = { "listo", "dedo", "soltar", "fin" };
+    int w = -1;
+    for (int i = 0; i < 5; i++) {
+        if (strcmp(where, W[i]) == 0) w = i;
+    }
+    for (int i = 0; i < 3; i++) {
+        if (strcmp(where, P[i]) == 0) w = 10 + i;
+    }
+    for (int i = 0; i < 4; i++) {
+        if (strcmp(where, H[i]) == 0) w = 20 + i;
+    }
+    if (w < 0 || !lvgl_port_lock(3000)) return false;
+    lv_async_call(goto_async, (void *)(intptr_t)w);
     lvgl_port_unlock();
     return true;
 }
