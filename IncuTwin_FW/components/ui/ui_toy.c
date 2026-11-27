@@ -39,8 +39,10 @@ static void shadow_cb(lv_event_t *e)
 
 void toy_shadow(lv_obj_t *o, int32_t px)
 {
-    while (lv_obj_remove_event_cb(o, shadow_cb)) {
-    }
+    /* Una sola llamada quita todas las de shadow_cb. Nada de repetir hasta que devuelva 0: si la
+     * pieza esta en mitad de un evento suyo (p. ej. la pestaña de la tienda que se pulsa), LVGL solo
+     * las marca y las borra al acabar, asi que seguiria devolviendo lo mismo para siempre. */
+    lv_obj_remove_event_cb(o, shadow_cb);
     lv_obj_set_style_shadow_width(o, 0, 0); /* nada de la sombra difuminada del tema */
     if (px > 0) {
         lv_obj_add_event_cb(o, shadow_cb, LV_EVENT_DRAW_MAIN_BEGIN, (void *)(intptr_t)px);
