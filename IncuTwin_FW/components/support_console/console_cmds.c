@@ -109,9 +109,14 @@ static int cmd_nowifi(int argc, char **argv)
     return 0;
 }
 
-/* toque x0 y0 x1 y1 ms [vueltas]: SOLO PRUEBAS, un dedo de mentira (ui_debug_touch) */
+#if CONFIG_INCUTWIN_DEBUG_TOUCH
+/* toque x0 y0 x1 y1 ms [vueltas]: SOLO PRUEBAS, un dedo de mentira (ui_debug_touch); solo en la demo */
 static int cmd_touch(int argc, char **argv)
 {
+    if (!twin_model_demo_active()) {
+        printf("solo en la demo (demo on)\n");
+        return 1;
+    }
     if (argc < 6 || !ui_debug_touch(atoi(argv[1]), atoi(argv[2]), atoi(argv[3]), atoi(argv[4]), atoi(argv[5]),
                                     argc >= 7 ? atoi(argv[6]) : 0)) {
         printf("toque <x0> <y0> <x1> <y1> <ms 50-20000> [vueltas 0-50]\n");
@@ -119,6 +124,7 @@ static int cmd_touch(int argc, char **argv)
     }
     return 0;
 }
+#endif
 
 /* bebe caricia|cosquillas [s] | bostezo | nina | nino | tono <0-4>; los tres ultimos, en la demo */
 static int cmd_baby(int argc, char **argv)
@@ -330,9 +336,11 @@ void console_start(void)
         { .command = "rewards", .help = "corazones, racha, sellos, pasaporte y tienda; `rewards fecha <mes> <dia>` fuerza la fecha de Navidad (0 = la de verdad); `rewards comprar <id>` y `rewards nivel <0-4>` solo en la demo", .func = cmd_rewards },
         { .command = "demo", .help = "demo on|off: como 2 s del boton BOOT", .func = cmd_demo },
         { .command = "pantalla", .help = "captura de la pantalla (para tools/screenshot.py)", .func = cmd_screen },
-        { .command = "toque", .help = "toque <x0> <y0> <x1> <y1> <ms> [vueltas]: SOLO PRUEBAS, un dedo de mentira "
+#if CONFIG_INCUTWIN_DEBUG_TOUCH
+        { .command = "toque", .help = "toque <x0> <y0> <x1> <y1> <ms> [vueltas]: SOLO PRUEBAS (demo), un dedo de mentira "
                                       "(trazo de x0,y0 a x1,y1; con vueltas, idas y vueltas)",
           .func = cmd_touch },
+#endif
         { .command = "bebe", .help = "bebe caricia|cosquillas [s]: prueba la reacción del bebé (no cuenta como uso); "
                                      "[s] la repite s segundos para capturarla. bebe bostezo. En la demo: bebe "
                                      "nina|nino|tono <0-4>",

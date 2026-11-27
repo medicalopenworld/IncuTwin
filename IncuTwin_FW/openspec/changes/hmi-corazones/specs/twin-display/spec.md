@@ -53,9 +53,10 @@ Cuando el gesto da corazones, el corazón que vuela a la racha SHALL llevar el n
 - **THEN** sale "+2" sobre la caja de la racha y el saldo sube 2
 
 ### Requirement: Aviso de sello o nivel [manual]
-Un sello nuevo, una subida de nivel o la guirnalda SHALL salir en la franja de aviso de arriba
-("¡Nuevo sello: Una semana!", "¡Subes a Abrazo!"), con las mismas reglas de cuándo puede salir que
-los avisos del bebé. NO SHALL guardarse en Notificaciones ni sumar al punto de no leídas. Tocar la
+Un sello nuevo, la guirnalda o una subida a Abrazo o a Achuchón SHALL salir en la franja de aviso de
+arriba ("¡Nuevo sello: Una semana!", "¡Subes a Abrazo!"), con las mismas reglas de cuándo puede
+salir que los avisos del bebé. Las subidas a Caricia y a Cosquillitas NO van en la franja: salen en
+la tarjeta del requisito «Afecto». NO SHALL guardarse en Notificaciones ni sumar al punto de no leídas. Tocar la
 franja SHALL llevar a la pantalla Corazones.
 
 #### Scenario: Sello al terminar el gesto
@@ -68,8 +69,8 @@ si el nivel es Caricia o más, y hacerle cosquillitas si es Cosquillitas o más 
 con la cara de cada una. Un dedo quieto sobre el bebé NO SHALL hacer nada. Tocar al bebé o
 acariciarle NO SHALL sumar corazones, racha ni sellos: los corazones solo los da «Coge mi mano».
 Al subir a Caricia o a Cosquillitas SHALL salir una tarjeta centrada («¡Subes a Caricia!») con lo
-que se abre y un botón «Vale»; se queda hasta tocar el botón o la tarjeta y espera a que no haya un
-«Coge mi mano» en marcha, como los demás avisos. Subir a Abrazo o a Achuchón mantiene la franja de
+que se abre y un botón «Vale»; se queda hasta tocar el botón o la tarjeta y espera a que
+«Coge mi mano» esté en reposo. Subir a Abrazo o a Achuchón mantiene la franja de
 aviso. Quien ya tenía corazones al estrenar los niveles SHALL ver, en el primer arranque con Inicio
 y sin demo, una sola vez la tarjeta «Tus corazones ya abren esto:» con lo que abre su nivel; con
 la demo no sale ni se gasta.

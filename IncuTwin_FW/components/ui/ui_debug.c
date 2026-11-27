@@ -161,6 +161,7 @@ bool ui_debug_baby(const char *what, int secs)
     return true;
 }
 
+#if CONFIG_INCUTWIN_DEBUG_TOUCH
 /* ------------------------------------------------- toque sintetico (SOLO PRUEBAS) */
 
 /* Un segundo puntero de LVGL que lee su posicion de un trazo programado por la consola. Pasa por
@@ -223,6 +224,7 @@ bool ui_debug_touch(int x0, int y0, int x1, int y1, int ms, int laps)
     lvgl_port_unlock();
     return true;
 }
+#endif /* CONFIG_INCUTWIN_DEBUG_TOUCH */
 
 /* ------------------------------------------------------------- bebe sin WiFi */
 

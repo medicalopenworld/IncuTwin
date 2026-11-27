@@ -4,7 +4,8 @@
  *   hand_s segundos tocando al bebe / boton "Agarra mi mano"
  *   hand_n numero de toques
  *   caress_n / tickle_n caricias y cosquillitas al bebe en Inicio (cuentan al reconocerse)
- * Se persisten cada 600 s de encendido. No se publican en esta version. */
+ * Se persisten cada 600 s de encendido. hand_n, caress_n (car_n) y tickle_n (tic_n) viajan en las
+ * metricas de uso. */
 #pragma once
 
 #include <stdbool.h>

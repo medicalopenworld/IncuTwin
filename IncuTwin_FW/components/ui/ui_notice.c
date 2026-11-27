@@ -265,9 +265,19 @@ bool ui_notice_layer_busy(void)
 
 static void enqueue(q_item_t q)
 {
-    if (s_count >= QUEUE_LEN) { /* mas de 8 sin ver: se pierde el mas antiguo (los avisos siguen en
-                                 * Notificaciones; los sellos, en Logros) */
-        for (uint8_t i = 1; i < QUEUE_LEN; i++) s_queue[i - 1] = s_queue[i];
+    if (s_count >= QUEUE_LEN) { /* mas de 8 sin ver: se pierde el mas antiguo que no sea una tarjeta de
+                                 * nivel (los avisos siguen en Notificaciones; los sellos, en Logros; la
+                                 * tarjeta no tiene otro sitio donde verse). Si todo son tarjetas, se
+                                 * pierde la mas antigua si entra otra tarjeta y la nueva si no lo es. */
+        uint8_t drop = QUEUE_LEN;
+        for (uint8_t i = 0; i < QUEUE_LEN; i++) {
+            if (s_queue[i].type != Q_CARD) { drop = i; break; }
+        }
+        if (drop == QUEUE_LEN) {
+            if (q.type != Q_CARD) return;
+            drop = 0;
+        }
+        for (uint8_t i = drop + 1; i < QUEUE_LEN; i++) s_queue[i - 1] = s_queue[i];
         s_count--;
     }
     s_queue[s_count++] = q;
