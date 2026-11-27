@@ -406,3 +406,31 @@ TEST_CASE("tienda: migracion desde la version 1", "[rewards]") {
 TEST_CASE("tienda: el guardado v1 no cambia de tamano", "[rewards]") {
     TEST_ASSERT_EQUAL(RW_STATE_V1_SIZE, sizeof(rw_state_v1_t));
 }
+
+TEST_CASE("rewards: camino con 0 corazones", "[rewards]")
+{
+    TEST_ASSERT_EQUAL(RW_STEP_DONE, rw_path_step(0, RW_LEVEL_HAND));
+    TEST_ASSERT_EQUAL(RW_STEP_NEXT, rw_path_step(0, RW_LEVEL_CARESS));
+    TEST_ASSERT_EQUAL(RW_STEP_LATER, rw_path_step(0, RW_LEVEL_TICKLES));
+    TEST_ASSERT_EQUAL_UINT32(10, rw_path_missing(0, RW_LEVEL_CARESS));
+    TEST_ASSERT_EQUAL_UINT32(0, rw_path_missing(0, RW_LEVEL_HAND));
+}
+
+TEST_CASE("rewards: camino con el siguiente aun por llegar", "[rewards]")
+{
+    TEST_ASSERT_EQUAL(RW_STEP_DONE, rw_path_step(40, RW_LEVEL_TICKLES));
+    TEST_ASSERT_EQUAL(RW_STEP_NEXT, rw_path_step(40, RW_LEVEL_HUG));
+    TEST_ASSERT_EQUAL(RW_STEP_LATER, rw_path_step(40, RW_LEVEL_SQUEEZE));
+    TEST_ASSERT_EQUAL_UINT32(35, rw_path_missing(40, RW_LEVEL_HUG));
+    TEST_ASSERT_TRUE(rw_path_soon(RW_LEVEL_HUG));
+    TEST_ASSERT_TRUE(rw_path_soon(RW_LEVEL_SQUEEZE));
+    TEST_ASSERT_FALSE(rw_path_soon(RW_LEVEL_TICKLES));
+}
+
+TEST_CASE("rewards: camino completo no tiene siguiente", "[rewards]")
+{
+    for (int l = 0; l < RW_LEVEL_COUNT; l++) {
+        TEST_ASSERT_EQUAL(RW_STEP_DONE, rw_path_step(150, (rw_level_t)l));
+        TEST_ASSERT_EQUAL_UINT32(0, rw_path_missing(150, (rw_level_t)l));
+    }
+}

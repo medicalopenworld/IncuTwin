@@ -183,6 +183,14 @@ rw_level_t rw_level(uint32_t earned);
 bool rw_catchup_due(const rw_state_t *s);
 void rw_catchup_done(rw_state_t *s);
 uint32_t rw_level_min(rw_level_t level);
+/* «Tu camino»: estado de cada nivel (conseguido, el siguiente o pendiente) */
+typedef enum { RW_STEP_DONE = 0, RW_STEP_NEXT, RW_STEP_LATER } rw_step_t;
+/* Estado de un nivel en el camino para `earned` corazones ganados en total */
+rw_step_t rw_path_step(uint32_t earned, rw_level_t level);
+/* true si el nivel aun no abre nada en esta version (por encima de RW_LEVEL_LAST_OPEN) */
+bool rw_path_soon(rw_level_t level);
+/* Corazones que faltan para `level` (0 si ya esta conseguido) */
+uint32_t rw_path_missing(uint32_t earned, rw_level_t level);
 uint16_t rw_price(rw_item_t item);
 
 /* Navidad: del 24-dic al 6-ene, ambos incluidos (mes 1..12; 0 = sin hora) */

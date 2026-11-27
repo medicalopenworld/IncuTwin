@@ -104,7 +104,7 @@ static int cmd_shop(int argc, char **argv)
 static int cmd_goto(int argc, char **argv)
 {
     int r = argc < 2 ? 1 : ui_debug_goto(argv[1]);
-    if (r == 1) printf("ir inicio|avisos|corazones|historial|ajustes|bebe|mapa|racha|listo|dedo|soltar|fin\n");
+    if (r == 1) printf("ir inicio|avisos|corazones|camino|historial|ajustes|bebe|mapa|racha|listo|dedo|soltar|fin\n");
     else if (r == 2) printf("ir: la pantalla esta ocupada, prueba otra vez\n");
     return r ? 1 : 0;
 }
@@ -359,7 +359,7 @@ void console_start(void)
         { .command = "incupray", .help = "incupray [demo|stop|join|leave|hold <s>]: estado de la IncuPray", .func = cmd_incupray },
         { .command = "sinwifi", .help = "sinwifi on|nina|off|asistente: bebe sin WiFi en Inicio como si no hubiera WiFi; off vuelve a lo de verdad (con WiFi, celebra); asistente simula el asistente probando la WiFi",
           .func = cmd_nowifi },
-        { .command = "ir", .help = "ir <inicio|avisos|corazones|historial|ajustes|bebe|mapa|racha|listo|dedo|soltar|fin>: abre una pantalla o un paso del gesto (capturas)",
+        { .command = "ir", .help = "ir <inicio|avisos|corazones|camino|historial|ajustes|bebe|mapa|racha|listo|dedo|soltar|fin>: abre una pantalla o un paso del gesto (capturas)",
           .func = cmd_goto },
         { .command = "unpair", .help = "borra el incubator_id local", .func = cmd_unpair },
         { .command = "reboot", .help = "reinicia el panel", .func = cmd_reboot },

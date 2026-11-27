@@ -90,15 +90,63 @@ static void seal_clicked(lv_event_t *e)
     ui_msgbox(ui_seal_name(seal), ui_seal_desc(seal), tr(STR_OK), COL_NAVY, close_mb, NULL);
 }
 
-/* Tocar la tarjeta del nivel: como se hace lo que ya esta abierto (Manita siempre) */
+/* Cerrar «Tu camino» desde su propio boton: el borrado va diferido (el boton es hijo del dialogo) */
+static void path_close(lv_event_t *e) { lv_msgbox_close_async(lv_event_get_user_data(e)); }
+
+static lv_obj_t *path_text(lv_obj_t *parent, const char *t, const lv_font_t *f, lv_color_t col)
+{
+    lv_obj_t *l = label(parent, t, f, col);
+    lv_obj_set_width(l, LV_PCT(100));
+    lv_label_set_long_mode(l, LV_LABEL_LONG_MODE_WRAP); /* nunca se corta el texto */
+    return l;
+}
+
+/* Tocar la tarjeta del nivel: «Tu camino», una fila por nivel con lo que da. Se desplaza si no cabe. */
 static void level_clicked(lv_event_t *e)
 {
-    rw_level_t lv = (rw_level_t)(intptr_t)lv_event_get_user_data(e);
-    char buf[160];
-    int n = snprintf(buf, sizeof(buf), "%s", tr(STR_AFF_HOW_HAND));
-    if (lv >= RW_LEVEL_CARESS) n += snprintf(buf + n, sizeof(buf) - (size_t)n, "\n%s", tr(STR_AFF_HOW_CARESS));
-    if (lv >= RW_LEVEL_TICKLES) snprintf(buf + n, sizeof(buf) - (size_t)n, "\n%s", tr(STR_AFF_HOW_TICKLES));
-    ui_msgbox(ui_level_name(lv), buf, tr(STR_AFF_OK), COL_NAVY, close_mb, NULL);
+    (void)e;
+    static const ui_str_t GIVES[RW_LEVEL_COUNT] = { STR_PATH_HAND, STR_PATH_CARESS, STR_PATH_TICKLES,
+                                                    STR_PATH_HUG, STR_PATH_SQUEEZE };
+    static const toy_heart_t MARK[] = { [RW_STEP_DONE] = TOY_HEART_FULL, [RW_STEP_NEXT] = TOY_HEART_TODAY,
+                                        [RW_STEP_LATER] = TOY_HEART_EMPTY };
+    uint32_t earned = ui_rewards()->earned; /* en la demo, el de la demo */
+    lv_obj_t *mb = ui_msgbox(tr(STR_PATH_TITLE), "", tr(STR_OK), COL_NAVY, path_close, NULL);
+    lv_obj_set_width(mb, 228);
+    lv_obj_set_height(mb, 304); /* alto fijo: el contenido (flex_grow) se desplaza y el boton queda a la vista */
+    lv_obj_t *content = lv_msgbox_get_content(mb);
+    lv_obj_clean(content); /* el texto vacio que pone ui_msgbox */
+    lv_obj_set_flex_grow(content, 1);
+    lv_obj_add_flag(content, LV_OBJ_FLAG_SCROLLABLE);
+    lv_obj_set_scroll_dir(content, LV_DIR_VER);
+    lv_obj_set_flex_flow(content, LV_FLEX_FLOW_COLUMN);
+    lv_obj_set_style_pad_row(content, 8, 0);
+    for (int l = 0; l < RW_LEVEL_COUNT; l++) {
+        rw_level_t lv = (rw_level_t)l;
+        rw_step_t st = rw_path_step(earned, lv);
+        lv_obj_t *row = box(content, LV_FLEX_FLOW_ROW);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_pad_column(row, 8, 0);
+        heart_img(row, MARK[st], 2); /* 18x16 */
+        lv_obj_t *col = box(row, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_flex_grow(col, 1);
+        lv_obj_set_height(col, LV_SIZE_CONTENT);
+        lv_obj_set_style_pad_row(col, 1, 0);
+        lv_color_t ink = st == RW_STEP_LATER ? COL_MUTED : COL_INK;
+        lv_obj_t *top = box(col, LV_FLEX_FLOW_ROW);
+        lv_obj_set_size(top, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_pad_column(top, 6, 0);
+        lv_obj_set_flex_align(top, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_END, LV_FLEX_ALIGN_END);
+        label(top, ui_level_name(lv), &lv_font_title_16, ink);
+        char buf[48];
+        snprintf(buf, sizeof(buf), "%u", (unsigned)rw_level_min(lv));
+        label(top, buf, &lv_font_es_12, COL_MUTED);
+        path_text(col, tr(GIVES[l]), &lv_font_es_12, ink);
+        if (st == RW_STEP_NEXT) {
+            snprintf(buf, sizeof(buf), tr(STR_PATH_MISSING), (unsigned)rw_path_missing(earned, lv));
+            path_text(col, buf, &lv_font_es_12, COL_CORAL);
+        }
+        if (rw_path_soon(lv)) path_text(col, tr(STR_PATH_SOON), &lv_font_es_12, COL_MUTED);
+    }
 }
 
 /* ------------------------------------------------------------- bloques */
@@ -112,7 +160,7 @@ static void level_card(const rw_state_t *r)
     lv_obj_set_style_pad_column(c, 10, 0);
     lv_obj_set_clickable(c, true); /* tocarla enseña como se hace lo que ya abre el nivel */
     lv_obj_add_flag(c, UI_FLAG_CLICK_SOUND);
-    lv_obj_add_event_cb(c, level_clicked, LV_EVENT_SHORT_CLICKED, (void *)(intptr_t)rw_level(r->earned));
+    lv_obj_add_event_cb(c, level_clicked, LV_EVENT_SHORT_CLICKED, NULL);
     heart_img(c, TOY_HEART_FULL, 4); /* 36x32 */
     lv_obj_t *col = box(c, LV_FLEX_FLOW_COLUMN);
     lv_obj_set_size(col, ROW_W - 20 - 36 - 10, LV_SIZE_CONTENT);
@@ -382,6 +430,8 @@ void ui_hearts_refresh(void)
 }
 
 lv_obj_t *ui_hearts_screen(void) { return s_scr; }
+
+void ui_hearts_open_path(void) { level_clicked(NULL); }
 
 void ui_hearts_show_top(void)
 {
