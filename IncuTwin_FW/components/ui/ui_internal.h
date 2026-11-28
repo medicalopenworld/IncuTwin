@@ -78,6 +78,7 @@ void ui_settings_wifi_dialog(void); /* el boton WiFi de Ajustes: estado de la re
 /* Corazones (ui_hearts.c): saldo y nivel, racha, sellos, pasaporte y tienda */
 lv_obj_t *ui_hearts_create(void);
 void ui_hearts_refresh(void);  /* tras ui_rewards_refresh o al cambiar de idioma */
+void ui_hearts_open_path(void); /* «Tu camino», como al tocar la tarjeta del nivel (consola: ir camino) */
 void ui_hearts_show_top(void); /* al entrar desde la franja de un sello */
 void ui_settings_apply(const twin_snapshot_t *s);
 void ui_settings_update(const app_evt_settings_t *st);

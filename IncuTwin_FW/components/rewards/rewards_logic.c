@@ -94,6 +94,21 @@ rw_level_t rw_level(uint32_t earned)
 
 uint32_t rw_level_min(rw_level_t level) { return level < RW_LEVEL_COUNT ? LEVEL_MIN[level] : 0; }
 
+rw_step_t rw_path_step(uint32_t earned, rw_level_t level)
+{
+    rw_level_t cur = rw_level(earned);
+    if (level <= cur) return RW_STEP_DONE;
+    return level == cur + 1 ? RW_STEP_NEXT : RW_STEP_LATER;
+}
+
+bool rw_path_soon(rw_level_t level) { return level > RW_LEVEL_LAST_OPEN; }
+
+uint32_t rw_path_missing(uint32_t earned, rw_level_t level)
+{
+    uint32_t need = rw_level_min(level);
+    return earned >= need ? 0 : need - earned;
+}
+
 /* El nivel que se anuncia: el real, pero sin pasar de lo que abre algo en esta version */
 static uint8_t announced_level(uint32_t earned)
 {

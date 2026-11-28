@@ -287,6 +287,12 @@ bool ui_debug_nowifi(const char *mode)
 static void goto_async(void *arg)
 {
     int w = (int)(intptr_t)arg;
+    if (w == 30) { /* «Tu camino» sobre Corazones */
+        ui_shop_debug(-1, false, -1, false);
+        ui_go(UI_TAB_HEARTS);
+        ui_hearts_open_path();
+        return;
+    }
     if (w < UI_TAB_COUNT) {
         ui_shop_debug(-1, false, -1, false); /* la tienda tapa Corazones */
         ui_go((ui_tab_t)w);
@@ -306,6 +312,7 @@ int ui_debug_goto(const char *where)
     static const char *const P[] = { "bebe", "mapa", "racha" };
     static const char *const H[] = { "listo", "dedo", "soltar", "fin" };
     int w = -1;
+    if (strcmp(where, "camino") == 0) w = 30;
     for (int i = 0; i < 5; i++) {
         if (strcmp(where, W[i]) == 0) w = i;
     }
